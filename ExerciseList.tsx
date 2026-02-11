@@ -23,39 +23,39 @@ export const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, onEdit, o
   });
 
   return (
-    <div className="space-y-8">
-      {/* Search & Categories */}
-      <div className="flex flex-col md:flex-row gap-6 items-center justify-between bg-slate-950/30 p-8 rounded-[3rem] border border-slate-800">
-        <div className="flex gap-2 p-1 bg-slate-900 rounded-2xl border border-slate-800 w-full md:w-auto overflow-x-auto no-scrollbar">
+    <div className="space-y-6">
+      {/* Search & Categories - Daha Kompakt */}
+      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-slate-950/20 p-4 rounded-[2rem] border border-slate-800/50">
+        <div className="flex gap-1.5 p-1 bg-slate-900/50 rounded-xl border border-slate-800 w-full md:w-auto overflow-x-auto no-scrollbar">
           {categories.map(cat => (
             <button 
               key={cat} 
               onClick={() => setActiveCategory(cat)}
-              className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeCategory === cat ? 'bg-cyan-500 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+              className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${activeCategory === cat ? 'bg-cyan-500 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'}`}
             >
               {cat}
             </button>
           ))}
         </div>
         
-        <div className="relative w-full md:w-80 group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-cyan-400 transition-colors" size={16} />
+        <div className="relative w-full md:w-64 group">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-cyan-400" size={12} />
           <input 
             type="text" 
-            placeholder="Kütüphanede ara..." 
+            placeholder="Ara..." 
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-6 text-xs outline-none focus:ring-2 focus:ring-cyan-500/20 transition-all font-medium"
+            className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2.5 pl-9 pr-4 text-[10px] outline-none focus:ring-1 focus:ring-cyan-500/30 transition-all"
           />
         </div>
       </div>
 
-      {/* Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+      {/* Grid - Kart genişliğini yarıya indiren yoğun yapı */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
         {filtered.length === 0 ? (
-          <div className="col-span-full py-40 text-center border-2 border-dashed border-slate-800 rounded-[4rem] opacity-20">
-            <Database size={64} className="mx-auto mb-4" />
-            <p className="font-mono text-xs uppercase tracking-[0.4em]">Database_Empty: Awaiting Selections</p>
+          <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-800 rounded-[2rem] opacity-20">
+            <Database size={48} className="mx-auto mb-2" />
+            <p className="font-mono text-[8px] uppercase tracking-[0.3em]">NO_RECORDS_FOUND</p>
           </div>
         ) : (
           filtered.map((ex) => (
