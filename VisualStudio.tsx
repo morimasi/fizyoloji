@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import { 
   Image, Sparkles, Wand2, Box, Camera, Loader2, 
   Check, Film, Layers, PlayCircle, Lock, Zap, Video,
-  Settings, Download, Share2, Archive, Star, MessageSquare
+  Settings, Download, Share2, Archive, Star, MessageSquare,
+  Repeat, Palette
 } from 'lucide-react';
 import { Exercise } from './types.ts';
 import { generateExerciseVisual, generateExerciseVideo } from './ai-service.ts';
@@ -24,6 +25,8 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
   const styles = [
     { id: 'Cinematic-Motion', icon: PlayCircle, label: 'Cinema Flow', desc: 'Ultra Akışkan (Varsayılan)', isMotion: true },
     { id: '4K-Render', icon: Box, label: '4K Master', desc: 'Gerçekçi 3D Akış', isMotion: true },
+    { id: 'GIF-Animation', icon: Repeat, label: 'GIF Loop', desc: 'Kusursuz Döngü', isMotion: true },
+    { id: '2D-Animation', icon: Palette, label: '2D Vector', desc: 'Vektörel Klinik Anlatım', isMotion: true },
     { id: 'X-Ray', icon: Sparkles, label: 'X-Ray Dynamic', desc: 'Akışkan Eklem Analizi', isMotion: true },
     { id: 'Anatomic', icon: Wand2, label: 'Bio Flow', desc: 'Kas Lifleri Hareketi', isMotion: true },
     { id: 'Schematic', icon: Image, label: 'Technical', desc: 'Teknik Görsel', isMotion: false }
@@ -72,7 +75,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
           </div>
           <div>
             <h4 className="font-inter font-black text-2xl uppercase italic tracking-tighter">Cinema <span className="text-cyan-400 text-glow">Studio</span></h4>
-            <p className="text-[10px] text-slate-500 font-mono uppercase tracking-[0.2em]">Motion Directing Engine v5.0</p>
+            <p className="text-[10px] text-slate-500 font-mono uppercase tracking-[0.2em]">Motion Directing Engine v5.1</p>
           </div>
         </div>
 

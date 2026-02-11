@@ -5,8 +5,8 @@ import { PatientProfile, ProgressReport, Exercise } from "./types.ts";
 const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 /**
- * Cinema Motion Engine v5.0: Directorial Control
- * Üretilen videolar artık klinik parametreler (tempo, zorluk, biyomekanik) ile tam senkronize.
+ * Cinema Motion Engine v5.1: Multi-Style Animation Engine
+ * Üretilen videolar artık GIF döngüsü ve 2D vektörel animasyon stillerini de destekliyor.
  */
 export const generateExerciseVideo = async (
   exercise: Partial<Exercise>, 
@@ -19,7 +19,9 @@ export const generateExerciseVideo = async (
     'X-Ray': 'Blue semi-transparent X-ray aesthetic, glowing skeletal structure, anatomical precision.',
     'Anatomic': 'Hyper-realistic muscle fiber rendering, deep tissue visibility, physiological accuracy.',
     '4K-Render': 'High-end 3D studio lighting, cinematic 4K texture, soft shadows, professional grade.',
-    'Cinematic-Motion': 'Health documentary style, steady camera, neutral lighting, focused execution.'
+    'Cinematic-Motion': 'Health documentary style, steady camera, neutral lighting, focused execution.',
+    'GIF-Animation': 'High-contrast loop-friendly motion, rhythmic and repetitive cadence, clean white or dark studio background, minimalist aesthetic.',
+    '2D-Animation': 'Flat vector medical illustration style, clean outlines, smooth 2D skeletal movement, professional infographic look.'
   };
 
   const currentStylePrompt = styleKeywords[style as keyof typeof styleKeywords] || styleKeywords['Cinematic-Motion'];
@@ -30,16 +32,16 @@ export const generateExerciseVideo = async (
     CLINICAL PERFORMANCE:
     - TEMPO: ${exercise.tempo || 'Natural flow'}. 
     - BIOMECHANICS: ${exercise.biomechanics}.
-    - DIFFICULTY LEVEL: ${exercise.difficulty}/10 (Reflect muscle tension accordingly).
+    - DIFFICULTY LEVEL: ${exercise.difficulty}/10.
     - DIRECTORIAL NOTE: ${directorialNote}
     
     TECHNICAL SPECIFICATIONS:
     - STYLE: ${currentStylePrompt}.
-    - MOTION: Continuous, seamless human kinetics. 30fps absolute fluidity. No stutter.
-    - LIGHTING: Cinematic neon cyan accents on a dark professional studio background.
+    - MOTION: Continuous, seamless human kinetics. 30fps absolute fluidity.
+    - LIGHTING: Cinematic accents on a dark professional studio background.
     - SHOT: Medium full shot, following the center of gravity of the movement.
     
-    IMPORTANT: The animation must feel like a purpose-driven short film, not a repetitive loop. Focus on the transition between concentric and eccentric phases.
+    IMPORTANT: The animation must feel like a purpose-driven short film. If it is a GIF style, ensure the start and end positions are identical for a perfect loop.
   `;
 
   try {
@@ -66,7 +68,7 @@ export const generateExerciseVideo = async (
     }
     return '';
   } catch (e) {
-    console.error("Cinema Motion v5.0 Error:", e);
+    console.error("Cinema Motion v5.1 Error:", e);
     return await fallbackFastVideo(exercise);
   }
 };
