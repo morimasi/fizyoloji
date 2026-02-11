@@ -5,29 +5,41 @@ import { PatientProfile, ProgressReport, Exercise } from "./types.ts";
 const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 /**
- * AI Motion Engine: Veo 3.1 High-Fidelity. 
- * Gerçek insan biyomekaniğini ve momentumunu taklit eden, akışkan sinematik videolar üretir.
+ * Cinema Motion Engine v5.0: Directorial Control
+ * Üretilen videolar artık klinik parametreler (tempo, zorluk, biyomekanik) ile tam senkronize.
  */
-export const generateExerciseVideo = async (exercise: Partial<Exercise>, style: string = 'Cinematic-Motion'): Promise<string> => {
+export const generateExerciseVideo = async (
+  exercise: Partial<Exercise>, 
+  style: string = 'Cinematic-Motion',
+  directorialNote: string = ''
+): Promise<string> => {
   const ai = getAI();
   
   const styleKeywords = {
-    'X-Ray': 'Cinematic X-ray cinematography. Bioluminescent skeletal system with glowing joints. Fluid bone-on-bone movement.',
-    'Anatomic': 'Deep tissue muscular rendering. Hyper-realistic muscle fibers contracting and elongating in a seamless flow.',
-    '4K-Render': 'High-end 3D production quality. Soft studio lighting, realistic skin shaders, and cinematic motion blur.',
-    'Cinematic-Motion': 'Professional medical documentary aesthetic. Ultra-steady camera work, fluid movement cycles, 1080p resolution.'
+    'X-Ray': 'Blue semi-transparent X-ray aesthetic, glowing skeletal structure, anatomical precision.',
+    'Anatomic': 'Hyper-realistic muscle fiber rendering, deep tissue visibility, physiological accuracy.',
+    '4K-Render': 'High-end 3D studio lighting, cinematic 4K texture, soft shadows, professional grade.',
+    'Cinematic-Motion': 'Health documentary style, steady camera, neutral lighting, focused execution.'
   };
 
   const currentStylePrompt = styleKeywords[style as keyof typeof styleKeywords] || styleKeywords['Cinematic-Motion'];
 
   const prompt = `
-    CINEMATIC MASTERPIECE DIRECTIVE: Generate a hyper-realistic, ultra-fluid medical animation film of a human performing "${exercise.title}".
-    BIOMECHANICAL ACCURACY: ${exercise.biomechanics}. 
-    FLUIDITY: Absolute seamless motion. No frame skipping. Temporal consistency throughout the movement. 
-    KINETICS: Realistic human momentum, balance shifts, and natural skeletal flow. Perception of 60fps fluidity.
-    VISUAL STYLE: ${currentStylePrompt}. Dark studio environment, neon cyan accents, depth of field.
-    TECHNICAL: 1080p, High Bitrate, Cinematic Motion Blur. 
-    NO FACES: Focus exclusively on the kinetic execution of the limbs and torso.
+    CINEMA MOTION MASTERPIECE: Generate an ultra-fluid, 1080p medical animation film of a person performing "${exercise.title}".
+    
+    CLINICAL PERFORMANCE:
+    - TEMPO: ${exercise.tempo || 'Natural flow'}. 
+    - BIOMECHANICS: ${exercise.biomechanics}.
+    - DIFFICULTY LEVEL: ${exercise.difficulty}/10 (Reflect muscle tension accordingly).
+    - DIRECTORIAL NOTE: ${directorialNote}
+    
+    TECHNICAL SPECIFICATIONS:
+    - STYLE: ${currentStylePrompt}.
+    - MOTION: Continuous, seamless human kinetics. 30fps absolute fluidity. No stutter.
+    - LIGHTING: Cinematic neon cyan accents on a dark professional studio background.
+    - SHOT: Medium full shot, following the center of gravity of the movement.
+    
+    IMPORTANT: The animation must feel like a purpose-driven short film, not a repetitive loop. Focus on the transition between concentric and eccentric phases.
   `;
 
   try {
@@ -54,7 +66,7 @@ export const generateExerciseVideo = async (exercise: Partial<Exercise>, style: 
     }
     return '';
   } catch (e) {
-    console.error("High-Fidelity Motion Error:", e);
+    console.error("Cinema Motion v5.0 Error:", e);
     return await fallbackFastVideo(exercise);
   }
 };
@@ -64,7 +76,7 @@ const fallbackFastVideo = async (exercise: Partial<Exercise>): Promise<string> =
   try {
     let operation = await ai.models.generateVideos({
       model: 'veo-3.1-fast-generate-preview',
-      prompt: `Extremely smooth cinematic exercise video: ${exercise.title}. Fluid transitions only.`,
+      prompt: `Fluid clinical video: ${exercise.title}. Steady motion.`,
       config: { numberOfVideos: 1, resolution: '720p', aspectRatio: '16:9' }
     });
     while (!operation.done) {
@@ -80,7 +92,7 @@ const fallbackFastVideo = async (exercise: Partial<Exercise>): Promise<string> =
 
 export const generateExerciseVisual = async (exercise: Partial<Exercise>, style: string): Promise<string> => {
   const ai = getAI();
-  const prompt = `Hyper-realistic 4K clinical static visual of ${exercise.title}. Style: ${style}. Clean, professional medical aesthetic on deep slate background.`;
+  const prompt = `Hyper-realistic 4K medical visual of ${exercise.title}. Style: ${style}. Clean studio setup.`;
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
@@ -96,7 +108,8 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
 
 export const generateExerciseData = async (exerciseName: string): Promise<Partial<Exercise>> => {
   const ai = getAI();
-  const prompt = `Generate expert clinical exercise data for "${exerciseName}" in JSON format including biomechanics and safety flags.`;
+  const prompt = `Generate expert clinical exercise data for "${exerciseName}" in JSON format.
+  Include: title, category, difficulty (1-10), sets, reps, description, biomechanics, safetyFlags, muscleGroups, equipment, movementPlane, rehabPhase.`;
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -107,9 +120,22 @@ export const generateExerciseData = async (exerciseName: string): Promise<Partia
   } catch { return {}; }
 };
 
+export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: string): Promise<Partial<Exercise>> => {
+  const ai = getAI();
+  const prompt = `Optimize this exercise for: "${goal}". Current: ${JSON.stringify(exercise)}. Update JSON with new sets, reps, difficulty, tempo, restPeriod, clinicalNotes.`;
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: { responseMimeType: "application/json" }
+    });
+    return JSON.parse(response.text || "{}");
+  } catch { return exercise; }
+};
+
 export const runClinicalConsultation = async (text: string, imageBase64?: string): Promise<PatientProfile | null> => {
   const ai = getAI();
-  const prompt = `You are an elite Clinical Director. Analyze patient data: "${text}" and return a comprehensive PatientProfile JSON including a structured exercise plan.`;
+  const prompt = `Elite Clinical Analysis. Analyze: "${text}". Return PatientProfile JSON.`;
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -119,7 +145,7 @@ export const runClinicalConsultation = async (text: string, imageBase64?: string
           ...(imageBase64 ? [{ inlineData: { mimeType: 'image/jpeg', data: imageBase64.split(',')[1] } }] : [])
         ]
       },
-      config: { responseMimeType: "application/json", thinkingConfig: { thinkingBudget: 15000 } }
+      config: { responseMimeType: "application/json" }
     });
     return JSON.parse(response.text || "{}");
   } catch { return null; }
@@ -127,7 +153,7 @@ export const runClinicalConsultation = async (text: string, imageBase64?: string
 
 export const runAdaptiveAdjustment = async (currentProfile: PatientProfile, feedback: ProgressReport): Promise<PatientProfile> => {
   const ai = getAI();
-  const prompt = `Analyze feedback and pain score: ${JSON.stringify(feedback)}. Update the patient's plan and insights accordingly in PatientProfile JSON format.`;
+  const prompt = `Update plan based on feedback: ${JSON.stringify(feedback)}`;
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',

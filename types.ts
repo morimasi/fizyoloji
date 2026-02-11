@@ -26,6 +26,12 @@ export interface Exercise {
   muscleGroups?: string[];
   rehabPhase?: 'Akut' | 'Sub-Akut' | 'Kronik' | 'Performans';
   movementPlane?: 'Sagittal' | 'Frontal' | 'Transverse';
+  
+  // v4.5 Deep Tuning Fields
+  tempo?: string; // e.g., "3-1-3"
+  restPeriod?: number; // seconds
+  clinicalNotes?: string;
+  isPersonalized?: boolean;
 }
 
 export interface ProgressReport {
