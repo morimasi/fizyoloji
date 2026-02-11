@@ -5,33 +5,56 @@ import { PatientProfile, ProgressReport, Exercise } from "./types.ts";
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 /**
- * AI'dan gelen veriyi PatientProfile tipine zorlayan ve Bölüm 5 kurallarını uygulayan yardımcı fonksiyon
+ * AI Üretim Stüdyosu: Egzersiz detaylarını otomatik üretir.
  */
+export const generateExerciseData = async (exerciseName: string): Promise<Partial<Exercise>> => {
+  const prompt = `
+    Sen bir Biyomekanik Uzmanı ve Fizyoterapistsin.
+    "${exerciseName}" isimli egzersiz için şu verileri JSON formatında üret:
+    - description: Adım adım uygulama talimatı.
+    - biomechanics: Hangi kasın nasıl çalıştığına dair klinik analiz.
+    - safetyFlags: Hangi durumlarda yasak olduğu (Kritik uyarılar).
+    - category: Vücut bölgesi (Spine, Lower Limb, Upper Limb vb.)
+    - difficulty: 1-10 arası zorluk.
+    - code: Kısa klinik kod (Örn: LUMB-05).
+    
+    Yanıt SADECE JSON olmalı.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: { responseMimeType: "application/json" }
+    });
+    return JSON.parse(response.text || "{}");
+  } catch (e) {
+    console.error("Studio AI Error:", e);
+    return {};
+  }
+};
+
 const mapToPatientProfile = (data: any): PatientProfile => {
   const raw = Array.isArray(data) ? data[0] : data;
+  const pain = raw.painScore || 5;
+  const calculatedReps = Math.max(5, 15 - pain);
 
   const rawExercises = raw.suggestedPlan || raw.exercisePlan || [];
-  const suggestedPlan: Exercise[] = rawExercises.map((ex: any, idx: number) => {
-    // Bölüm 5: Dozaj Hesabı Kontrolü (Tekrar sayısı 15 - Ağrı Skoru)
-    const pain = raw.painScore || 5;
-    const calculatedReps = Math.max(5, 15 - pain);
-
-    return {
-      id: ex.id || `ai-ex-${idx}`,
-      code: ex.code || ex.name || 'EX-GEN',
-      title: ex.title || ex.name || 'İsimsiz Egzersiz',
-      category: ex.category || 'Genel Rehabilitasyon',
-      difficulty: ex.difficulty || 5,
-      sets: ex.sets || 3,
-      reps: ex.reps || calculatedReps,
-      description: ex.description || ex.instructions || '',
-      biomechanics: ex.biomechanics || '',
-      safetyFlags: ex.safetyFlags || ex.contraindications || []
-    };
-  });
+  const suggestedPlan: Exercise[] = rawExercises.map((ex: any, idx: number) => ({
+    id: ex.id || `ai-ex-${idx}`,
+    code: ex.code || ex.name || 'EX-GEN',
+    title: ex.title || ex.name || 'İsimsiz Egzersiz',
+    category: ex.category || 'Genel Rehabilitasyon',
+    difficulty: ex.difficulty || 5,
+    sets: ex.sets || 3,
+    reps: ex.reps || calculatedReps,
+    description: ex.description || ex.instructions || '',
+    biomechanics: ex.biomechanics || '',
+    safetyFlags: ex.safetyFlags || ex.contraindications || []
+  }));
 
   return {
-    diagnosisSummary: raw.diagnosisSummary || raw.clinicalDiagnosis || 'Tanı analizi tamamlandı.',
+    diagnosisSummary: raw.diagnosisSummary || raw.clinicalDiagnosis || 'Analiz tamamlandı.',
     thinkingProcess: raw.thinkingProcess || 'Klinik muhakeme işlendi.',
     riskLevel: raw.riskLevel || 'Orta',
     contraindications: raw.contraindications || [],
@@ -42,36 +65,17 @@ const mapToPatientProfile = (data: any): PatientProfile => {
       recommendation: raw.latestInsight?.recommendation || "Programa sadık kalın.",
       adaptationNote: raw.latestInsight?.adaptationNote || "Faz 1 mobilizasyon.",
       nextStep: raw.latestInsight?.nextStep || "7 gün sonra kontrol.",
-      phaseName: (raw.painScore || 5) > 7 ? 'Akut' : 'Sub-Akut'
+      phaseName: pain > 7 ? 'Akut' : 'Sub-Akut'
     }
   };
 };
 
-const parseClinicalJson = (rawText: string) => {
-  try {
-    const cleanText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
-    const parsed = JSON.parse(cleanText);
-    return mapToPatientProfile(parsed);
-  } catch (e) {
-    console.error("JSON Parsing Error in PhysioCore AI:", e, "Raw Text:", rawText);
-    return null;
-  }
-};
-
 export const runClinicalConsultation = async (text: string, imageBase64?: string): Promise<PatientProfile | null> => {
-  console.log("PhysioCore AI: Deep Clinical Analysis Started...");
-  
   const prompt = `
     Sen PhysioCore AI Klinik Direktörüsün (Blueprint v3.0).
-    
-    ANALİZ KURALLARI (Bölüm 5):
-    1. GÜVENLİK: Tanı "Herni" (Fıtık) ise fleksiyon yasaktır (safetyFlags'e ekle).
-    2. FAZ: Ağrı > 7 ise sadece İZOMETRİK egzersizler.
-    3. DOZAJ: reps = 15 - ağrıSkoru (min 5).
-    
-    GÖREV: Hastanın şikayetini/raporunu incele ve PatientProfile JSON döndür.
-    
     HASTA VERİSİ: "${text}"
+    GÖREV: Hastanın durumunu analiz et ve Bölüm 5 algoritmalarına göre bir PatientProfile JSON oluştur.
+    Hız ve güvenlik odaklı ol.
   `;
 
   try {
@@ -85,11 +89,11 @@ export const runClinicalConsultation = async (text: string, imageBase64?: string
       },
       config: {
         responseMimeType: "application/json",
-        thinkingConfig: { thinkingBudget: 15000 }
+        thinkingConfig: { thinkingBudget: 10000 }
       }
     });
-
-    return parseClinicalJson(response.text || "{}");
+    const cleanText = (response.text || "{}").replace(/```json/g, "").replace(/```/g, "").trim();
+    return mapToPatientProfile(JSON.parse(cleanText));
   } catch (error) {
     console.error("Gemini API Error:", error);
     return null;
@@ -98,26 +102,21 @@ export const runClinicalConsultation = async (text: string, imageBase64?: string
 
 export const runAdaptiveAdjustment = async (currentProfile: PatientProfile, feedback: ProgressReport): Promise<PatientProfile> => {
   const prompt = `
-    Sen Adaptif Karar Motorusun. 
-    Hastanın son geri bildirimi: ${JSON.stringify(feedback)}
-    Mevcut Profil: ${JSON.stringify(currentProfile)}
-    
-    GÖREV: Ağrı arttıysa dozajı düşür, azaldıysa zorluğu artır. Bölüm 5 kurallarını unutma.
-    Yanıt sadece güncellenmiş PatientProfile JSON olmalı.
+    Mevcut programı hastanın yeni geri bildirimine göre güncelle.
+    MEVCUT: ${JSON.stringify(currentProfile)}
+    GERİ BİLDİRİM: ${JSON.stringify(feedback)}
+    Sadece güncellenmiş PatientProfile JSON döndür.
   `;
 
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
-      config: {
-        responseMimeType: "application/json"
-      }
+      config: { responseMimeType: "application/json" }
     });
-
-    return parseClinicalJson(response.text || "{}") || currentProfile;
+    const cleanText = (response.text || "{}").replace(/```json/g, "").replace(/```/g, "").trim();
+    return mapToPatientProfile(JSON.parse(cleanText));
   } catch (error) {
-    console.error("Gemini Adjustment Error:", error);
     return currentProfile;
   }
 };

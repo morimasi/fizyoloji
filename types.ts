@@ -11,6 +11,13 @@ export interface Exercise {
   biomechanics: string;
   safetyFlags: string[];
   isFavorite?: boolean;
+  
+  // v3.4 Ultra-Customization Fields
+  equipment?: string[];
+  targetJoints?: string[];
+  muscleGroups?: string[];
+  rehabPhase?: 'Akut' | 'Sub-Akut' | 'Kronik' | 'Performans';
+  movementPlane?: 'Sagittal' | 'Frontal' | 'Transverse';
 }
 
 export interface ProgressReport {
