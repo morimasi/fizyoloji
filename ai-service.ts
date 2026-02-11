@@ -1,6 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { PatientProfile, ProgressReport } from "./types";
+import { PatientProfile, ProgressReport } from "./types.ts";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -27,21 +27,27 @@ export const runClinicalConsultation = async (text: string, imageBase64?: string
     YANIT FORMATI (JSON): PatientProfile arayüzüne tam uygun olmalı.
   `;
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: {
-      parts: [
-        { text: prompt },
-        ...(imageBase64 ? [{ inlineData: { mimeType: 'image/jpeg', data: imageBase64.split(',')[1] } }] : [])
-      ]
-    },
-    config: {
-      responseMimeType: "application/json",
-      thinkingConfig: { thinkingBudget: 25000 } // Daha derin klinik analiz için bütçe artırıldı
-    }
-  });
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: {
+        parts: [
+          { text: prompt },
+          ...(imageBase64 ? [{ inlineData: { mimeType: 'image/jpeg', data: imageBase64.split(',')[1] } }] : [])
+        ]
+      },
+      config: {
+        responseMimeType: "application/json",
+        thinkingConfig: { thinkingBudget: 25000 }
+      }
+    });
 
-  return JSON.parse(response.text || '{}');
+    const textResponse = response.text || '{}';
+    return JSON.parse(textResponse.trim());
+  } catch (error) {
+    console.error("Gemini API Error:", error);
+    throw error;
+  }
 };
 
 export const runAdaptiveAdjustment = async (currentProfile: PatientProfile, feedback: ProgressReport): Promise<PatientProfile> => {
@@ -60,14 +66,19 @@ export const runAdaptiveAdjustment = async (currentProfile: PatientProfile, feed
     GÖREV: Güncellenmiş programı ve 'latestInsight' analizini içeren JSON döndür.
   `;
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      thinkingConfig: { thinkingBudget: 20000 }
-    }
-  });
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        thinkingConfig: { thinkingBudget: 20000 }
+      }
+    });
 
-  return JSON.parse(response.text || '{}');
+    return JSON.parse((response.text || '{}').trim());
+  } catch (error) {
+    console.error("Gemini Adjustment Error:", error);
+    return currentProfile;
+  }
 };

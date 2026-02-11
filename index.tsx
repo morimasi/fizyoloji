@@ -20,14 +20,14 @@ import {
   CloudCheck,
   CheckCircle2
 } from 'lucide-react';
-import { AppTab, PatientProfile, Exercise, ProgressReport } from './types';
-import { runClinicalConsultation, runAdaptiveAdjustment } from './ai-service';
-import { ExerciseCMS } from './ExerciseCMS';
-import { ExercisePlayer } from './ExercisePlayer';
-import { ProgressTracker } from './ProgressTracker';
-import { QRCodeModal } from './QRCodeModal';
-import { simulatePDFExport } from './export-service';
-import { PhysioDB } from './db-repository';
+import { AppTab, PatientProfile, Exercise, ProgressReport } from './types.ts';
+import { runClinicalConsultation, runAdaptiveAdjustment } from './ai-service.ts';
+import { ExerciseCMS } from './ExerciseCMS.tsx';
+import { ExercisePlayer } from './ExercisePlayer.tsx';
+import { ProgressTracker } from './ProgressTracker.tsx';
+import { QRCodeModal } from './QRCodeModal.tsx';
+import { simulatePDFExport } from './export-service.ts';
+import { PhysioDB } from './db-repository.ts';
 
 export default function PhysioCoreApp() {
   const [activeTab, setActiveTab] = useState<AppTab>('consultation');
@@ -45,8 +45,12 @@ export default function PhysioCoreApp() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const savedData = PhysioDB.getProfile();
-    if (savedData) setPatientData(savedData);
+    try {
+      const savedData = PhysioDB.getProfile();
+      if (savedData) setPatientData(savedData);
+    } catch (e) {
+      console.error("DB Initialization Error:", e);
+    }
   }, []);
 
   const handleStartAnalysis = async () => {
@@ -61,6 +65,7 @@ export default function PhysioCoreApp() {
       }
     } catch (err) {
       console.error("Clinical Consultation Error:", err);
+      alert("Analiz sırasında bir hata oluştu. Lütfen bağlantınızı kontrol edin.");
     } finally {
       setIsAnalyzing(false);
     }

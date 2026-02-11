@@ -1,5 +1,5 @@
 
-import { Exercise, PatientProfile, ProgressReport } from './types';
+import { Exercise, PatientProfile, ProgressReport } from './types.ts';
 
 /**
  * PHYSIOCORE DB REPOSITORY (MASTER)
@@ -113,7 +113,7 @@ export class PhysioDB {
       id: 'l17', code: 'LEG-02', title: 'Lateral Lunge', category: 'Lower Limb / Functional', difficulty: 5, sets: 3, reps: 10,
       description: 'Yan tarafa büyük bir adım atın ve kalçanızı geriye vererek çömelin.',
       biomechanics: 'Frontal Plane Stability. Adduktör kas grubunun eksantrik frenleme kuvveti.',
-      safetyFlags: ['Groin Strain']
+      safetyFlags: ['Groid Strain']
     },
     {
       id: 'l18', code: 'ANKLE-01', title: 'Calf Raises', category: 'Lower Limb / Ankle', difficulty: 3, sets: 3, reps: 15,
@@ -200,22 +200,22 @@ export class PhysioDB {
   private static currentProfile: PatientProfile | null = null;
 
   static getExercises(): Exercise[] {
-    const saved = localStorage.getItem(this.STORAGE_KEY);
-    if (saved) return JSON.parse(saved);
+    try {
+      const saved = localStorage.getItem(this.STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.warn("Local storage parse error, falling back to defaults.");
+    }
     
-    // Eğer storage boşsa varsayılanları kaydet ve döndür
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.defaultExercises));
     return this.defaultExercises;
   }
 
-  // FAZ 1 (CMS) - Egzersiz Silme
   static deleteExercise(id: string) {
     const exercises = this.getExercises().filter(ex => ex.id !== id);
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(exercises));
-    console.log(`CMS: Exercise ${id} deleted from SQL logic.`);
   }
 
-  // FAZ 1 (CMS) - Egzersiz Ekleme
   static addExercise(ex: Exercise) {
     const exercises = [...this.getExercises(), ex];
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(exercises));
@@ -229,7 +229,13 @@ export class PhysioDB {
   static getProfile(): PatientProfile | null {
     if (!this.currentProfile) {
       const saved = localStorage.getItem(this.PROFILE_KEY);
-      if (saved) this.currentProfile = JSON.parse(saved);
+      if (saved) {
+        try {
+          this.currentProfile = JSON.parse(saved);
+        } catch (e) {
+          return null;
+        }
+      }
     }
     return this.currentProfile;
   }
@@ -237,7 +243,7 @@ export class PhysioDB {
   static addProgressReport(report: ProgressReport) {
     const profile = this.getProfile();
     if (profile) {
-      profile.progressHistory.push(report);
+      profile.progressHistory = [...(profile.progressHistory || []), report];
       this.saveProfile(profile);
     }
   }

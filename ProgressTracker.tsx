@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { TrendingUp, Activity, Brain, CheckCircle2, AlertCircle, Calendar } from 'lucide-react';
-import { PatientProfile } from './types';
+import { PatientProfile } from './types.ts';
 
 export const ProgressTracker = ({ profile }: { profile: PatientProfile }) => {
   return (
@@ -31,7 +31,6 @@ export const ProgressTracker = ({ profile }: { profile: PatientProfile }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* AI ANALYSIS SECTION */}
         <div className="bg-slate-900/50 border border-slate-800 rounded-[2.5rem] p-8 space-y-6">
           <div className="flex items-center gap-3">
              <div className="w-10 h-10 bg-cyan-500/10 rounded-xl flex items-center justify-center text-cyan-400">
@@ -63,7 +62,6 @@ export const ProgressTracker = ({ profile }: { profile: PatientProfile }) => {
           )}
         </div>
 
-        {/* LOGS SECTION */}
         <div className="bg-slate-900/50 border border-slate-800 rounded-[2.5rem] p-8">
            <div className="flex justify-between items-center mb-6">
               <h3 className="font-bold text-slate-400 text-sm uppercase tracking-widest flex items-center gap-2">

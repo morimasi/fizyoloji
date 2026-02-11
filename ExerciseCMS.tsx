@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Database, Plus, Trash2, Edit3, ShieldCheck, AlertTriangle } from 'lucide-react';
-import { PhysioDB } from './db-repository';
-import { Exercise } from './types';
+import { PhysioDB } from './db-repository.ts';
+import { Exercise } from './types.ts';
 
 export const ExerciseCMS = () => {
   const [exercises, setExercises] = useState<Exercise[]>([]);

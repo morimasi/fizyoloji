@@ -16,7 +16,7 @@ import {
   WifiOff,
   ShieldCheck
 } from 'lucide-react';
-import { Exercise } from './types';
+import { Exercise } from './types.ts';
 
 interface PlayerProps {
   exercise: Exercise;
@@ -31,7 +31,6 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
 
   return (
     <div className="fixed inset-0 z-[100] bg-[#0F172A] flex flex-col animate-in fade-in duration-500">
-      {/* PLAYER HEADER */}
       <div className="p-6 flex justify-between items-center border-b border-slate-800 bg-slate-950/50 backdrop-blur-md">
         <button onClick={() => onClose(false)} className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors group">
           <ChevronLeft className="group-hover:-translate-x-1 transition-transform" />
@@ -60,9 +59,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
       </div>
 
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* VIDEO / 3D AREA */}
         <div className="flex-1 relative bg-slate-950 flex items-center justify-center group overflow-hidden">
-          {/* Security Overlay (FAZ 2: Encrypted Storage Visual) */}
           <div className="absolute top-8 left-8 z-50 pointer-events-none opacity-40">
              <div className="flex items-center gap-2 text-[8px] font-mono text-slate-600 uppercase tracking-widest bg-black/40 px-3 py-1.5 rounded-full border border-slate-800">
                 <ShieldCheck size={10} className="text-cyan-500" /> Encrypted Stream: AES-256
@@ -80,7 +77,6 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
                 <div className="w-80 h-80 bg-slate-900 rounded-[3rem] border border-slate-800 flex items-center justify-center shadow-2xl shadow-cyan-500/10 relative overflow-hidden group/box">
                    <Zap size={100} className={`${isPlaying ? 'text-cyan-400 animate-pulse' : 'text-slate-800'} transition-colors duration-1000`} />
                    
-                   {/* Faz 2: Biomekanik Görünümler */}
                    {activeView === 'xray' && (
                      <div className="absolute inset-0 bg-cyan-950/60 backdrop-blur-[4px] flex flex-col items-center justify-center animate-in zoom-in duration-300">
                         <Layers size={64} className="text-cyan-400 animate-pulse mb-4" />
@@ -122,7 +118,6 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
              </div>
           </div>
 
-          {/* PLAYER CONTROLS (FAZ 2) */}
           <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-10 bg-slate-900/80 backdrop-blur-3xl border border-slate-800 p-6 rounded-[2.5rem] shadow-2xl">
             <div className="flex gap-2 border-r border-slate-800 pr-8">
               {[0.5, 1, 1.5, 2].map(speed => (
@@ -146,7 +141,6 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
           </div>
         </div>
 
-        {/* INFO SIDEBAR */}
         <div className="w-full lg:w-[450px] bg-slate-900/50 border-l border-slate-800 p-10 flex flex-col glass-panel shadow-2xl">
            <div className="flex-1 space-y-10 overflow-y-auto pr-2">
               <section className="space-y-4">
