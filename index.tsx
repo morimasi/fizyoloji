@@ -29,6 +29,8 @@ import { QRCodeModal } from './QRCodeModal.tsx';
 import { simulatePDFExport } from './export-service.ts';
 import { PhysioDB } from './db-repository.ts';
 
+console.log("PhysioCore AI: App Initializing...");
+
 export default function PhysioCoreApp() {
   const [activeTab, setActiveTab] = useState<AppTab>('consultation');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -44,17 +46,22 @@ export default function PhysioCoreApp() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Uygulama yüklendiğinde DB'den veriyi çek
   useEffect(() => {
     try {
       const savedData = PhysioDB.getProfile();
-      if (savedData) setPatientData(savedData);
+      if (savedData) {
+        console.log("PhysioCore AI: Local Profile Detected.", savedData);
+        setPatientData(savedData);
+      }
     } catch (e) {
-      console.error("DB Initialization Error:", e);
+      console.error("DB Load Error:", e);
     }
   }, []);
 
   const handleStartAnalysis = async () => {
     if (!userInput && !selectedImage) return;
+    
     setIsAnalyzing(true);
     try {
       const result = await runClinicalConsultation(userInput, selectedImage || undefined);
@@ -62,10 +69,12 @@ export default function PhysioCoreApp() {
         setPatientData(result);
         PhysioDB.saveProfile(result);
         setActiveTab('dashboard');
+      } else {
+        alert("Klinik analiz yapılamadı. Lütfen girdilerinizi kontrol edin.");
       }
     } catch (err) {
-      console.error("Clinical Consultation Error:", err);
-      alert("Analiz sırasında bir hata oluştu. Lütfen bağlantınızı kontrol edin.");
+      console.error("Analysis Error:", err);
+      alert("Sistem şu an yoğun, lütfen birazdan tekrar deneyin.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -81,6 +90,7 @@ export default function PhysioCoreApp() {
   const submitFeedback = async () => {
     if (!patientData) return;
     setIsAnalyzing(true);
+    
     const report: ProgressReport = {
       date: new Date().toISOString(),
       painScore,
@@ -90,25 +100,17 @@ export default function PhysioCoreApp() {
 
     try {
       const updatedProfile = await runAdaptiveAdjustment(patientData, report);
-      const finalProfile = {
-        ...updatedProfile,
-        progressHistory: [...(patientData.progressHistory || []), report]
-      };
-      setPatientData(finalProfile);
-      PhysioDB.saveProfile(finalProfile);
+      setPatientData(updatedProfile);
+      PhysioDB.saveProfile(updatedProfile);
       
       setShowFeedbackModal(false);
       setUserComment('');
       setActiveTab('progress');
     } catch (err) {
-      console.error("Adaptive Adjustment Error:", err);
+      console.error("Feedback Adjustment Error:", err);
     } finally {
       setIsAnalyzing(false);
     }
-  };
-
-  const handlePrint = () => {
-    if (patientData) simulatePDFExport(patientData);
   };
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -143,7 +145,7 @@ export default function PhysioCoreApp() {
         </nav>
 
         <div className="flex items-center gap-4">
-           <div className="hidden md:flex flex-col items-end">
+           <div className="hidden md:flex flex-col items-end text-right">
               <span className="text-[10px] font-inter font-bold text-slate-400">Dr. AI Agent</span>
               <span className="text-[8px] font-mono text-cyan-500 uppercase tracking-widest">Active Session</span>
            </div>
@@ -169,7 +171,7 @@ export default function PhysioCoreApp() {
                    <textarea value={userInput} onChange={(e) => setUserInput(e.target.value)} placeholder="Örn: Bel fıtığı teşhisim var, sol bacağıma vuran bir ağrı hissediyorum..." className="w-full bg-slate-950 border border-slate-800 rounded-[2rem] p-8 text-sm focus:ring-4 focus:ring-cyan-500/10 outline-none transition-all min-h-[200px] shadow-inner placeholder:text-slate-700 group-hover:border-slate-700 font-roboto" />
                    <div className="absolute bottom-6 right-8 text-[10px] font-mono text-slate-700 uppercase tracking-widest">AI Vision Ready</div>
                 </div>
-                <div className="flex justify-between items-center bg-slate-950/50 p-6 rounded-[2rem] border border-slate-800/50">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-6 bg-slate-950/50 p-6 rounded-[2rem] border border-slate-800/50">
                   <div className="flex gap-4">
                     <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-8 py-4 bg-slate-800 hover:bg-slate-700 rounded-2xl text-[10px] font-inter font-black tracking-widest transition-all border border-slate-700 shadow-lg active:scale-95">
                       <Upload size={16} className="text-cyan-400" /> RAPOR YÜKLE
@@ -177,7 +179,7 @@ export default function PhysioCoreApp() {
                     <input ref={fileInputRef} type="file" hidden accept="image/*" onChange={onFileChange} />
                     {selectedImage && <div className="px-6 py-4 bg-cyan-500/10 border border-cyan-500/20 rounded-2xl text-[10px] font-inter font-black text-cyan-400 flex items-center gap-2 animate-bounce"><FileText size={16}/> RAPOR OKUNDU</div>}
                   </div>
-                  <button onClick={handleStartAnalysis} disabled={isAnalyzing || (!userInput && !selectedImage)} className="bg-cyan-500 hover:bg-cyan-600 disabled:opacity-50 px-12 py-5 rounded-2xl font-inter font-black italic tracking-tighter text-white shadow-xl shadow-cyan-500/30 transition-all flex items-center gap-3 text-lg hover:-translate-y-1 active:translate-y-0 neon-glow">
+                  <button onClick={handleStartAnalysis} disabled={isAnalyzing || (!userInput && !selectedImage)} className="w-full md:w-auto bg-cyan-500 hover:bg-cyan-600 disabled:opacity-50 px-12 py-5 rounded-2xl font-inter font-black italic tracking-tighter text-white shadow-xl shadow-cyan-500/30 transition-all flex items-center justify-center gap-3 text-lg hover:-translate-y-1 active:translate-y-0 neon-glow">
                     {isAnalyzing ? 'MUHAKEME YAPILIYOR...' : 'ANALİZİ BAŞLAT'} <Zap size={20} fill="currentColor" />
                   </button>
                 </div>
@@ -192,16 +194,16 @@ export default function PhysioCoreApp() {
              ) : (
                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
                   <div className="lg:col-span-8 space-y-8">
-                    <div className="flex justify-between items-end">
+                    <div className="flex flex-col md:flex-row justify-between items-end gap-6">
                       <div>
                         <h2 className="font-inter text-3xl font-black italic tracking-tighter">HAFTALIK <span className="text-cyan-400">PLAN</span></h2>
                         <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest flex items-center gap-2"><CloudCheck size={12} className="text-emerald-500" /> Bulut ile Senkronize Edildi</p>
                       </div>
-                      <div className="flex gap-3">
-                        <button onClick={handlePrint} className="flex items-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 rounded-2xl text-[10px] font-inter font-black uppercase transition-all border border-slate-700 group">
+                      <div className="flex gap-3 w-full md:w-auto">
+                        <button onClick={() => simulatePDFExport(patientData)} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 rounded-2xl text-[10px] font-inter font-black uppercase transition-all border border-slate-700 group">
                            <Printer size={16} className="text-slate-500 group-hover:text-white" /> YAZDIR
                         </button>
-                        <button onClick={() => setShowQRModal(true)} className="flex items-center gap-2 px-6 py-3 bg-slate-800 hover:bg-cyan-500/10 hover:text-cyan-400 rounded-2xl text-[10px] font-inter font-black uppercase transition-all border border-slate-700 group">
+                        <button onClick={() => setShowQRModal(true)} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-slate-800 hover:bg-cyan-500/10 hover:text-cyan-400 rounded-2xl text-[10px] font-inter font-black uppercase transition-all border border-slate-700 group">
                            <QrCode size={16} /> MOBİL AKTAR
                         </button>
                       </div>
@@ -209,7 +211,7 @@ export default function PhysioCoreApp() {
                     
                     <div className="grid grid-cols-1 gap-6">
                       {(patientData.suggestedPlan || []).map((ex, i) => (
-                        <div key={i} className="group glass-panel p-8 rounded-[2.5rem] flex items-center gap-8 hover:border-cyan-500/40 hover:bg-slate-900 transition-all cursor-pointer shadow-lg hover:shadow-cyan-500/5" onClick={() => setSelectedExercise(ex)}>
+                        <div key={ex.id || i} className="group glass-panel p-8 rounded-[2.5rem] flex items-center gap-8 hover:border-cyan-500/40 hover:bg-slate-900 transition-all cursor-pointer shadow-lg hover:shadow-cyan-500/5" onClick={() => setSelectedExercise(ex)}>
                           <div className="w-16 h-16 bg-slate-950 rounded-2xl flex items-center justify-center text-cyan-400 group-hover:bg-cyan-500 group-hover:text-white transition-all shadow-inner border border-slate-800 group-hover:border-transparent"><Play size={24} fill="currentColor" className="ml-1" /></div>
                           <div className="flex-1">
                             <h4 className="font-inter font-black text-xl group-hover:text-cyan-400 transition-colors tracking-tight uppercase italic">{ex.title}</h4>
@@ -218,7 +220,7 @@ export default function PhysioCoreApp() {
                               <span className="text-[10px] font-mono text-slate-700 uppercase">ZORLUK: {ex.difficulty}/10</span>
                             </div>
                           </div>
-                          <div className="opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
+                          <div className="hidden md:block opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
                              <div className="bg-cyan-500/10 text-cyan-400 text-[10px] font-inter font-black uppercase px-6 py-3 rounded-2xl border border-cyan-500/20 shadow-sm">BAŞLAT</div>
                           </div>
                         </div>
@@ -240,11 +242,12 @@ export default function PhysioCoreApp() {
                                <label className="text-[10px] font-mono text-red-500 uppercase flex items-center gap-1 font-black tracking-widest"><Zap size={12} /> Kritik Uyarılar</label>
                                <div className="flex flex-wrap gap-2">
                                  {(patientData.contraindications || []).map((c, i) => <span key={i} className="px-3 py-1.5 bg-red-500/10 border border-red-500/20 text-red-400 text-[9px] font-inter font-black rounded-xl uppercase tracking-wider">{c}</span>)}
+                                 {patientData.contraindications?.length === 0 && <span className="text-[9px] text-slate-600 font-mono uppercase">Kritik uyarı bulunmadı.</span>}
                                </div>
                             </div>
                             <div className="p-6 bg-slate-950 rounded-[2rem] border border-slate-800 border-l-4 border-l-cyan-500 shadow-inner">
                                <p className="text-[9px] font-mono text-cyan-500 uppercase mb-3 font-black tracking-[0.2em]">AI Reçete Notu</p>
-                               <p className="text-[11px] text-slate-400 leading-relaxed font-medium">{patientData.latestInsight?.recommendation || "Analiz süreci devam ediyor. İlk seansı tamamlayın."}</p>
+                               <p className="text-[11px] text-slate-400 leading-relaxed font-medium">{patientData.latestInsight?.recommendation || "Analiz süreci tamamlandı. İlk seansı başlatarak verilerinizi zenginleştirebilirsiniz."}</p>
                             </div>
                          </div>
                       </div>

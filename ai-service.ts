@@ -1,30 +1,68 @@
 
-import { GoogleGenAI } from "@google/genai";
-import { PatientProfile, ProgressReport } from "./types.ts";
+import { GoogleGenAI, Type } from "@google/genai";
+import { PatientProfile, ProgressReport, Exercise } from "./types.ts";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 /**
- * PHYSIOCORE AI BRAIN - CLINICAL REASONING ENGINE
- * Bu servis, fizyo.md Bölüm 5'teki algoritmaları (PhysioBrain_AI sınıfı) 
- * Gemini modelinin muhakeme (thinking) katmanına enjekte eder.
+ * AI'dan gelen veriyi PatientProfile tipine zorlayan yardımcı fonksiyon
  */
+const mapToPatientProfile = (data: any): PatientProfile => {
+  // AI bazen dizi döndürebilir, ilk elemanı al
+  const raw = Array.isArray(data) ? data[0] : data;
 
-export const runClinicalConsultation = async (text: string, imageBase64?: string): Promise<PatientProfile> => {
+  // Egzersizleri normalize et
+  const rawExercises = raw.suggestedPlan || raw.exercisePlan || [];
+  const suggestedPlan: Exercise[] = rawExercises.map((ex: any, idx: number) => ({
+    id: ex.id || `ai-ex-${idx}`,
+    code: ex.code || ex.name || 'EX-GEN',
+    title: ex.title || ex.name || 'İsimsiz Egzersiz',
+    category: ex.category || 'Genel Rehabilitasyon',
+    difficulty: ex.difficulty || 5,
+    sets: ex.sets || 3,
+    reps: ex.reps || 10,
+    description: ex.description || ex.instructions || '',
+    biomechanics: ex.biomechanics || '',
+    safetyFlags: ex.safetyFlags || ex.contraindications || []
+  }));
+
+  return {
+    diagnosisSummary: raw.diagnosisSummary || raw.clinicalDiagnosis || 'Tanı analizi tamamlandı.',
+    thinkingProcess: raw.thinkingProcess || 'Klinik muhakeme işlendi.',
+    riskLevel: raw.riskLevel || 'Orta',
+    contraindications: raw.contraindications || [],
+    suggestedPlan: suggestedPlan,
+    progressHistory: raw.progressHistory || [],
+    latestInsight: raw.latestInsight || null
+  };
+};
+
+const parseClinicalJson = (rawText: string) => {
+  try {
+    const cleanText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
+    const parsed = JSON.parse(cleanText);
+    return mapToPatientProfile(parsed);
+  } catch (e) {
+    console.error("JSON Parsing Error in PhysioCore AI:", e, "Raw Text:", rawText);
+    return null;
+  }
+};
+
+export const runClinicalConsultation = async (text: string, imageBase64?: string): Promise<PatientProfile | null> => {
+  console.log("PhysioCore AI: Clinical Consultation Started...");
+  
   const prompt = `
-    Sen PhysioCore AI Klinik Direktörüsün. Blueprint (fizyo.md) Bölüm 5'teki algoritmaları uygulamakla yükümlüsün.
+    Sen PhysioCore AI Klinik Direktörüsün.
     
-    KLİNİK ALGORİTMA KURALLARI (Bölüm 5):
-    1. GÜVENLİK FİLTRESİ: Eğer tanıda "Herni" (Fıtık) varsa, "Fleksiyon" (Öne eğilme) içeren egzersizleri yasakla.
-    2. FAZ ANALİZİ: 
-       - Ağrı Skoru (VAS) > 7 ise: SADECE "İzometrik" veya "Relaksasyon" egzersizleri ata.
-       - Ağrı Skoru (VAS) <= 7 ise: Güçlendirme ve Mobilizasyon egzersizlerine geç.
-    3. DOZAJ HESABI: Tekrar sayısı = max(5, 15 - Ağrı Skoru) formülüyle hesaplanmalıdır.
-    4. RİSK ANALİZİ: Kontrendikasyon varsa RiskLevel'ı 'Yüksek' olarak işaretle.
+    GÖREV: Hastanın şikayetini analiz et ve Bölüm 5 algoritmalarına göre bir PatientProfile JSON oluştur.
+    
+    KURALLAR:
+    1. Yanıt SADECE JSON olmalı.
+    2. "diagnosisSummary" (string), "thinkingProcess" (string), "riskLevel" ("Düşük"|"Orta"|"Yüksek"), "contraindications" (string[]), "suggestedPlan" (Exercise[]) alanlarını içermeli.
+    3. Exercise nesnesi şunları içermeli: "id", "code", "title", "category", "difficulty", "sets", "reps", "description", "biomechanics", "safetyFlags".
+    4. "Herni" varsa fleksiyon yasaktır. VAS > 7 ise sadece izometrik.
 
     HASTA VERİSİ: "${text}"
-    GÖREV: Yukarıdaki kuralları işle, klinik muhakemeni 'thinkingProcess' alanına yaz ve JSON döndür.
-    YANIT FORMATI (JSON): PatientProfile arayüzüne tam uygun olmalı.
   `;
 
   try {
@@ -37,33 +75,23 @@ export const runClinicalConsultation = async (text: string, imageBase64?: string
         ]
       },
       config: {
-        responseMimeType: "application/json",
-        thinkingConfig: { thinkingBudget: 25000 }
+        responseMimeType: "application/json"
       }
     });
 
-    const textResponse = response.text || '{}';
-    return JSON.parse(textResponse.trim());
+    return parseClinicalJson(response.text || "{}");
   } catch (error) {
     console.error("Gemini API Error:", error);
-    throw error;
+    return null;
   }
 };
 
 export const runAdaptiveAdjustment = async (currentProfile: PatientProfile, feedback: ProgressReport): Promise<PatientProfile> => {
   const prompt = `
-    Sen PhysioCore AI Adaptif Karar Motorusun. 
-    Bölüm 5'teki 'Pain & Phase Adaptation' mantığını kullanarak mevcut programı güncelle.
-
-    ADAPTASYON ALGORİTMASI:
-    - Yeni Ağrı Skoru > 7 ise: Mevcut programdaki dinamik hareketleri çıkar, yerine statik/izometrik olanları koy.
-    - Ağrı Azaldıysa: Tekrar sayılarını (reps) Bölüm 5 formülüne (15 - Pain) göre artır.
-    - Kontrendikasyonları (Safety Flags) asla ihlal etme.
-
-    MEVCUT PROFİL: ${JSON.stringify(currentProfile)}
-    YENİ GERİ BİLDİRİM: ${JSON.stringify(feedback)}
-    
-    GÖREV: Güncellenmiş programı ve 'latestInsight' analizini içeren JSON döndür.
+    Mevcut programı hastanın yeni geri bildirimine göre güncelle.
+    Yanıt sadece güncellenmiş PatientProfile JSON formatında olmalı.
+    MEVCUT: ${JSON.stringify(currentProfile)}
+    GERİ BİLDİRİM: ${JSON.stringify(feedback)}
   `;
 
   try {
@@ -71,12 +99,11 @@ export const runAdaptiveAdjustment = async (currentProfile: PatientProfile, feed
       model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
-        responseMimeType: "application/json",
-        thinkingConfig: { thinkingBudget: 20000 }
+        responseMimeType: "application/json"
       }
     });
 
-    return JSON.parse((response.text || '{}').trim());
+    return parseClinicalJson(response.text || "{}") || currentProfile;
   } catch (error) {
     console.error("Gemini Adjustment Error:", error);
     return currentProfile;

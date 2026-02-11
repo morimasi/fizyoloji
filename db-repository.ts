@@ -231,7 +231,12 @@ export class PhysioDB {
       const saved = localStorage.getItem(this.PROFILE_KEY);
       if (saved) {
         try {
-          this.currentProfile = JSON.parse(saved);
+          const parsed = JSON.parse(saved);
+          // Ensure progressHistory exists
+          if (parsed && !parsed.progressHistory) {
+            parsed.progressHistory = [];
+          }
+          this.currentProfile = parsed;
         } catch (e) {
           return null;
         }

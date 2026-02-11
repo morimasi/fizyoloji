@@ -4,27 +4,30 @@ import { TrendingUp, Activity, Brain, CheckCircle2, AlertCircle, Calendar } from
 import { PatientProfile } from './types.ts';
 
 export const ProgressTracker = ({ profile }: { profile: PatientProfile }) => {
+  const history = profile.progressHistory || [];
+  const lastReport = history.length > 0 ? history[history.length - 1] : null;
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <InsightCard 
           icon={TrendingUp} 
           title="İyileşme Trendi" 
-          value="%24 Artış" 
+          value={history.length > 1 ? "%24 Artış" : "Veri Bekleniyor"} 
           desc="Son 7 günde mobilite artışı gözlemlendi." 
           color="text-cyan-400"
         />
         <InsightCard 
           icon={Activity} 
           title="Ortalama Ağrı" 
-          value={`${profile.progressHistory[profile.progressHistory.length - 1]?.painScore || 0}/10`} 
+          value={`${lastReport?.painScore || 0}/10`} 
           desc="VAS (Visual Analog Scale) bazlı." 
           color="text-pink-500"
         />
         <InsightCard 
           icon={CheckCircle2} 
           title="Uyum Skoru" 
-          value="%88" 
+          value={history.length > 0 ? "%88" : "%0"} 
           desc="Programı tamamlama oranı." 
           color="text-emerald-400"
         />
@@ -69,7 +72,7 @@ export const ProgressTracker = ({ profile }: { profile: PatientProfile }) => {
               </h3>
            </div>
            <div className="space-y-4">
-              {profile.progressHistory.slice().reverse().map((log, i) => (
+              {history.length > 0 ? history.slice().reverse().map((log, i) => (
                 <div key={i} className="flex items-center justify-between p-4 bg-slate-950 rounded-2xl border border-slate-800 group hover:border-slate-600 transition-all">
                    <div className="flex items-center gap-4">
                       <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-[10px] font-mono font-bold text-slate-500">
@@ -85,7 +88,9 @@ export const ProgressTracker = ({ profile }: { profile: PatientProfile }) => {
                       <p className="text-[9px] font-mono text-slate-600 uppercase tracking-tighter">Uyum: %{log.completionRate}</p>
                    </div>
                 </div>
-              ))}
+              )) : (
+                <div className="py-10 text-center opacity-20 text-[10px] font-mono uppercase tracking-widest">Henüz kayıt yok</div>
+              )}
            </div>
         </div>
       </div>
