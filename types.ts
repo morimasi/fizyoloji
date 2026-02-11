@@ -11,6 +11,14 @@ export interface Exercise {
   biomechanics: string;
   safetyFlags: string[];
   isFavorite?: boolean;
+  isArchived?: boolean;
+  
+  // v4.0 Visual & Motion Fields
+  visualUrl?: string;
+  videoUrl?: string;
+  isMotion?: boolean;
+  visualStyle?: 'X-Ray' | 'Anatomic' | '4K-Render' | 'Schematic' | 'GIF-Animation' | '2D-Animation' | 'Cinematic-Motion';
+  shareCount?: number;
   
   // v3.4 Ultra-Customization Fields
   equipment?: string[];
