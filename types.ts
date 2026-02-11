@@ -3,6 +3,7 @@ export interface Exercise {
   id: string;
   code: string;
   title: string;
+  titleTr?: string; // Turkish Translation
   category: string;
   difficulty: number;
   sets: number;

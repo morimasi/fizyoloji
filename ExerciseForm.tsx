@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import { 
   Zap, BrainCircuit, Target, Layers, Activity, Info, 
   Compass, AlertTriangle, Dumbbell, Save, Settings2, Trash2, 
-  Sparkles, History, Clock, Thermometer, Hammer, Microscope
+  Sparkles, History, Clock, Thermometer, Hammer, Microscope,
+  Languages
 } from 'lucide-react';
 import { Exercise } from './types.ts';
 import { generateExerciseData, optimizeExerciseData } from './ai-service.ts';
@@ -67,7 +68,7 @@ export const ExerciseForm: React.FC<ExerciseFormProps> = ({ initialData, onSave,
   ];
 
   return (
-    <div className="glass-panel p-12 rounded-[4rem] border-2 border-cyan-500/20 animate-in zoom-in-95 duration-500 space-y-10 relative overflow-hidden shadow-2xl">
+    <div className={`glass-panel p-12 rounded-[4rem] border-2 transition-all duration-500 space-y-10 relative overflow-hidden shadow-2xl ${activeDraft.isPersonalized ? 'border-cyan-500/40 shadow-[0_0_50px_rgba(6,182,212,0.1)]' : 'border-slate-800'}`}>
       <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/5 rounded-full blur-[120px] -mr-48 -mt-48" />
       
       <div className="flex justify-between items-center relative z-10">
@@ -81,31 +82,50 @@ export const ExerciseForm: React.FC<ExerciseFormProps> = ({ initialData, onSave,
             <NavTab active={activeTab === 'visual'} onClick={() => setActiveTab('visual')} label="GÖRSEL STÜDYO" />
           </div>
         </div>
-        <button onClick={onCancel} className="text-slate-500 hover:text-white transition-colors uppercase text-[10px] font-black tracking-widest">VAZGEÇ</button>
+        <div className="flex items-center gap-6">
+           {activeDraft.isPersonalized && (
+             <div className="flex items-center gap-2 px-4 py-2 bg-cyan-500/10 border border-cyan-500/20 rounded-xl text-cyan-400 text-[9px] font-black uppercase tracking-widest">
+               <Sparkles size={12} /> Personalized Content Active
+             </div>
+           )}
+           <button onClick={onCancel} className="text-slate-500 hover:text-white transition-colors uppercase text-[10px] font-black tracking-widest">VAZGEÇ</button>
+        </div>
       </div>
 
       {activeTab === 'data' && (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 relative z-10">
           {/* Core Settings */}
           <div className="space-y-8">
-            <div className="space-y-3">
-              <label className="text-[10px] font-mono text-slate-500 uppercase tracking-widest font-black flex items-center gap-2"><Target size={12}/> Egzersiz Adı</label>
-              <div className="flex gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <label className="text-[10px] font-mono text-slate-500 uppercase tracking-widest font-black flex items-center gap-2"><Target size={12}/> Klinik Başlık (EN)</label>
+                <div className="flex gap-3">
+                  <input 
+                    type="text" 
+                    value={activeDraft.title}
+                    onChange={(e) => setActiveDraft({...activeDraft, title: e.target.value})}
+                    placeholder="Örn: Scapular Wall Slide" 
+                    className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl p-5 text-lg font-bold outline-none focus:border-cyan-500 transition-colors shadow-inner text-white"
+                  />
+                  <button 
+                    onClick={handleAISuggest}
+                    disabled={isAIGenerating || !activeDraft.title}
+                    className="bg-slate-800 hover:bg-slate-700 px-6 rounded-2xl text-cyan-400 transition-all border border-slate-700 disabled:opacity-20 flex items-center gap-2 group/ai"
+                  >
+                    {isAIGenerating ? <Activity size={20} className="animate-spin" /> : <BrainCircuit size={20} />}
+                  </button>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <label className="text-[10px] font-mono text-slate-500 uppercase tracking-widest font-black flex items-center gap-2"><Languages size={12}/> Türkçe Karşılığı</label>
                 <input 
                   type="text" 
-                  value={activeDraft.title}
-                  onChange={(e) => setActiveDraft({...activeDraft, title: e.target.value})}
-                  placeholder="Örn: Scapular Wall Slide" 
-                  className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl p-5 text-lg font-bold outline-none focus:border-cyan-500 transition-colors shadow-inner text-white"
+                  value={activeDraft.titleTr}
+                  onChange={(e) => setActiveDraft({...activeDraft, titleTr: e.target.value})}
+                  placeholder="Örn: Duvar Kürek Kemiği Kaydırma" 
+                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-lg font-bold outline-none focus:border-cyan-500 transition-colors shadow-inner text-white"
                 />
-                <button 
-                  onClick={handleAISuggest}
-                  disabled={isAIGenerating || !activeDraft.title}
-                  className="bg-slate-800 hover:bg-slate-700 px-6 rounded-2xl text-cyan-400 transition-all border border-slate-700 disabled:opacity-20 flex items-center gap-2 group/ai"
-                >
-                  {isAIGenerating ? <Zap size={20} className="animate-spin" /> : <BrainCircuit size={20} />}
-                  <span className="text-[10px] font-black uppercase tracking-tighter">AI DRAFT</span>
-                </button>
               </div>
             </div>
 
@@ -228,7 +248,7 @@ export const ExerciseForm: React.FC<ExerciseFormProps> = ({ initialData, onSave,
                 disabled={isOptimizing}
                 className="w-full bg-cyan-500 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-cyan-500/20 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3"
                >
-                 {isOptimizing ? <Loader2 size={18} className="animate-spin" /> : <Zap size={18} fill="currentColor" />}
+                 {isOptimizing ? <Activity size={18} className="animate-spin" /> : <Zap size={18} fill="currentColor" />}
                  {isOptimizing ? 'HESAPLANIYOR...' : 'PARAMETRELERİ OPTİMİZE ET'}
                </button>
             </div>
@@ -365,5 +385,3 @@ function MultiInput({ label, icon: Icon, values, onUpdate, color }: any) {
     </div>
   );
 }
-
-const Loader2 = ({ size, className }: any) => <Activity size={size} className={`animate-spin ${className}`} />;
