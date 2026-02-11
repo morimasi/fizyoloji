@@ -18,6 +18,8 @@ export interface ProgressReport {
   painScore: number;
   completionRate: number;
   feedback: string;
+  completedSets?: number;
+  durationMinutes?: number;
 }
 
 export interface ClinicalInsight {
@@ -25,6 +27,7 @@ export interface ClinicalInsight {
   recommendation: string;
   adaptationNote: string;
   nextStep: string;
+  phaseName?: 'Akut' | 'Sub-Akut' | 'Kronik' | 'Rehabilitasyon';
 }
 
 export interface PatientProfile {
@@ -35,6 +38,11 @@ export interface PatientProfile {
   suggestedPlan: Exercise[];
   progressHistory: ProgressReport[];
   latestInsight?: ClinicalInsight;
+  physicalAssessment?: {
+    romLimitations: string[];
+    muscleWeakness: string[];
+    vasHistory: number[];
+  };
 }
 
 export type AppTab = 'consultation' | 'dashboard' | 'cms' | 'progress';
