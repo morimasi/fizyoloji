@@ -28,6 +28,7 @@ import { ProgressTracker } from './ProgressTracker.tsx';
 import { QRCodeModal } from './QRCodeModal.tsx';
 import { simulatePDFExport } from './export-service.ts';
 import { PhysioDB } from './db-repository.ts';
+import { Dashboard } from './Dashboard.tsx';
 
 console.log("PhysioCore AI: App Initializing...");
 
@@ -140,7 +141,7 @@ export default function PhysioCoreApp() {
         <nav className="flex bg-slate-900/50 p-1 rounded-xl border border-slate-800">
           <NavBtn active={activeTab === 'consultation'} onClick={() => setActiveTab('consultation')} icon={Stethoscope} label="KLİNİK" />
           <NavBtn active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={LayoutDashboard} label="PANEL" />
-          <NavBtn active={activeTab === 'progress'} onClick={() => setActiveTab('progress')} icon={TrendingUp} label="TAKİP" />
+          <NavBtn active={activeTab === 'progress'} onClick={() => setActiveTab('progress'} icon={TrendingUp} label="TAKİP" />
           <NavBtn active={activeTab === 'cms'} onClick={() => setActiveTab('cms')} icon={Database} label="STUDIO" />
         </nav>
 
@@ -186,35 +187,10 @@ export default function PhysioCoreApp() {
         )}
 
         {activeTab === 'dashboard' && patientData && (
-           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 animate-in fade-in duration-700">
-              <div className="lg:col-span-8 space-y-8">
-                 <h2 className="font-inter text-3xl font-black italic tracking-tighter">GÜNCEL <span className="text-cyan-400">REÇETE</span></h2>
-                 <div className="grid grid-cols-1 gap-6">
-                    {patientData.suggestedPlan.map((ex, i) => (
-                      <div key={ex.id || i} className="group glass-panel p-8 rounded-[2.5rem] flex items-center gap-8 hover:border-cyan-500/40 hover:bg-slate-900 transition-all cursor-pointer shadow-lg hover:shadow-cyan-500/5" onClick={() => setSelectedExercise(ex)}>
-                        <div className="w-16 h-16 bg-slate-950 rounded-2xl flex items-center justify-center text-cyan-400 group-hover:bg-cyan-500 group-hover:text-white transition-all shadow-inner border border-slate-800"><Play size={24} fill="currentColor" className="ml-1" /></div>
-                        <div className="flex-1">
-                          <h4 className="font-inter font-black text-xl group-hover:text-cyan-400 transition-colors tracking-tight uppercase italic">{ex.title}</h4>
-                          <div className="flex gap-6 mt-1">
-                            <span className="text-[10px] font-mono text-slate-500 uppercase font-bold tracking-widest">{ex.sets} SET x {ex.reps} TEKRAR</span>
-                            <span className="text-[10px] font-mono text-slate-700 uppercase">ZORLUK: {ex.difficulty}/10</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                 </div>
-              </div>
-              <div className="lg:col-span-4">
-                 <div className="glass-panel p-10 rounded-[3rem] sticky top-28 space-y-8">
-                    <h3 className="text-[10px] font-inter font-black uppercase text-slate-500 tracking-[0.2em] flex items-center gap-2"><Stethoscope size={14} /> Klinik Durum</h3>
-                    <p className="text-sm text-slate-300 italic border-l-2 border-slate-700 pl-4">"{patientData.diagnosisSummary}"</p>
-                    <div className="p-6 bg-slate-950 rounded-[2rem] border border-slate-800 border-l-4 border-l-cyan-500">
-                       <p className="text-[9px] font-mono text-cyan-500 uppercase mb-3 font-black tracking-[0.2em]">AI Insight</p>
-                       <p className="text-[11px] text-slate-400 leading-relaxed font-medium">{patientData.latestInsight?.recommendation}</p>
-                    </div>
-                 </div>
-              </div>
-           </div>
+           <Dashboard 
+            profile={patientData} 
+            onExerciseSelect={(ex) => setSelectedExercise(ex)} 
+           />
         )}
 
         {activeTab === 'progress' && patientData && <ProgressTracker profile={patientData} />}

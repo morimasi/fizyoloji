@@ -1,6 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { Plus, FlaskConical, ShieldCheck } from 'lucide-react';
+import { 
+  Plus, FlaskConical, ShieldCheck, Database, 
+  Zap, Activity, BarChart3, Settings2, 
+  Search, Filter, LayoutGrid, List,
+  Cpu, Terminal, History
+} from 'lucide-react';
 import { PhysioDB } from './db-repository.ts';
 import { Exercise } from './types.ts';
 import { ExerciseList } from './ExerciseList.tsx';
@@ -11,6 +16,7 @@ export const ExerciseStudio = () => {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
   const initialDraft: Partial<Exercise> = {
     title: '',
@@ -24,7 +30,9 @@ export const ExerciseStudio = () => {
     equipment: [],
     muscleGroups: [],
     rehabPhase: 'Sub-Akut',
-    movementPlane: 'Sagittal'
+    movementPlane: 'Sagittal',
+    tempo: '3-1-3',
+    restPeriod: 60
   };
 
   const [activeDraft, setActiveDraft] = useState<Partial<Exercise>>(initialDraft);
@@ -64,55 +72,146 @@ export const ExerciseStudio = () => {
   };
 
   const handleDelete = (id: string) => {
-    if (window.confirm('Klinik kütüphaneden silinsin mi?')) {
+    if (window.confirm('Bu egzersiz klinik kütüphaneden kalıcı olarak silinecek. Onaylıyor musunuz?')) {
       PhysioDB.deleteExercise(id);
       setExercises(PhysioDB.getExercises());
     }
   };
 
   return (
-    <div className="space-y-12 animate-in fade-in duration-700">
-      {/* Studio Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-slate-800 pb-10">
-        <div>
-          <div className="flex items-center gap-4 mb-2">
-            <div className="w-12 h-12 bg-cyan-500 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-cyan-500/20">
-              <FlaskConical size={28} />
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      {/* Studio Command Center Header */}
+      {!isAdding && (
+        <div className="space-y-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center text-white shadow-2xl shadow-cyan-500/20 group">
+                <FlaskConical size={32} className="group-hover:rotate-12 transition-transform" />
+              </div>
+              <div>
+                <h2 className="text-3xl font-semibold tracking-tighter text-white italic">GENESIS <span className="text-cyan-400 uppercase">Studio</span></h2>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="flex items-center gap-1 text-[9px] font-bold text-slate-500 uppercase tracking-widest bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                    <Terminal size={10} className="text-cyan-500" /> V3.5 PRO-DASHBOARD
+                  </span>
+                  <span className="w-1 h-1 bg-slate-800 rounded-full" />
+                  <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest animate-pulse">Sistem Stabil</span>
+                </div>
+              </div>
             </div>
-            <div>
-              <h2 className="font-inter text-4xl font-black italic tracking-tighter uppercase leading-none">ULTRA <span className="text-cyan-400 text-glow">STUDIO</span></h2>
-              <p className="text-[10px] text-slate-500 font-mono uppercase tracking-[0.4em] flex items-center gap-2 mt-1">
-                <ShieldCheck size={12} className="text-emerald-500" /> MODULAR ENGINE v3.5
-              </p>
-            </div>
+            
+            <button 
+              onClick={handleStartNew}
+              className="group relative flex items-center justify-center gap-3 bg-cyan-500 hover:bg-cyan-600 px-10 py-5 rounded-2xl font-semibold text-xs transition-all shadow-2xl shadow-cyan-500/30 active:scale-95 text-white overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+              <Plus size={18} /> YENİ PROTOKOL ÜRET
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StudioStatCard 
+              icon={Database} 
+              label="Klinik Envanter" 
+              value={exercises.length.toString()} 
+              sub="Aktif Egzersiz" 
+              color="text-cyan-400" 
+            />
+            <StudioStatCard 
+              icon={Cpu} 
+              label="AI Üretimleri" 
+              value={exercises.filter(e => e.isPersonalized).length.toString()} 
+              sub="Optimize Edilmiş" 
+              color="text-emerald-400" 
+            />
+            <StudioStatCard 
+              icon={History} 
+              label="Son Revizyon" 
+              value="Bugün" 
+              sub="Sistem Güncel" 
+              color="text-amber-400" 
+            />
+            <StudioStatCard 
+              icon={ShieldCheck} 
+              label="Validasyon" 
+              value="Tamam" 
+              sub="Biyomekanik Onaylı" 
+              color="text-blue-400" 
+            />
           </div>
         </div>
-        
-        <button 
-          onClick={handleStartNew}
-          className="flex items-center gap-3 bg-cyan-500 hover:bg-cyan-600 px-10 py-5 rounded-2xl font-inter font-black text-xs transition-all shadow-2xl shadow-cyan-500/30 active:scale-95 group text-white neon-glow"
-        >
-          <Plus size={20} className="group-hover:rotate-180 transition-transform duration-500" /> YENİ ÜRETİM BAŞLAT
-        </button>
-      </div>
-
-      {/* Conditional View: List or Form */}
-      {isAdding ? (
-        <ExerciseForm 
-          initialData={activeDraft} 
-          isEditing={!!editingId} 
-          onSave={handleSave} 
-          onCancel={() => setIsAdding(false)} 
-        />
-      ) : (
-        <ExerciseList 
-          exercises={exercises} 
-          onEdit={handleEdit} 
-          onDelete={handleDelete} 
-          searchTerm={searchTerm} 
-          onSearchChange={setSearchTerm} 
-        />
       )}
+
+      {/* Main Content Area */}
+      <div className="relative">
+        {isAdding ? (
+          <ExerciseForm 
+            initialData={activeDraft} 
+            isEditing={!!editingId} 
+            onSave={handleSave} 
+            onCancel={() => setIsAdding(false)} 
+          />
+        ) : (
+          <div className="space-y-6">
+            {/* Advanced Toolbar */}
+            <div className="flex flex-col lg:flex-row gap-4 items-center justify-between bg-slate-900/40 p-5 rounded-[2.5rem] border border-slate-800 backdrop-blur-xl">
+              <div className="relative w-full lg:w-[450px] group">
+                <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-cyan-400 transition-colors" size={18} />
+                <input 
+                  type="text" 
+                  placeholder="Klinik kod veya başlık ile filtrele..." 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-14 pr-6 text-xs font-medium outline-none focus:border-cyan-500/50 transition-all text-white shadow-inner"
+                />
+              </div>
+              
+              <div className="flex items-center gap-3 bg-slate-950 p-2 rounded-2xl border border-slate-800">
+                <div className="flex bg-slate-900 rounded-xl p-1 gap-1">
+                  <ViewBtn active={viewMode === 'grid'} onClick={() => setViewMode('grid')} icon={LayoutGrid} />
+                  <ViewBtn active={viewMode === 'list'} onClick={() => setViewMode('list')} icon={List} />
+                </div>
+                <div className="w-[1px] h-6 bg-slate-800 mx-1" />
+                <button className="flex items-center gap-2 px-5 py-2.5 text-[10px] font-bold text-slate-400 hover:text-white transition-colors bg-slate-900 rounded-xl border border-slate-800 hover:border-slate-700">
+                  <Filter size={14} /> FİLTRELE
+                </button>
+              </div>
+            </div>
+
+            <ExerciseList 
+              exercises={exercises} 
+              onEdit={handleEdit} 
+              onDelete={handleDelete} 
+              searchTerm={searchTerm} 
+              onSearchChange={setSearchTerm} 
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 };
+
+const StudioStatCard = ({ icon: Icon, label, value, sub, color }: any) => (
+  <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-[2rem] flex items-center gap-5 hover:border-slate-700 transition-all group">
+    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center bg-slate-950 border border-slate-800 ${color} group-hover:scale-105 transition-transform shadow-inner`}>
+      <Icon size={24} />
+    </div>
+    <div>
+      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.2em] mb-1">{label}</p>
+      <div className="flex items-baseline gap-2">
+        <span className="text-2xl font-semibold text-white tracking-tighter">{value}</span>
+        <span className="text-[9px] font-medium text-slate-600 uppercase italic tracking-widest">{sub}</span>
+      </div>
+    </div>
+  </div>
+);
+
+const ViewBtn = ({ active, onClick, icon: Icon }: any) => (
+  <button 
+    onClick={onClick}
+    className={`p-2.5 rounded-lg transition-all ${active ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/20' : 'text-slate-500 hover:text-slate-300'}`}
+  >
+    <Icon size={16} />
+  </button>
+);
