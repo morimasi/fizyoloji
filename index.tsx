@@ -31,9 +31,12 @@ import { UserManager } from './UserManager.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// Fixed ErrorBoundary class to use imported Component from React to ensure 'props' is correctly identified by the compiler
+// Fixed ErrorBoundary class to explicitly handle props for TypeScript compatibility
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = { hasError: false };
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
   static getDerivedStateFromError(_error: Error): ErrorBoundaryState { return { hasError: true }; }
   componentDidCatch(error: Error, errorInfo: ErrorInfo) { console.error("CRASH:", error, errorInfo); }
   render() {
@@ -78,6 +81,7 @@ export default function PhysioCoreApp() {
     if (!userInput && !selectedImage) return;
     setIsAnalyzing(true);
     try {
+      // Updated call to match new 4-argument signature in ai-service.ts
       const result = await runClinicalConsultation(userInput, selectedImage || undefined, patientData?.treatmentHistory, patientData?.painLogs);
       if (result) {
         setPatientData(result);
