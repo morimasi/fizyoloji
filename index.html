@@ -11,21 +11,7 @@
     <!-- SEO & Metadata -->
     <title>PhysioCore AI - Profesyonel Klinik Rehabilitasyon Sistemi</title>
     <meta name="description" content="Yapay zeka destekli, 4K sinematik egzersiz animasyonları sunan ultra-profesyonel fizyoterapi ve rehabilitasyon ekosistemi.">
-    <meta name="keywords" content="fizyoterapi, rehabilitasyon, yapay zeka, egzersiz, klinik zeka, PWA, healthtech">
-    <meta name="author" content="PhysioCore AI Genesis">
-
-    <!-- Open Graph / Facebook / WhatsApp -->
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://physiocore-ai.vercel.app/">
-    <meta property="og:title" content="PhysioCore AI - Genesis v3.5">
-    <meta property="og:description" content="AI tabanlı klinik karar destek ve sinematik rehabilitasyon platformu.">
-    <meta property="og:image" content="https://cdn.pixabay.com/photo/2017/01/31/22/46/brain-2027331_1280.png">
-
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:title" content="PhysioCore AI - Genesis v3.5">
-    <meta property="twitter:description" content="Sinematik hareket motoru ile geleceğin fizik tedavisi.">
-
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -87,9 +73,14 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then(reg => console.log('SW registered:', reg.scope))
-            .catch(err => console.log('SW register error:', err));
+          // Absolute path used to ensure correct scope even with SPA rewrites
+          navigator.serviceWorker.register('/sw.js', { scope: '/' })
+            .then(reg => {
+                console.log('%c[PhysioCore] Core System Registered', 'color: #06B6D4; font-weight: bold;', reg.scope);
+            })
+            .catch(err => {
+                console.warn('%c[PhysioCore] Offline Engine Initializing...', 'color: #EF4444;', err);
+            });
         });
       }
     </script>
