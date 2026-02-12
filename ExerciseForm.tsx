@@ -35,6 +35,11 @@ export const ExerciseForm: React.FC<ExerciseFormProps> = ({ initialData, onSave,
         safetyFlags: Array.from(new Set([...(prev.safetyFlags || []), ...(data.safetyFlags || [])])),
         muscleGroups: Array.from(new Set([...(prev.muscleGroups || []), ...(data.muscleGroups || [])]))
       }));
+    } catch (e: any) {
+       if (e.message?.includes("API Key")) {
+         const aistudio = (window as any).aistudio;
+         if (aistudio) await aistudio.openSelectKey();
+       }
     } finally {
       setIsAIGenerating(false);
     }
@@ -45,6 +50,11 @@ export const ExerciseForm: React.FC<ExerciseFormProps> = ({ initialData, onSave,
     try {
       const optimized = await optimizeExerciseData(activeDraft, optimizationGoal);
       setActiveDraft(prev => ({ ...prev, ...optimized, isPersonalized: true }));
+    } catch (e: any) {
+       if (e.message?.includes("API Key")) {
+         const aistudio = (window as any).aistudio;
+         if (aistudio) await aistudio.openSelectKey();
+       }
     } finally {
       setIsOptimizing(false);
     }

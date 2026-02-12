@@ -17,7 +17,9 @@ import {
   AlertTriangle,
   RefreshCw,
   X,
-  ShieldCheck
+  ShieldCheck,
+  Key,
+  Info
 } from 'lucide-react';
 import { AppTab, PatientProfile, Exercise, ProgressReport } from './types.ts';
 import { runClinicalConsultation, runAdaptiveAdjustment } from './ai-service.ts';
@@ -26,8 +28,6 @@ import { ExercisePlayer } from './ExercisePlayer.tsx';
 import { ProgressTracker } from './ProgressTracker.tsx';
 import { PhysioDB } from './db-repository.ts';
 import { Dashboard } from './Dashboard.tsx';
-import { TherapistHub } from './TherapistHub.tsx';
-// Fix: Added missing UserManager import
 import { UserManager } from './UserManager.tsx';
 
 // --- PRODUCTION ERROR BOUNDARY ---
@@ -38,7 +38,6 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-// Fix: Corrected ErrorBoundary inheritance by extending 'React.Component' directly to ensure 'props' and 'state' are correctly recognized as members of the class by TypeScript.
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false };
 
@@ -50,7 +49,6 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   componentDidCatch(error: Error, errorInfo: ErrorInfo) { console.error("PROD_CRASH:", error, errorInfo); }
   
   render() {
-    // Corrected state access
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-12 text-center">
@@ -64,7 +62,6 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
-    // Fix: Accessing children via this.props which is now correctly inherited from React.Component
     return this.props.children;
   }
 }
@@ -77,6 +74,7 @@ export default function PhysioCoreApp() {
   const [patientData, setPatientData] = useState<PatientProfile | null>(null);
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
   const [dbStatus, setDbStatus] = useState<{connected: boolean, latency: number}>({connected: false, latency: 0});
+  const [aiKeyStatus, setAiKeyStatus] = useState<boolean>(false);
   
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [painScore, setPainScore] = useState(5);
@@ -88,13 +86,19 @@ export default function PhysioCoreApp() {
     const profile = PhysioDB.getProfile();
     if (profile) setPatientData(profile);
     
-    const checkDB = async () => {
+    const checkStatus = async () => {
       const status = await PhysioDB.checkRemoteStatus();
       setDbStatus(status);
+      
+      const aistudio = (window as any).aistudio;
+      if (aistudio) {
+        const hasKey = await aistudio.hasSelectedApiKey();
+        setAiKeyStatus(hasKey);
+      }
     };
     
-    checkDB();
-    const interval = setInterval(checkDB, 20000);
+    checkStatus();
+    const interval = setInterval(checkStatus, 15000);
     return () => clearInterval(interval);
   }, []);
 
@@ -108,8 +112,21 @@ export default function PhysioCoreApp() {
         await PhysioDB.saveProfile(result);
         setActiveTab('dashboard');
       }
+    } catch (e: any) {
+      if (e.message?.includes("API Key")) {
+        handleAiKeyTrigger();
+      }
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  const handleAiKeyTrigger = async () => {
+    const aistudio = (window as any).aistudio;
+    if (aistudio) {
+      await aistudio.openSelectKey();
+      // Seçim sonrası durumu güncellemek için kısa bir süre sonra check tetiklenebilir
+      // Ancak yönerge gereği race condition varsayımı ile devam ediyoruz.
     }
   };
 
@@ -123,6 +140,8 @@ export default function PhysioCoreApp() {
       await PhysioDB.saveProfile(updatedProfile);
       setShowFeedbackModal(false);
       setActiveTab('progress');
+    } catch (e: any) {
+      if (e.message?.includes("API Key")) handleAiKeyTrigger();
     } finally {
       setIsAnalyzing(false);
     }
@@ -160,14 +179,38 @@ export default function PhysioCoreApp() {
           <NavBtn active={activeTab === 'cms'} onClick={() => setActiveTab('cms')} icon={Database} label="STUDIO" />
         </nav>
 
-        <div className="flex items-center gap-6">
-           <div className={`flex flex-col items-end gap-0.5 px-3 py-1.5 rounded-xl border transition-all ${dbStatus.connected ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-rose-500/30 bg-rose-500/5'}`}>
+        <div className="flex items-center gap-4">
+           {/* AI KEY STATUS */}
+           <div className={`group relative flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${aiKeyStatus ? 'border-cyan-500/30 bg-cyan-500/5' : 'border-rose-500/30 bg-rose-500/5'}`}>
+              <Zap size={12} className={aiKeyStatus ? 'text-cyan-400' : 'text-rose-400'} />
+              <button onClick={handleAiKeyTrigger} className="text-[9px] font-black uppercase text-white tracking-widest">
+                {aiKeyStatus ? 'AI AKTİF' : 'LİSANS BAĞLA'}
+              </button>
+              
+              {/* Tooltip & Billing Link */}
+              <div className="absolute top-full right-0 mt-2 w-64 p-4 bg-slate-900 border border-slate-800 rounded-2xl opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all shadow-2xl z-50">
+                <p className="text-[10px] text-slate-400 leading-relaxed mb-3 italic">
+                  Üretken AI özellikleri için Google Cloud ücretli proje anahtarı gereklidir.
+                </p>
+                <a 
+                  href="https://ai.google.dev/gemini-api/docs/billing" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-[9px] font-black text-cyan-400 uppercase tracking-widest flex items-center gap-2 hover:underline"
+                >
+                  <Info size={12} /> FATURALANDIRMA REHBERİ
+                </a>
+              </div>
+           </div>
+
+           <div className={`hidden sm:flex flex-col items-end gap-0.5 px-3 py-1.5 rounded-xl border transition-all ${dbStatus.connected ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-rose-500/30 bg-rose-500/5'}`}>
               <div className="flex items-center gap-2">
                  <span className={`w-1.5 h-1.5 rounded-full ${dbStatus.connected ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
                  <span className="text-[9px] font-black uppercase text-white tracking-widest">NEON DB</span>
               </div>
               <span className="text-[8px] font-mono text-slate-500 font-bold">{dbStatus.connected ? `${dbStatus.latency}ms` : 'OFFLINE'}</span>
            </div>
+           
            <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center border border-slate-700">
              <UserIcon size={18} className="text-slate-400" />
            </div>
