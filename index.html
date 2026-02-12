@@ -72,15 +72,16 @@
     <div id="root"></div>
     <script type="module" src="index.tsx"></script>
     <script>
-      // Service Worker Kaydı - 404 hatalarını önlemek için mutlak yol kullanımı
+      // Service Worker Kaydı - Cross-origin hatasını önlemek için bağıl yol ve origin kontrolü
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js', { scope: '/' })
+          // Absolute path yerine relative path kullanarak browser'ın geçerli origin'i kullanmasını sağlıyoruz
+          navigator.serviceWorker.register('sw.js')
             .then(reg => {
                 console.log('%c[PhysioCore] Genesis SW Online', 'color: #06B6D4; font-weight: bold;', reg.scope);
             })
             .catch(err => {
-                console.error('%c[PhysioCore] SW Registration Failed:', 'color: #EF4444;', err);
+                console.warn('%c[PhysioCore] SW Registration failed (likely due to sandbox restrictions):', 'color: #f59e0b;', err.message);
             });
         });
       }
