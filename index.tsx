@@ -38,13 +38,9 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-// Fixed ErrorBoundary class to use named Component import to resolve 'props' accessibility error
-// Added constructor to explicitly pass props to base class and ensure 'this.props' is available in TypeScript
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false };
-  }
+// Fixed ErrorBoundary class to use property initialization and explicit React.Component to resolve 'state' and 'props' access errors
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError() { 
     return { hasError: true }; 
