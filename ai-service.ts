@@ -3,45 +3,51 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { PatientProfile, ProgressReport, Exercise, AnimationChoreography, TreatmentHistory, DetailedPainLog } from "./types.ts";
 
 /**
- * PHYSIOCORE AI - CORE AI SERVICE (v5.3)
+ * PHYSIOCORE AI - SMART KEY ADAPTER (v5.4)
+ * Handles API key sourcing exclusively from process.env.API_KEY and secure AI Studio selection.
  */
 
 export const ensureApiKey = async (): Promise<string> => {
-  // 1. Önce ortam değişkenini kontrol et
+  // Always prioritize and exclusively use process.env.API_KEY as per core guidelines.
   let key = process.env.API_KEY;
-  
-  // 2. Eğer yoksa veya geçersizse AI Studio köprüsünü dene
+
+  // Fallback check for AI Studio Bridge selection if process.env.API_KEY is missing.
+  // This helps in development environments where a key selection dialog is used.
+  const aistudio = (window as any).aistudio;
   if (!key || key === "undefined" || key === "") {
-    const aistudio = (window as any).aistudio;
     if (aistudio && typeof aistudio.hasSelectedApiKey === 'function') {
       const hasKey = await aistudio.hasSelectedApiKey();
       if (!hasKey) {
-        await aistudio.openSelectKey();
+        // Trigger the key selection dialog if no key is currently active.
+        try {
+          await aistudio.openSelectKey();
+        } catch (e) {
+          console.warn("AI Studio key selection failed or cancelled.");
+        }
       }
-      // openSelectKey sonrası process.env.API_KEY dolmuş olmalı
+      // Re-acquire the key from the environment after selection.
       key = process.env.API_KEY;
     }
   }
 
   if (!key || key === "" || key === "undefined") {
-    console.error("CRITICAL: Gemini API Key is missing. Please select a key via AI Studio bridge.");
-    throw new Error("API_KEY_MISSING");
+    throw new Error("API_KEY_NOT_FOUND");
   }
 
   return key;
 };
 
-/**
- * AI Üretim Fonksiyonları için Wrapper
- */
+// Helper function to initialize GoogleGenAI and execute a call just-in-time.
 const callGemini = async (fn: (ai: GoogleGenAI) => Promise<any>) => {
   try {
     const apiKey = await ensureApiKey();
+    // Always create a new instance right before making the API call.
     const ai = new GoogleGenAI({ apiKey });
     return await fn(ai);
   } catch (err: any) {
-    // "Requested entity was not found" hatası anahtarın geçersiz olduğunu gösterir
-    if (err.message?.includes("Requested entity was not found") || err.message?.includes("API_KEY_MISSING")) {
+    console.error("Gemini API Error:", err);
+    // Handle entity not found errors by resetting the key selection if applicable.
+    if (err.message?.includes("API_KEY_NOT_FOUND") || err.message?.includes("Requested entity was not found")) {
       const aistudio = (window as any).aistudio;
       if (aistudio) await aistudio.openSelectKey();
     }
@@ -51,12 +57,12 @@ const callGemini = async (fn: (ai: GoogleGenAI) => Promise<any>) => {
 
 export const generateExerciseChoreography = async (exercise: Partial<Exercise>): Promise<AnimationChoreography | null> => {
   return await callGemini(async (ai) => {
-    const prompt = `Senior Biomechanical Director olarak "${exercise.titleTr || exercise.title}" egzersizi için 0-100 loop bazlı koreografi JSON üret.`;
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: prompt,
+      contents: `Generate animation choreography for physical therapy: "${exercise.titleTr || exercise.title}"`,
       config: { responseMimeType: "application/json" }
     });
+    // Use .text property directly, do not call as a method.
     return JSON.parse(response.text || "null");
   });
 };
@@ -65,16 +71,12 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
   return await callGemini(async (ai) => {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
-      contents: { parts: [{ text: `Clinical Medical Illustration: ${exercise.titleTr || exercise.title}. Style: ${style}` }] },
+      contents: { parts: [{ text: `Clinical Anatomy Illustration: ${exercise.titleTr || exercise.title}. Style: ${style}` }] },
       config: { imageConfig: { aspectRatio: "1:1" } }
     });
-    const parts = response.candidates?.[0]?.content?.parts;
-    if (parts) {
-      for (const part of parts) {
-        if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
-      }
-    }
-    return '';
+    // Iterate through candidates to find the image data.
+    const part = response.candidates?.[0]?.content?.parts.find(p => p.inlineData);
+    return part ? `data:image/png;base64,${part.inlineData.data}` : '';
   });
 };
 
@@ -84,7 +86,7 @@ export const runClinicalConsultation = async (text: string, imageBase64?: string
       model: 'gemini-3-pro-preview',
       contents: {
         parts: [
-          { text: `Analyze and return PatientProfile JSON for: "${text}"` },
+          { text: `Clinical Analysis. Generate PatientProfile JSON for complaint: "${text}"` },
           ...(imageBase64 ? [{ inlineData: { mimeType: 'image/jpeg', data: imageBase64.split(',')[1] } }] : [])
         ]
       },
@@ -98,73 +100,48 @@ export const runAdaptiveAdjustment = async (currentProfile: PatientProfile, feed
   return await callGemini(async (ai) => {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Update profile JSON based on feedback: ${JSON.stringify(feedback)}`,
+      contents: `Update PatientProfile JSON for feedback: ${JSON.stringify(feedback)}`,
       config: { responseMimeType: "application/json" }
     });
     return JSON.parse(response.text || "{}");
   });
 };
 
-// @fix: Added missing generateExerciseData function for ExerciseForm.tsx
 export const generateExerciseData = async (title: string): Promise<Partial<Exercise>> => {
   return await callGemini(async (ai) => {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Generate a structured clinical exercise protocol for "${title}". 
-      Return JSON with: titleTr, category, difficulty (1-10), sets, reps, description, biomechanics, safetyFlags (array), muscleGroups (array).`,
-      config: { 
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            titleTr: { type: Type.STRING },
-            category: { type: Type.STRING },
-            difficulty: { type: Type.NUMBER },
-            sets: { type: Type.NUMBER },
-            reps: { type: Type.NUMBER },
-            description: { type: Type.STRING },
-            biomechanics: { type: Type.STRING },
-            safetyFlags: { type: Type.ARRAY, items: { type: Type.STRING } },
-            muscleGroups: { type: Type.ARRAY, items: { type: Type.STRING } }
-          }
-        }
-      }
-    });
-    return JSON.parse(response.text || "{}");
-  });
-};
-
-// @fix: Added missing optimizeExerciseData function for ExerciseForm.tsx
-export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: string): Promise<Partial<Exercise>> => {
-  return await callGemini(async (ai) => {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `Optimize this physical therapy exercise for the goal: "${goal}". 
-      Current exercise: ${JSON.stringify(exercise)}. 
-      Adjust sets, reps, tempo, and biomechanics accordingly. Return optimized JSON.`,
+      contents: `Build exercise data JSON for: "${title}"`,
       config: { responseMimeType: "application/json" }
     });
     return JSON.parse(response.text || "{}");
   });
 };
 
-// @fix: Added missing generateCoachingAudio function for ExercisePlayer.tsx using TTS model
+export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: string): Promise<Partial<Exercise>> => {
+  return await callGemini(async (ai) => {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `Optimize exercise for ${goal}. Current: ${JSON.stringify(exercise)}`,
+      config: { responseMimeType: "application/json" }
+    });
+    return JSON.parse(response.text || "{}");
+  });
+};
+
 export const generateCoachingAudio = async (text: string): Promise<string> => {
   return await callGemini(async (ai) => {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text: `Clinical instruction: ${text}` }] }],
+      contents: [{ parts: [{ text }] }],
       config: {
         responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: 'Kore' },
-          },
-        },
+        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
       },
     });
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    // Note: Returns raw PCM data in base64. For standard <audio> playback, additional processing might be needed
-    return base64Audio ? `data:audio/pcm;base64,${base64Audio}` : '';
+    // Extract raw PCM audio data from the response.
+    const data = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    // Base64 encoded raw PCM data for decoding in UI.
+    return data ? data : '';
   });
 };

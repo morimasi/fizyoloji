@@ -1,23 +1,11 @@
 
-import React, { useState, useRef, useEffect, ErrorInfo, ReactNode } from 'react';
+import React, { useState, useRef, useEffect, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { 
-  Activity, 
-  User as UserIcon, 
-  Zap, 
-  BrainCircuit, 
-  Upload, 
-  Stethoscope, 
-  LayoutDashboard, 
-  Database,
-  TrendingUp,
-  Users,
-  CheckCircle2,
-  AlertTriangle,
-  Key,
-  ShieldCheck,
-  RefreshCw,
-  X
+  Activity, User as UserIcon, Zap, BrainCircuit, Upload, 
+  Stethoscope, LayoutDashboard, Database, TrendingUp, Users, 
+  CheckCircle2, AlertTriangle, Key, ShieldCheck, RefreshCw, X,
+  Info, Globe, Lock
 } from 'lucide-react';
 import { AppTab, PatientProfile, Exercise, ProgressReport } from './types.ts';
 import { runClinicalConsultation, runAdaptiveAdjustment } from './ai-service.ts';
@@ -31,25 +19,36 @@ import { UserManager } from './UserManager.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// Use React.Component to ensure class properties like state and props are correctly typed
+// ErrorBoundary class component to catch rendering errors in the app tree.
+// Generics are explicitly defined to satisfy TypeScript environment constraints.
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Explicit declaration of state property to resolve "Property 'state' does not exist" errors.
+  public state: ErrorBoundaryState = { hasError: false };
+
   constructor(props: ErrorBoundaryProps) {
     super(props);
+    // Redundant initialization for backward compatibility and strict constructor checks.
     this.state = { hasError: false };
   }
-  static getDerivedStateFromError(_error: Error): ErrorBoundaryState { return { hasError: true }; }
+
+  static getDerivedStateFromError(_error: Error): ErrorBoundaryState { 
+    return { hasError: true }; 
+  }
+
   render() {
+    // Accessing this.state which is now explicitly declared.
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-12 text-center">
           <div className="space-y-6">
             <AlertTriangle size={64} className="text-rose-500 mx-auto" />
             <h2 className="text-2xl font-black italic uppercase text-white tracking-tighter">Sistem <span className="text-rose-500">Hatası</span></h2>
-            <button onClick={() => window.location.reload()} className="px-10 py-4 bg-slate-900 border border-slate-800 rounded-2xl text-[10px] font-black text-cyan-400">YENİLE</button>
+            <button onClick={() => window.location.reload()} className="px-10 py-4 bg-slate-900 border border-slate-800 rounded-2xl text-[10px] font-black text-cyan-400">SİSTEMİ YENİLE</button>
           </div>
         </div>
       );
     }
+    // Accessing this.props which is inherited from React.Component.
     return this.props.children;
   }
 }
@@ -61,7 +60,8 @@ export default function PhysioCoreApp() {
   const [userInput, setUserInput] = useState('');
   const [patientData, setPatientData] = useState<PatientProfile | null>(null);
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
-  const [hasKey, setHasKey] = useState(true); // Başlangıçta true varsayıyoruz
+  const [hasKey, setHasKey] = useState(true);
+  const [showKeyWarning, setShowKeyWarning] = useState(false);
   
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [painScore, setPainScore] = useState(5);
@@ -73,22 +73,26 @@ export default function PhysioCoreApp() {
     const profile = PhysioDB.getProfile();
     if (profile) setPatientData(profile);
     
-    // Anahtar kontrolü
-    const checkKey = async () => {
+    const checkKeyStatus = async () => {
       const aistudio = (window as any).aistudio;
       if (aistudio) {
         const result = await aistudio.hasSelectedApiKey();
+        // Exclusively use process.env.API_KEY as per GenAI guidelines.
         setHasKey(result || !!process.env.API_KEY);
       }
     };
-    checkKey();
+    checkKeyStatus();
+    const interval = setInterval(checkKeyStatus, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleOpenKey = async () => {
     const aistudio = (window as any).aistudio;
     if (aistudio) {
       await aistudio.openSelectKey();
+      // Assume success after opening the dialog to avoid race conditions.
       setHasKey(true);
+      setShowKeyWarning(false);
     }
   };
 
@@ -102,9 +106,11 @@ export default function PhysioCoreApp() {
         await PhysioDB.saveProfile(result);
         setActiveTab('dashboard');
       }
-    } catch (err) {
-      console.error("Analysis Failed:", err);
-      setHasKey(false);
+    } catch (err: any) {
+      console.error("Consultation Crash:", err);
+      if (err.message === "API_KEY_NOT_FOUND") {
+        setShowKeyWarning(true);
+      }
     } finally {
       setIsAnalyzing(false);
     }
@@ -120,6 +126,8 @@ export default function PhysioCoreApp() {
       await PhysioDB.saveProfile(updated);
       setShowFeedbackModal(false);
       setActiveTab('progress');
+    } catch (err: any) {
+      if (err.message === "API_KEY_NOT_FOUND") setShowKeyWarning(true);
     } finally {
       setIsAnalyzing(false);
     }
@@ -134,7 +142,7 @@ export default function PhysioCoreApp() {
           </div>
           <div className="hidden sm:block">
             <h1 className="font-inter font-black text-xl tracking-tighter italic uppercase leading-none">PHYSIOCORE <span className="text-cyan-400">AI</span></h1>
-            <p className="text-[8px] font-mono text-slate-500 uppercase tracking-widest mt-1">Genesis v5.3 • Cloud Ready</p>
+            <p className="text-[8px] font-mono text-slate-500 uppercase tracking-widest mt-1">Genesis v5.4 • Cloud Integration</p>
           </div>
         </div>
         
@@ -148,13 +156,13 @@ export default function PhysioCoreApp() {
 
         <div className="flex items-center gap-4">
            {!hasKey && (
-             <button onClick={handleOpenKey} className="bg-rose-500/10 border border-rose-500/30 text-rose-500 px-4 py-2 rounded-xl text-[10px] font-black flex items-center gap-2 animate-pulse">
-               <Key size={14}/> ANAHTAR GEREKLİ
+             <button onClick={handleOpenKey} className="bg-amber-500/10 border border-amber-500/30 text-amber-500 px-4 py-2 rounded-xl text-[10px] font-black flex items-center gap-2 animate-pulse">
+               <Key size={14}/> ANAHTAR SEÇİMİ BEKLENİYOR
              </button>
            )}
-           <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-[9px] font-black uppercase text-white tracking-widest">SİSTEM AKTİF</span>
+           <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl border ${hasKey ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-slate-800 bg-slate-900/50 opacity-50'}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${hasKey ? 'bg-emerald-500 animate-pulse' : 'bg-slate-700'}`} />
+              <span className="text-[9px] font-black uppercase text-white tracking-widest">{hasKey ? 'SİSTEM AKTİF' : 'KEY GEREKLİ'}</span>
            </div>
            <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center border border-slate-700">
              <UserIcon size={18} className="text-slate-400" />
@@ -174,7 +182,7 @@ export default function PhysioCoreApp() {
                    </div>
                    <div className="space-y-1">
                       <h2 className="font-inter text-3xl font-black italic tracking-tighter uppercase leading-none">Klinik <span className="text-cyan-400">Görüşme</span></h2>
-                      <p className="text-slate-500 text-xs font-medium italic">Genesis Intelligence v5.3 • Cloud Architecture</p>
+                      <p className="text-slate-500 text-xs font-medium italic">Genesis Intelligence v5.4 • Hybrid Reasoning</p>
                    </div>
                 </div>
                 
@@ -209,26 +217,17 @@ export default function PhysioCoreApp() {
                     }
                   }} />
                   
-                  {hasKey ? (
-                    <button 
-                      onClick={handleStartAnalysis} 
-                      disabled={isAnalyzing} 
-                      className="w-full sm:w-auto bg-cyan-500 text-white px-12 py-5 rounded-2xl font-black italic tracking-tighter shadow-2xl shadow-cyan-500/40 flex items-center justify-center gap-4 text-lg hover:scale-[1.02] active:scale-95 transition-all"
-                    >
-                      {isAnalyzing ? (
-                        <><RefreshCw size={24} className="animate-spin" /> ANALİZ EDİLİYOR...</>
-                      ) : (
-                        <><Zap size={24} fill="currentColor" /> MUHAKEMEYİ BAŞLAT</>
-                      )}
-                    </button>
-                  ) : (
-                    <button 
-                      onClick={handleOpenKey}
-                      className="w-full sm:w-auto bg-rose-500 text-white px-12 py-5 rounded-2xl font-black italic tracking-tighter shadow-2xl shadow-rose-500/40 flex items-center justify-center gap-4 text-lg hover:scale-[1.02] active:scale-95 transition-all"
-                    >
-                      <Key size={24} /> ANAHTAR SEÇİN
-                    </button>
-                  )}
+                  <button 
+                    onClick={handleStartAnalysis} 
+                    disabled={isAnalyzing} 
+                    className={`w-full sm:w-auto px-12 py-5 rounded-2xl font-black italic tracking-tighter shadow-2xl flex items-center justify-center gap-4 text-lg hover:scale-[1.02] active:scale-95 transition-all ${hasKey ? 'bg-cyan-500 text-white shadow-cyan-500/40' : 'bg-slate-800 text-slate-400 cursor-not-allowed'}`}
+                  >
+                    {isAnalyzing ? (
+                      <><RefreshCw size={24} className="animate-spin" /> ANALİZ EDİLİYOR...</>
+                    ) : (
+                      <><Zap size={24} fill="currentColor" /> MUHAKEMEYİ BAŞLAT</>
+                    )}
+                  </button>
                 </div>
              </div>
              
@@ -245,6 +244,36 @@ export default function PhysioCoreApp() {
         {activeTab === 'users' && <UserManager />}
         {activeTab === 'cms' && <ExerciseStudio />}
       </main>
+
+      {/* API Key Modal Warning */}
+      {showKeyWarning && (
+        <div className="fixed inset-0 z-[200] bg-slate-950/95 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in">
+           <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-[3.5rem] p-12 space-y-8 shadow-2xl text-center relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/5 rounded-full blur-[80px] -mr-32 -mt-32" />
+              <div className="w-20 h-20 bg-rose-500/10 rounded-[2rem] mx-auto flex items-center justify-center text-rose-500 border border-rose-500/20 shadow-inner">
+                <Key size={40} />
+              </div>
+              <div className="space-y-4 relative z-10">
+                <h3 className="text-3xl font-black italic tracking-tighter uppercase text-white">BAĞLANTI <span className="text-rose-500">KESİLDİ</span></h3>
+                <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                  Vercel veya Vite üzerindeki <b>API_KEY</b> çevresel değişkeni tarayıcı tarafına sızdırılmamış olabilir. Lütfen AI Studio köprüsü üzerinden bir anahtar seçin veya Vercel panelinden "Redeploy" yapın.
+                </p>
+                <div className="bg-slate-950 p-6 rounded-2xl border border-white/5 text-left space-y-3">
+                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><Info size={12}/> Teknik Çözüm Yolları</p>
+                   <ul className="text-[10px] text-slate-400 space-y-2 list-disc pl-4 italic">
+                     <li>Vercel Ayarlarında değişken adını <b>API_KEY</b> olarak kontrol edin.</li>
+                     <li>Vite projesinde <b>.env</b> dosyasına <b>VITE_API_KEY</b> ekleyin.</li>
+                     <li>Aşağıdaki butona basarak manuel anahtar seçin.</li>
+                   </ul>
+                </div>
+              </div>
+              <div className="flex gap-4 relative z-10">
+                 <button onClick={() => setShowKeyWarning(false)} className="flex-1 py-5 bg-slate-800 rounded-2xl text-[11px] font-black text-slate-500 uppercase tracking-widest border border-slate-800">KAPAT</button>
+                 <button onClick={handleOpenKey} className="flex-1 py-5 bg-cyan-500 rounded-2xl text-[11px] font-black text-white uppercase tracking-widest shadow-xl shadow-cyan-500/30">ANAHTAR SEÇ</button>
+              </div>
+           </div>
+        </div>
+      )}
 
       {selectedExercise && <ExercisePlayer exercise={selectedExercise} onClose={(finished) => {
         setSelectedExercise(null);
@@ -281,7 +310,7 @@ export default function PhysioCoreApp() {
 
 function NavBtn({ active, onClick, icon: Icon, label }: any) {
   return (
-    <button onClick={onClick} className={`flex items-center gap-3 px-6 py-3.5 rounded-xl text-[10px] font-black tracking-[0.2em] transition-all ${active ? 'bg-cyan-500 text-white shadow-xl shadow-cyan-500/20' : 'text-slate-500 hover:text-slate-200'}`}>
+    <button onClick={onClick} className={`flex items-center gap-3 px-6 py-3.5 rounded-xl text-[10px] font-black tracking-[0.2em] transition-all ${active ? 'bg-cyan-500 text-white shadow-xl shadow-cyan-500/20' : 'text-slate-400 hover:text-slate-200'}`}>
       <Icon size={18} /> {label}
     </button>
   );
