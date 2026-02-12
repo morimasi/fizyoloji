@@ -38,8 +38,8 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-// Fixed: Inheriting from Component instead of React.Component and specifying generic types explicitly to resolve the missing 'props' property error.
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fixed: Inheriting from React.Component and specifying generic types explicitly to resolve the missing 'props' property error.
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false };
 
   constructor(props: ErrorBoundaryProps) {
@@ -68,7 +68,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
-    // Correctly accessing props.children
+    // Fixed: Correctly accessing children from props through properly typed React.Component inheritance.
     return this.props.children;
   }
 }
@@ -286,7 +286,7 @@ export default function PhysioCoreApp() {
       
       {showFeedbackModal && (
         <div className="fixed inset-0 z-[110] bg-slate-950/90 backdrop-blur-3xl flex items-center justify-center p-6 animate-in fade-in duration-300">
-           <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-[3rem] p-12 space-y-10 shadow-2xl relative">
+           <div className="bg-slate-900 border border-slate-800 w-full max-lg rounded-[3rem] p-12 space-y-10 shadow-2xl relative">
               <div className="text-center space-y-3">
                  <CheckCircle2 size={32} className="mx-auto text-emerald-400" />
                  <h2 className="font-inter text-2xl font-black italic tracking-tighter uppercase leading-tight text-white">Seans <span className="text-cyan-400">Tamamlandı</span></h2>

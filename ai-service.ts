@@ -4,12 +4,22 @@ import { PatientProfile, ProgressReport, Exercise, DetailedPainLog, TreatmentHis
 import { PhysioDB } from "./db-repository.ts";
 
 /**
- * PHYSIOCORE AI - GENESIS AI CONNECTION PROTOCOL (v4.6)
- * Error Handling Strategy:
- * 1. Strictly prevent SDK initialization if API key is invalid.
- * 2. Catch and suppress SDK-level "API key must be set" errors.
- * 3. Re-trigger key selection on "Requested entity was not found" (Billing/Project issues).
+ * PHYSIOCORE AI - GENESIS AI CONNECTION PROTOCOL (v4.7)
+ * "Ultra" Scenario integration from fizyo.md
  */
+
+// Bölüm 8'deki anatomik detaylar için rehber
+const ULTRA_ANATOMICAL_GUIDE: Record<string, string> = {
+  'McKenzie': 'Show L4-L5 disc as semi-transparent with a zoom effect. Simulate disc centralization with a blue fluid flow.',
+  'Dead Bug': 'Highlight Transversus Abdominis muscles like a protective corset glowing in Neon Green.',
+  'Bird-Dog': 'If balance is lost, show a laser level axis turning red. Highlight multifidus muscles.',
+  'Chin Tuck': 'Show suboccipital muscles stretching with a spring-like visual effect.',
+  'Cat-Camel': 'Show spinal segments changing colors one by one like piano keys.',
+  'Terminal Knee Extension': 'The moment the knee locks, highlight Vastus Medialis (VMO) with a glowing electric effect.',
+  'Heel Slide': 'Show joint fluid nourishing cartilage with a water ripple effect.',
+  'Squat': 'If the knee passes toes, highlight the floor area as a "Risk Zone" in red glow.'
+};
+
 export const ensureApiKey = async (): Promise<string> => {
   const key = process.env.API_KEY;
   const isKeyValid = key && key !== "undefined" && key !== "";
@@ -18,7 +28,6 @@ export const ensureApiKey = async (): Promise<string> => {
 
   const aistudio = (window as any).aistudio;
   if (aistudio) {
-    // Race condition: trigger selection but we must stop current execution to prevent SDK crash
     await aistudio.openSelectKey();
     throw new Error("MISSING_API_KEY");
   }
@@ -26,14 +35,8 @@ export const ensureApiKey = async (): Promise<string> => {
   throw new Error("MISSING_API_KEY");
 };
 
-/**
- * Merkezi AI Hata Yönetimi
- * SDK'nın fırlattığı veya bizim fırlattığımız anahtar hatalarını yakalar.
- */
 const handleAiError = async (error: any) => {
   const errorMessage = error?.message || "";
-  
-  // Bilinen anahtar hataları
   const isMissingKey = errorMessage.includes("API key must be set") || errorMessage === "MISSING_API_KEY";
   const isNotFoundError = errorMessage.includes("Requested entity was not found");
 
@@ -41,20 +44,13 @@ const handleAiError = async (error: any) => {
     console.warn("[PhysioCore] AI Key Error Detected:", errorMessage);
     const aistudio = (window as any).aistudio;
     if (aistudio) {
-      // Kullanıcıyı tekrar seçime zorla
       await aistudio.openSelectKey();
     }
-    // Hata zaten loglandı, akışı sessizce durdurmak için tekrar fırlatmiyoruz (caller check returning empty)
     return; 
   }
-
-  // Bilinmeyen bir hataysa (Kota, network vb.) yukarı fırlat
   throw error;
 };
 
-/**
- * Genişletilmiş Video Üretim Motoru (v4.6 - Veo Optimized)
- */
 export const generateExerciseVideo = async (
   exercise: Partial<Exercise>, 
   style: string = 'Cinematic-Motion',
@@ -67,14 +63,19 @@ export const generateExerciseVideo = async (
 ): Promise<string> => {
   try {
     const apiKey = await ensureApiKey();
-    // Her çağrıda yeni instance (Google SDK kuralı)
     const ai = new GoogleGenAI({ apiKey });
     
+    // fizyo.md Bölüm 8 detaylarını eşleştir
+    const ultraDetail = Object.entries(ULTRA_ANATOMICAL_GUIDE).find(([key]) => 
+      exercise.title?.includes(key) || exercise.titleTr?.includes(key)
+    )?.[1] || '';
+
     const prompt = `
       MEDICAL GRADE SIMULATION: ${exercise.titleTr || exercise.title}. 
+      ULTRA BLUEPRINT PARAMETERS: ${ultraDetail}
       VISUAL STYLE: ${style}. 
       BIOMECHANICS: ${exercise.biomechanics}.
-      DIRECTOR'S CUT PARAMETERS:
+      DIRECTOR'S CUT:
       - Camera Angle: ${directorialNotes.camera || 'Dynamic Clinical'}
       - Lighting: ${directorialNotes.lighting || 'High Contrast Medical'}
       - Detail Focus: ${directorialNotes.focus || 'Musculoskeletal Integrity'}
@@ -113,9 +114,6 @@ export const generateExerciseVideo = async (
   }
 };
 
-/**
- * Klinik Danışmanlık Motoru
- */
 export const runClinicalConsultation = async (
   text: string, 
   imageBase64?: string,
@@ -144,7 +142,7 @@ export const runClinicalConsultation = async (
       },
       config: { 
         responseMimeType: "application/json",
-        systemInstruction: "Kesinlikle tıbbi terminoloji kullan ve JSON formatında yanıt ver."
+        systemInstruction: "Kesinlikle tıbbi terminoloji kullan ve JSON formatında yanıt ver. fizyo.md blueprint'ine sadık kal."
       }
     });
 
@@ -163,7 +161,7 @@ export const runAdaptiveAdjustment = async (currentProfile: PatientProfile, feed
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Feedback: ${JSON.stringify(feedback)}. Mevcut Profil: ${JSON.stringify(currentProfile)}. Adaptif güncelleme yap ve JSON döndür.`,
+      contents: `Feedback: ${JSON.stringify(feedback)}. Mevcut Profil: ${JSON.stringify(currentProfile)}. Adaptif güncelleme yap ve JSON döndür. Ağrı skoru ${feedback.painScore} ise Bölüm 5'teki formülleri (max(5, 15-painScore)) kullan.`,
       config: { responseMimeType: "application/json" }
     });
     return JSON.parse(response.text || "{}");
@@ -179,7 +177,7 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
-      contents: { parts: [{ text: `High-fidelity 4K Medical Illustration: ${exercise.titleTr || exercise.title}. Style: ${style}. Biomechanics focused.` }] },
+      contents: { parts: [{ text: `High-fidelity 4K Medical Illustration: ${exercise.titleTr || exercise.title}. Style: ${style}. Biomechanics focused. Anatomical detail: ${ULTRA_ANATOMICAL_GUIDE[exercise.title || ''] || ''}` }] },
       config: { imageConfig: { aspectRatio: "1:1" } }
     });
     
@@ -206,7 +204,7 @@ export const generateExerciseData = async (exerciseName: string): Promise<Partia
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Biyomekanik veriler oluştur (JSON): "${exerciseName}". Dahil et: reps, sets, tempo, muscleGroups.`,
+      contents: `Biyomekanik veriler oluştur (JSON): "${exerciseName}". Dahil et: reps, sets, tempo, muscleGroups. fizyo.md standartlarını kullan.`,
       config: { responseMimeType: "application/json" }
     });
     const result = JSON.parse(response.text || "{}");
