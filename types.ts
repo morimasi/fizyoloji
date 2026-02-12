@@ -1,6 +1,7 @@
 
 export type UserRole = 'Admin' | 'Therapist' | 'Patient';
 export type PatientStatus = 'Kritik' | 'Stabil' | 'İyileşiyor' | 'Taburcu';
+export type PainQuality = 'Keskin' | 'Künt' | 'Yanıcı' | 'Batıcı' | 'Elektriklenme';
 
 export interface Message {
   id: string;
@@ -12,6 +13,20 @@ export interface Message {
   attachmentUrl?: string;
 }
 
+export interface TherapistProfile {
+  specialization: string[];
+  bio: string;
+  yearsOfExperience: number;
+  successRate: number;
+  totalPatientsActive: number;
+  averageRecoveryTime: string;
+  aiAssistantSettings: {
+    autoSuggestProtocols: boolean;
+    notifyHighRisk: boolean;
+    weeklyReports: boolean;
+  };
+}
+
 export interface User {
   id: string;
   role: UserRole;
@@ -19,29 +34,51 @@ export interface User {
   email: string;
   avatarUrl?: string;
   createdAt: string;
-  assignedTherapistId?: string; // Terapist ise bu boştur
+  assignedTherapistId?: string;
+  therapistProfile?: TherapistProfile;
 }
 
 export interface ClinicalNote {
   id: string;
-  authorId: string; // Terapist ID
+  authorId: string;
   text: string;
   date: string;
   type: 'Observation' | 'Adjustment' | 'Warning';
 }
 
+export interface TreatmentHistory {
+  id: string;
+  date: string;
+  facility: string;
+  summary: string;
+  outcome: string;
+  therapistName: string;
+}
+
+export interface DetailedPainLog {
+  id: string;
+  date: string;
+  score: number; // 0-10
+  location: string;
+  quality: PainQuality;
+  triggers: string[];
+  duration: string;
+}
+
 export interface PatientUser extends User {
   status: PatientStatus;
   lastVisit: string;
-  recoveryProgress: number; // 0-100
+  recoveryProgress: number;
+  riskScore: number; // 0-100 (AI Determined)
   clinicalProfile: {
     diagnosis: string;
     riskLevel: 'Düşük' | 'Orta' | 'Yüksek';
     notes: ClinicalNote[];
+    treatmentHistory: TreatmentHistory[];
+    painLogs: DetailedPainLog[];
   };
 }
 
-// Mevcut exportlar devam ediyor...
 export interface Exercise {
   id: string;
   code: string;
@@ -63,7 +100,6 @@ export interface Exercise {
   isPersonalized?: boolean;
   tempo?: string;
   restPeriod?: number;
-  // Eksik klinik özellikler eklendi
   muscleGroups?: string[];
   equipment?: string[];
   rehabPhase?: 'Akut' | 'Sub-Akut' | 'Kronik' | 'Performans';
@@ -75,6 +111,8 @@ export interface ProgressReport {
   painScore: number;
   completionRate: number;
   feedback: string;
+  painLocation?: string;
+  painQuality?: PainQuality;
 }
 
 export interface PatientProfile {
@@ -82,14 +120,17 @@ export interface PatientProfile {
   riskLevel: 'Düşük' | 'Orta' | 'Yüksek';
   suggestedPlan: Exercise[];
   progressHistory: ProgressReport[];
-  // AI analiz verileri için eksik özellik eklendi
+  treatmentHistory?: TreatmentHistory[];
+  painLogs?: DetailedPainLog[];
   latestInsight?: {
     summary?: string;
     adaptationNote?: string;
     nextStep?: string;
     phaseName?: string;
     recommendation?: string;
+    painTrendAnalysis?: string;
   };
 }
 
 export type AppTab = 'consultation' | 'dashboard' | 'cms' | 'progress' | 'users';
+export type TherapistTab = 'dashboard' | 'patients' | 'intelligence' | 'settings';

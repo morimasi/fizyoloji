@@ -4,7 +4,7 @@ import {
   Image, Sparkles, Wand2, Box, Camera, Loader2, 
   Check, Film, Layers, PlayCircle, Lock, Zap, Video,
   Settings, Download, Share2, Archive, Star, MessageSquare,
-  Repeat, Palette
+  Repeat, Palette, Key, ShieldCheck
 } from 'lucide-react';
 import { Exercise } from './types.ts';
 import { generateExerciseVisual, generateExerciseVideo } from './ai-service.ts';
@@ -21,6 +21,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
   const [directorialNote, setDirectorialNote] = useState('');
   const [previewUrl, setPreviewUrl] = useState(exercise.visualUrl || exercise.videoUrl || '');
   const [isMotion, setIsMotion] = useState(exercise.isMotion ?? true);
+  const [showKeyPrompt, setShowKeyPrompt] = useState(false);
 
   const styles = [
     { id: 'Cinematic-Motion', icon: PlayCircle, label: 'Cinema Flow', desc: 'Ultra Akışkan (Varsayılan)', isMotion: true },
@@ -34,16 +35,25 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
 
   const handleGenerate = async () => {
     if (!exercise.title) return;
+    
+    const currentStyle = styles.find(s => s.id === selectedStyle);
+    const shouldBeMotion = currentStyle?.isMotion ?? true;
+
+    // --- VEO API KEY SELECTION LOGIC ---
+    if (shouldBeMotion) {
+      const aistudio = (window as any).aistudio;
+      if (aistudio) {
+        const hasKey = await aistudio.hasSelectedApiKey();
+        if (!hasKey) {
+          setShowKeyPrompt(true);
+          return;
+        }
+      }
+    }
+
     setIsGenerating(true);
-
     try {
-      const currentStyle = styles.find(s => s.id === selectedStyle);
-      const shouldBeMotion = currentStyle?.isMotion ?? true;
-
       if (shouldBeMotion) {
-        const hasKey = await (window as any).aistudio.hasSelectedApiKey();
-        if (!hasKey) await (window as any).aistudio.openSelectKey();
-        
         const url = await generateExerciseVideo(exercise, selectedStyle, directorialNote);
         if (url) {
           setPreviewUrl(url);
@@ -60,13 +70,51 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
       }
     } catch (e) {
       console.error(e);
+      // Hata durumunda (örn. anahtar hatası) promptu tekrar gösterebiliriz
+      if (e instanceof Error && e.message.includes("entity was not found")) {
+        setShowKeyPrompt(true);
+      }
     } finally {
       setIsGenerating(false);
     }
   };
 
+  const handleSelectKey = async () => {
+    const aistudio = (window as any).aistudio;
+    if (aistudio) {
+      await aistudio.openSelectKey();
+      setShowKeyPrompt(false);
+      handleGenerate(); // Seçim sonrası otomatik devam et
+    }
+  };
+
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+    <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start relative">
+      {/* Key Prompt Modal */}
+      {showKeyPrompt && (
+        <div className="fixed inset-0 z-[200] bg-slate-950/95 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300">
+           <div className="bg-slate-900 border border-slate-800 p-12 rounded-[3rem] max-w-lg w-full text-center space-y-8 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
+              <div className="w-20 h-20 bg-cyan-500/10 rounded-2xl mx-auto flex items-center justify-center text-cyan-400 border border-cyan-500/20">
+                 <Key size={40} />
+              </div>
+              <div className="space-y-4">
+                 <h3 className="text-2xl font-black italic tracking-tighter text-white uppercase leading-tight">Video Üretim <span className="text-cyan-400">Yetkilendirmesi</span></h3>
+                 <p className="text-xs text-slate-500 leading-relaxed italic">
+                   Sinematik Cinema Flow (Veo) modellerini kullanabilmek için ödemesi aktif bir Google Cloud projesine ait API anahtarı seçmeniz gerekmektedir.
+                 </p>
+                 <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="inline-block text-[10px] font-black text-cyan-500 underline uppercase tracking-widest">Faturalandırma Dökümantasyonu</a>
+              </div>
+              <div className="flex flex-col gap-3 pt-4">
+                <button onClick={handleSelectKey} className="w-full bg-cyan-500 text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-cyan-500/20 flex items-center justify-center gap-3">
+                  <ShieldCheck size={20} /> ANAHTAR SEÇİMİNİ YAP
+                </button>
+                <button onClick={() => setShowKeyPrompt(false)} className="text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors">Vazgeç</button>
+              </div>
+           </div>
+        </div>
+      )}
+
       {/* Control Panel */}
       <div className="xl:col-span-5 space-y-8 bg-slate-900/40 rounded-[3rem] p-10 border border-slate-800">
         <div className="flex items-center gap-4 border-b border-slate-800 pb-6">

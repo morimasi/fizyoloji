@@ -1,52 +1,33 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { PatientProfile, ProgressReport, Exercise } from "./types.ts";
+import { PatientProfile, ProgressReport, Exercise, DetailedPainLog, TreatmentHistory } from "./types.ts";
 
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Üretim ortamında API anahtarının kontrolü
+const getAIClient = () => {
+  if (!process.env.API_KEY) {
+    throw new Error("CRITICAL: API_KEY is missing in environment variables.");
+  }
+  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+};
 
 /**
- * Cinema Motion Engine v5.1: Multi-Style Animation Engine
- * Üretilen videolar artık GIF döngüsü ve 2D vektörel animasyon stillerini de destekliyor.
+ * Cinema Motion Engine v5.5: AI Video Generation
  */
 export const generateExerciseVideo = async (
   exercise: Partial<Exercise>, 
   style: string = 'Cinematic-Motion',
   directorialNote: string = ''
 ): Promise<string> => {
-  const ai = getAI();
-  
-  const styleKeywords = {
-    'X-Ray': 'Blue semi-transparent X-ray aesthetic, glowing skeletal structure, anatomical precision.',
-    'Anatomic': 'Hyper-realistic muscle fiber rendering, deep tissue visibility, physiological accuracy.',
-    '4K-Render': 'High-end 3D studio lighting, cinematic 4K texture, soft shadows, professional grade.',
-    'Cinematic-Motion': 'Health documentary style, steady camera, neutral lighting, focused execution.',
-    'GIF-Animation': 'High-contrast loop-friendly motion, rhythmic and repetitive cadence, clean white or dark studio background, minimalist aesthetic.',
-    '2D-Animation': 'Flat vector medical illustration style, clean outlines, smooth 2D skeletal movement, professional infographic look.'
-  };
-
-  const currentStylePrompt = styleKeywords[style as keyof typeof styleKeywords] || styleKeywords['Cinematic-Motion'];
-
+  const ai = getAIClient();
   const prompt = `
-    CINEMA MOTION MASTERPIECE: Generate an ultra-fluid, 1080p medical animation film of a person performing "${exercise.title}".
-    
-    CLINICAL PERFORMANCE:
-    - TEMPO: ${exercise.tempo || 'Natural flow'}. 
-    - BIOMECHANICS: ${exercise.biomechanics}.
-    - DIFFICULTY LEVEL: ${exercise.difficulty}/10.
-    - DIRECTORIAL NOTE: ${directorialNote}
-    
-    TECHNICAL SPECIFICATIONS:
-    - STYLE: ${currentStylePrompt}.
-    - MOTION: Continuous, seamless human kinetics. 30fps absolute fluidity.
-    - LIGHTING: Cinematic accents on a dark professional studio background.
-    - SHOT: Medium full shot, following the center of gravity of the movement.
-    
-    IMPORTANT: The animation must feel like a purpose-driven short film. If it is a GIF style, ensure the start and end positions are identical for a perfect loop.
+    Generate an ultra-fluid, 1080p medical animation film of a person performing "${exercise.titleTr || exercise.title}".
+    STYLE: ${style}. BIOMECHANICS: ${exercise.biomechanics}. 
+    NOTE: ${directorialNote}
   `;
 
   try {
     let operation = await ai.models.generateVideos({
-      model: 'veo-3.1-generate-preview', 
+      model: 'veo-3.1-fast-generate-preview', 
       prompt: prompt,
       config: {
         numberOfVideos: 1,
@@ -55,46 +36,89 @@ export const generateExerciseVideo = async (
       }
     });
 
-    while (!operation.done) {
-      await new Promise(resolve => setTimeout(resolve, 8000));
+    let attempts = 0;
+    const maxAttempts = 30;
+
+    while (!operation.done && attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 10000));
       operation = await ai.operations.getVideosOperation({ operation: operation });
+      attempts++;
     }
+
+    if (!operation.done) throw new Error("Video generation timed out.");
 
     const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
     if (downloadLink) {
       const res = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+      if (!res.ok) throw new Error("Failed to fetch video blob.");
       const blob = await res.blob();
       return URL.createObjectURL(blob);
     }
     return '';
   } catch (e) {
-    console.error("Cinema Motion v5.1 Error:", e);
-    return await fallbackFastVideo(exercise);
+    console.error("Video Gen Error:", e);
+    return '';
   }
 };
 
-const fallbackFastVideo = async (exercise: Partial<Exercise>): Promise<string> => {
-  const ai = getAI();
+/**
+ * AI Karar Destek Sistemi - Gemini 3 Pro ile en üst düzey muhakeme
+ */
+export const runClinicalConsultation = async (
+  text: string, 
+  imageBase64?: string,
+  history?: TreatmentHistory[],
+  painLogs?: DetailedPainLog[]
+): Promise<PatientProfile | null> => {
+  const ai = getAIClient();
+  const prompt = `
+    KLİNİK ANALİZ TALEBİ:
+    Güncel Şikayet: "${text}"
+    Geçmiş Tedaviler: ${JSON.stringify(history || [])}
+    Son Ağrı Kayıtları: ${JSON.stringify(painLogs || [])}
+    
+    GÖREV: Hastanın geçmişini ve şikayetini tıbbi bir fizyoterapist titizliğiyle analiz et. 
+    Dozajları şu formüle göre belirle: max(5, 15 - painScore).
+    JSON formatında PatientProfile döndür.
+  `;
+
   try {
-    let operation = await ai.models.generateVideos({
-      model: 'veo-3.1-fast-generate-preview',
-      prompt: `Fluid clinical video: ${exercise.title}. Steady motion.`,
-      config: { numberOfVideos: 1, resolution: '720p', aspectRatio: '16:9' }
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview', // En karmaşık klinik veriler için Pro modeli
+      contents: {
+        parts: [
+          { text: prompt },
+          ...(imageBase64 ? [{ inlineData: { mimeType: 'image/jpeg', data: imageBase64.split(',')[1] } }] : [])
+        ]
+      },
+      config: { 
+        responseMimeType: "application/json",
+        temperature: 0.1 
+      }
     });
-    while (!operation.done) {
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      operation = await ai.operations.getVideosOperation({ operation: operation });
-    }
-    const link = operation.response?.generatedVideos?.[0]?.video?.uri;
-    const res = await fetch(`${link}&key=${process.env.API_KEY}`);
-    const blob = await res.blob();
-    return URL.createObjectURL(blob);
-  } catch { return ''; }
+    return JSON.parse(response.text || "null");
+  } catch (err) {
+    console.error("Clinical Consultation Error:", err);
+    return null; 
+  }
+};
+
+export const runAdaptiveAdjustment = async (currentProfile: PatientProfile, feedback: ProgressReport): Promise<PatientProfile> => {
+  const ai = getAIClient();
+  const prompt = `Adapt exercise plan based on feedback: ${JSON.stringify(feedback)}. Return complete PatientProfile JSON.`;
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: { responseMimeType: "application/json" }
+    });
+    return JSON.parse(response.text || "{}");
+  } catch { return currentProfile; }
 };
 
 export const generateExerciseVisual = async (exercise: Partial<Exercise>, style: string): Promise<string> => {
-  const ai = getAI();
-  const prompt = `Hyper-realistic 4K medical visual of ${exercise.title}. Style: ${style}. Clean studio setup.`;
+  const ai = getAIClient();
+  const prompt = `Hyper-realistic 4K medical visual of ${exercise.titleTr || exercise.title}. Style: ${style}.`;
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
@@ -109,9 +133,8 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
 };
 
 export const generateExerciseData = async (exerciseName: string): Promise<Partial<Exercise>> => {
-  const ai = getAI();
-  const prompt = `Generate expert clinical exercise data for "${exerciseName}" in JSON format.
-  Include: title, category, difficulty (1-10), sets, reps, description, biomechanics, safetyFlags, muscleGroups, equipment, movementPlane, rehabPhase.`;
+  const ai = getAIClient();
+  const prompt = `Generate expert clinical exercise data for "${exerciseName}" including biomechanics in JSON format.`;
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -123,8 +146,8 @@ export const generateExerciseData = async (exerciseName: string): Promise<Partia
 };
 
 export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: string): Promise<Partial<Exercise>> => {
-  const ai = getAI();
-  const prompt = `Optimize this exercise for: "${goal}". Current: ${JSON.stringify(exercise)}. Update JSON with new sets, reps, difficulty, tempo, restPeriod, clinicalNotes.`;
+  const ai = getAIClient();
+  const prompt = `Optimize for "${goal}": ${JSON.stringify(exercise)}. Update counts and tempo. Return JSON.`;
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -133,35 +156,4 @@ export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: st
     });
     return JSON.parse(response.text || "{}");
   } catch { return exercise; }
-};
-
-export const runClinicalConsultation = async (text: string, imageBase64?: string): Promise<PatientProfile | null> => {
-  const ai = getAI();
-  const prompt = `Elite Clinical Analysis. Analyze: "${text}". Return PatientProfile JSON.`;
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: {
-        parts: [
-          { text: prompt },
-          ...(imageBase64 ? [{ inlineData: { mimeType: 'image/jpeg', data: imageBase64.split(',')[1] } }] : [])
-        ]
-      },
-      config: { responseMimeType: "application/json" }
-    });
-    return JSON.parse(response.text || "{}");
-  } catch { return null; }
-};
-
-export const runAdaptiveAdjustment = async (currentProfile: PatientProfile, feedback: ProgressReport): Promise<PatientProfile> => {
-  const ai = getAI();
-  const prompt = `Update plan based on feedback: ${JSON.stringify(feedback)}`;
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-      config: { responseMimeType: "application/json" }
-    });
-    return JSON.parse(response.text || "{}");
-  } catch { return currentProfile; }
 };

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { 
   Activity, Stethoscope, Zap, TrendingUp, 
@@ -8,50 +7,8 @@ import {
 } from 'lucide-react';
 import { PatientProfile, Exercise } from './types.ts';
 
-interface DashboardProps {
-  profile: PatientProfile;
-  onExerciseSelect: (ex: Exercise) => void;
-}
-
-export const Dashboard: React.FC<DashboardProps> = ({ profile, onExerciseSelect }) => {
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-in fade-in duration-700">
-      {/* SOL KOLON: Klinik Metrikler ve Özet */}
-      <div className="lg:col-span-4 space-y-6">
-        <PatientIdentity profile={profile} />
-        <ClinicalInsights profile={profile} />
-        <BiometricStats profile={profile} />
-      </div>
-
-      {/* SAĞ KOLON: Reçete ve Akış */}
-      <div className="lg:col-span-8 space-y-6">
-        <div className="flex justify-between items-end px-2">
-          <div>
-            <h2 className="text-2xl font-semibold tracking-tight text-white italic">AKTİF <span className="text-cyan-400 uppercase">Protokol</span></h2>
-            <p className="text-[10px] font-medium text-slate-500 uppercase tracking-widest mt-1">Rehabilitasyon Fazı: {profile.latestInsight?.phaseName || 'Faz 1 (Akut)'}</p>
-          </div>
-          <div className="flex gap-2">
-             <span className="px-3 py-1 bg-slate-800 rounded-full text-[9px] font-bold text-slate-400 border border-slate-700">GÜN: 12/21</span>
-             <span className="px-3 py-1 bg-cyan-500/10 rounded-full text-[9px] font-bold text-cyan-400 border border-cyan-500/20">TOTAL: {profile.suggestedPlan.length} EGZERSİZ</span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4">
-          {profile.suggestedPlan.map((ex, idx) => (
-            <TreatmentRow 
-              key={ex.id || idx} 
-              exercise={ex} 
-              onClick={() => onExerciseSelect(ex)} 
-              index={idx + 1}
-            />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const PatientIdentity = ({ profile }: { profile: PatientProfile }) => (
+// @fix: Convert sub-components to React.FC to handle React-specific props like 'key'
+const PatientIdentity: React.FC<{ profile: PatientProfile }> = ({ profile }) => (
   <div className="glass-panel p-6 rounded-3xl border border-slate-800 relative overflow-hidden group">
     <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
     <div className="flex items-start gap-4 relative z-10">
@@ -72,10 +29,11 @@ const PatientIdentity = ({ profile }: { profile: PatientProfile }) => (
   </div>
 );
 
-const ClinicalInsights = ({ profile }: { profile: PatientProfile }) => (
+// @fix: Convert sub-components to React.FC
+const ClinicalInsights: React.FC<{ profile: PatientProfile }> = ({ profile }) => (
   <div className="glass-panel p-6 rounded-3xl border border-slate-800 bg-slate-950/40">
     <div className="flex items-center gap-2 mb-4">
-      <Zap size={14} className="text-cyan-400" />
+      < Zap size={14} className="text-cyan-400" />
       <h3 className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.2em]">AI Pulse Analizi</h3>
     </div>
     <div className="p-4 bg-slate-900/50 rounded-2xl border-l-2 border-cyan-500/50">
@@ -86,7 +44,8 @@ const ClinicalInsights = ({ profile }: { profile: PatientProfile }) => (
   </div>
 );
 
-const BiometricStats = ({ profile }: { profile: PatientProfile }) => (
+// @fix: Convert sub-components to React.FC
+const BiometricStats: React.FC<{ profile: PatientProfile }> = ({ profile }) => (
   <div className="grid grid-cols-2 gap-4">
     <div className="bg-slate-900/50 border border-slate-800 p-4 rounded-2xl flex flex-col gap-2">
       <div className="flex items-center justify-between">
@@ -111,7 +70,8 @@ const BiometricStats = ({ profile }: { profile: PatientProfile }) => (
   </div>
 );
 
-const TreatmentRow = ({ exercise, onClick, index }: { exercise: Exercise, onClick: () => void, index: number }) => (
+// @fix: Convert TreatmentRow to React.FC to properly support 'key' prop in loops
+const TreatmentRow: React.FC<{ exercise: Exercise; onClick: () => void; index: number }> = ({ exercise, onClick, index }) => (
   <div 
     onClick={onClick}
     className="group bg-slate-900/30 border border-slate-800 hover:border-cyan-500/30 hover:bg-slate-900 rounded-[2rem] p-5 flex items-center gap-5 cursor-pointer transition-all duration-300"
@@ -142,3 +102,46 @@ const TreatmentRow = ({ exercise, onClick, index }: { exercise: Exercise, onClic
     <ChevronRight size={16} className="text-slate-700 group-hover:text-cyan-400 group-hover:translate-x-1 transition-all" />
   </div>
 );
+
+interface DashboardProps {
+  profile: PatientProfile;
+  onExerciseSelect: (ex: Exercise) => void;
+}
+
+export const Dashboard: React.FC<DashboardProps> = ({ profile, onExerciseSelect }) => {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-in fade-in duration-700">
+      {/* SOL KOLON: Klinik Metrikler ve Özet */}
+      <div className="lg:col-span-4 space-y-6">
+        <PatientIdentity profile={profile} />
+        <ClinicalInsights profile={profile} />
+        < BiometricStats profile={profile} />
+      </div>
+
+      {/* SAĞ KOLON: Reçete ve Akış */}
+      <div className="lg:col-span-8 space-y-6">
+        <div className="flex justify-between items-end px-2">
+          <div>
+            <h2 className="text-2xl font-semibold tracking-tight text-white italic">AKTİF <span className="text-cyan-400 uppercase">Protokol</span></h2>
+            <p className="text-[10px] font-medium text-slate-500 uppercase tracking-widest mt-1">Rehabilitasyon Fazı: {profile.latestInsight?.phaseName || 'Faz 1 (Akut)'}</p>
+          </div>
+          <div className="flex gap-2">
+             <span className="px-3 py-1 bg-slate-800 rounded-full text-[9px] font-bold text-slate-400 border border-slate-700">GÜN: 12/21</span>
+             <span className="px-3 py-1 bg-cyan-500/10 rounded-full text-[9px] font-bold text-cyan-400 border border-cyan-500/20">TOTAL: {profile.suggestedPlan.length} EGZERSİZ</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4">
+          {profile.suggestedPlan.map((ex, idx) => (
+            <TreatmentRow 
+              key={ex.id || idx} 
+              exercise={ex} 
+              onClick={() => onExerciseSelect(ex)} 
+              index={idx + 1}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};

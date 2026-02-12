@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, Component, ErrorInfo, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { 
   Activity, 
@@ -14,7 +14,12 @@ import {
   Wifi,
   Users,
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  AlertTriangle,
+  RefreshCw,
+  Database as DbIcon,
+  CloudSync,
+  X
 } from 'lucide-react';
 import { AppTab, PatientProfile, Exercise, ProgressReport } from './types.ts';
 import { runClinicalConsultation, runAdaptiveAdjustment } from './ai-service.ts';
@@ -23,7 +28,50 @@ import { ExercisePlayer } from './ExercisePlayer.tsx';
 import { ProgressTracker } from './ProgressTracker.tsx';
 import { PhysioDB } from './db-repository.ts';
 import { Dashboard } from './Dashboard.tsx';
-import { UserManager } from './UserManager.tsx';
+import { TherapistHub } from './TherapistHub.tsx';
+
+// --- PRODUCTION ERROR BOUNDARY ---
+interface ErrorBoundaryProps {
+  children?: ReactNode;
+}
+interface ErrorBoundaryState {
+  hasError: boolean;
+}
+
+// Fixed ErrorBoundary class to use named Component import to resolve 'props' accessibility error
+// Added constructor to explicitly pass props to base class and ensure 'this.props' is available in TypeScript
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() { 
+    return { hasError: true }; 
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) { 
+    console.error("PROD_CRASH:", error, errorInfo); 
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center p-12 text-center">
+          <div className="space-y-6">
+            <AlertTriangle size={64} className="text-rose-500 mx-auto" />
+            <h2 className="text-2xl font-black italic uppercase text-white tracking-tighter">Sistem <span className="text-rose-500">Hatası</span></h2>
+            <p className="text-slate-500 text-sm max-w-md mx-auto italic">Klinik motorunda bir kesinti oluştu. Lütfen sayfayı yenileyin.</p>
+            <button onClick={() => window.location.reload()} className="px-10 py-4 bg-slate-900 border border-slate-800 rounded-2xl text-[10px] font-black uppercase tracking-widest text-cyan-400 flex items-center gap-3 mx-auto">
+              <RefreshCw size={16} /> SİSTEMİ YENİLE
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export default function PhysioCoreApp() {
   const [activeTab, setActiveTab] = useState<AppTab>('consultation');
@@ -32,6 +80,7 @@ export default function PhysioCoreApp() {
   const [userInput, setUserInput] = useState('');
   const [patientData, setPatientData] = useState<PatientProfile | null>(null);
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
+  const [dbStatus, setDbStatus] = useState<{connected: boolean, latency: number}>({connected: false, latency: 0});
   
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [painScore, setPainScore] = useState(5);
@@ -42,16 +91,32 @@ export default function PhysioCoreApp() {
   useEffect(() => {
     const savedData = PhysioDB.getProfile();
     if (savedData) setPatientData(savedData);
+    
+    // Check Neon DB Connectivity
+    PhysioDB.checkRemoteStatus().then(setDbStatus);
+    const interval = setInterval(() => {
+      PhysioDB.checkRemoteStatus().then(setDbStatus);
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleStartAnalysis = async () => {
     if (!userInput && !selectedImage) return;
     setIsAnalyzing(true);
     try {
-      const result = await runClinicalConsultation(userInput, selectedImage || undefined);
+      const history = patientData?.treatmentHistory || [];
+      const logs = patientData?.painLogs || [];
+      const result = await runClinicalConsultation(userInput, selectedImage || undefined, history, logs);
+      
       if (result) {
-        setPatientData(result);
-        PhysioDB.saveProfile(result);
+        const finalProfile = {
+          ...result,
+          treatmentHistory: history,
+          painLogs: logs,
+          progressHistory: patientData?.progressHistory || []
+        };
+        setPatientData(finalProfile);
+        PhysioDB.saveProfile(finalProfile);
         setActiveTab('dashboard');
       }
     } finally {
@@ -79,6 +144,15 @@ export default function PhysioCoreApp() {
     }
   };
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setSelectedImage(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0F172A] text-[#F8FAFC] font-roboto">
       <header className="sticky top-0 z-50 glass-panel border-b border-slate-800 px-8 py-4 flex justify-between items-center">
@@ -94,7 +168,7 @@ export default function PhysioCoreApp() {
           </div>
         </div>
         
-        <nav className="flex bg-slate-900/50 p-1 rounded-xl border border-slate-800">
+        <nav className="hidden md:flex bg-slate-900/50 p-1 rounded-xl border border-slate-800">
           <NavBtn active={activeTab === 'consultation'} onClick={() => setActiveTab('consultation')} icon={Stethoscope} label="KLİNİK" />
           <NavBtn active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={LayoutDashboard} label="PANEL" />
           <NavBtn active={activeTab === 'progress'} onClick={() => setActiveTab('progress')} icon={TrendingUp} label="TAKİP" />
@@ -102,31 +176,51 @@ export default function PhysioCoreApp() {
           <NavBtn active={activeTab === 'cms'} onClick={() => setActiveTab('cms')} icon={Database} label="STUDIO" />
         </nav>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-6">
+           <div className={`flex flex-col items-end gap-0.5 px-3 py-1.5 rounded-xl border transition-all ${dbStatus.connected ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-rose-500/30 bg-rose-500/5'}`}>
+              <div className="flex items-center gap-2">
+                 <span className={`w-1.5 h-1.5 rounded-full ${dbStatus.connected ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
+                 <span className="text-[9px] font-black uppercase text-white tracking-widest">NEON DB</span>
+              </div>
+              <span className="text-[8px] font-mono text-slate-500 font-bold">{dbStatus.connected ? `${dbStatus.latency}ms` : 'OFFLINE'}</span>
+           </div>
            <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center border border-slate-700">
              <UserIcon size={18} className="text-slate-400" />
            </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto p-8 pb-20">
+      <main className="max-w-7xl mx-auto p-4 md:p-8 pb-20">
         {activeTab === 'consultation' && (
           <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-             <div className="glass-panel rounded-[3rem] p-12 space-y-10 relative overflow-hidden">
+             <div className="glass-panel rounded-[2rem] md:rounded-[3rem] p-8 md:p-12 space-y-10 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/5 rounded-full blur-[120px] -mr-48 -mt-48" />
-                <div className="flex gap-6 relative z-10">
+                <div className="flex flex-col md:flex-row gap-6 relative z-10">
                    <div className="w-16 h-16 bg-cyan-500/10 rounded-[1.5rem] flex items-center justify-center text-cyan-400 border border-cyan-500/20 shadow-inner"><BrainCircuit size={32} /></div>
                    <div className="space-y-1">
-                      <h2 className="font-inter text-3xl font-black italic tracking-tighter uppercase">Klinik <span className="text-cyan-400">Görüşme</span></h2>
-                      <p className="text-slate-400 text-sm font-medium italic">Genesis AI Motoru v3.5 - Uzman Karar Destek Sistemi</p>
+                      <h2 className="font-inter text-2xl md:text-3xl font-black italic tracking-tighter uppercase leading-tight">Klinik <span className="text-cyan-400">Görüşme</span></h2>
+                      <p className="text-slate-400 text-sm font-medium italic">Genesis AI Motoru v3.5 - Neon DB Integrated</p>
                    </div>
                 </div>
-                <textarea value={userInput} onChange={(e) => setUserInput(e.target.value)} placeholder="Şikayetinizi buraya yazın..." className="w-full bg-slate-950 border border-slate-800 rounded-[2rem] p-8 text-sm outline-none transition-all min-h-[200px] shadow-inner font-roboto" />
+                <textarea 
+                  value={userInput} 
+                  onChange={(e) => setUserInput(e.target.value)} 
+                  placeholder="Şikayetinizi buraya yazın..." 
+                  className="w-full bg-slate-950 border border-slate-800 rounded-[1.5rem] md:rounded-[2rem] p-6 md:p-8 text-sm outline-none transition-all min-h-[200px] shadow-inner font-roboto" 
+                />
+                
+                {selectedImage && (
+                  <div className="relative w-32 h-32 rounded-2xl overflow-hidden border border-cyan-500/50">
+                    <img src={selectedImage} className="w-full h-full object-cover" />
+                    <button onClick={() => setSelectedImage(null)} className="absolute top-1 right-1 bg-rose-500 text-white p-1 rounded-full"><X size={12}/></button>
+                  </div>
+                )}
+
                 <div className="flex flex-col md:flex-row justify-between items-center gap-6 bg-slate-950/50 p-6 rounded-[2rem] border border-slate-800/50">
-                  <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-8 py-4 bg-slate-800 rounded-2xl text-[10px] font-black tracking-widest border border-slate-700">
+                  <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-8 py-4 bg-slate-800 rounded-2xl text-[10px] font-black tracking-widest border border-slate-700 w-full md:w-auto">
                     <Upload size={16} className="text-cyan-400" /> RAPOR ANALİZİ
                   </button>
-                  <input ref={fileInputRef} type="file" hidden accept="image/*" />
+                  <input ref={fileInputRef} type="file" hidden accept="image/*" onChange={handleImageUpload} />
                   <button onClick={handleStartAnalysis} disabled={isAnalyzing} className="w-full md:w-auto bg-cyan-500 text-white px-12 py-5 rounded-2xl font-black italic tracking-tighter shadow-xl shadow-cyan-500/30 transition-all flex items-center justify-center gap-3 text-lg hover:-translate-y-1 active:scale-95">
                     {isAnalyzing ? 'MUHAKEME YAPILIYOR...' : 'ANALİZİ BAŞLAT'} <Zap size={20} fill="currentColor" />
                   </button>
@@ -136,13 +230,24 @@ export default function PhysioCoreApp() {
         )}
 
         {activeTab === 'dashboard' && patientData && <Dashboard profile={patientData} onExerciseSelect={(ex) => setSelectedExercise(ex)} />}
-        {/* Fix: profile={profile} to profile={patientData} */}
         {activeTab === 'progress' && patientData && <ProgressTracker profile={patientData} />}
-        {activeTab === 'users' && <UserManager />}
+        {activeTab === 'users' && <TherapistHub />}
         {activeTab === 'cms' && <ExerciseStudio />}
       </main>
 
-      {selectedExercise && <ExercisePlayer exercise={selectedExercise} onClose={() => setSelectedExercise(null)} />}
+      {/* MOBILE NAV */}
+      <nav className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-950/80 backdrop-blur-3xl p-1.5 rounded-[2rem] border border-slate-800 flex gap-1 z-50 shadow-2xl">
+          <NavBtn active={activeTab === 'consultation'} onClick={() => setActiveTab('consultation')} icon={Stethoscope} hideLabel />
+          <NavBtn active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={LayoutDashboard} hideLabel />
+          <NavBtn active={activeTab === 'progress'} onClick={() => setActiveTab('progress')} icon={TrendingUp} hideLabel />
+          <NavBtn active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={Users} hideLabel />
+          <NavBtn active={activeTab === 'cms'} onClick={() => setActiveTab('cms')} icon={Database} hideLabel />
+      </nav>
+
+      {selectedExercise && <ExercisePlayer exercise={selectedExercise} onClose={(finished) => {
+        setSelectedExercise(null);
+        if (finished) setShowFeedbackModal(true);
+      }} />}
       
       {showFeedbackModal && (
         <div className="fixed inset-0 z-[110] bg-slate-950/90 backdrop-blur-3xl flex items-center justify-center p-6 animate-in fade-in duration-300">
@@ -158,7 +263,7 @@ export default function PhysioCoreApp() {
               </div>
               <div className="flex gap-4">
                  <button onClick={() => setShowFeedbackModal(false)} className="flex-1 py-5 bg-slate-800 rounded-2xl text-[10px] font-black text-slate-400 hover:text-white transition-colors">İPTAL</button>
-                 <button onClick={submitFeedback} className="flex-1 py-5 bg-cyan-500 rounded-2xl text-[10px] font-black text-white shadow-xl shadow-cyan-500/30">VERİLERİ SENKRONİZE ET</button>
+                 <button onClick={submitFeedback} className="flex-1 py-5 bg-cyan-500 rounded-2xl text-[10px] font-black text-white shadow-xl shadow-cyan-500/20">VERİLERİ SENKRONİZE ET</button>
               </div>
            </div>
         </div>
@@ -167,15 +272,19 @@ export default function PhysioCoreApp() {
   );
 }
 
-function NavBtn({ active, onClick, icon: Icon, label }: any) {
+function NavBtn({ active, onClick, icon: Icon, label, hideLabel }: any) {
   return (
     <button onClick={onClick} className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[10px] font-black tracking-widest transition-all ${active ? 'bg-cyan-500 text-white shadow-xl shadow-cyan-500/30' : 'text-slate-400 hover:text-slate-200'}`}>
-      <Icon size={14} /> {label}
+      <Icon size={18} /> {!hideLabel && label}
     </button>
   );
 }
 
 const rootElement = document.getElementById('root');
 if (rootElement) {
-  createRoot(rootElement).render(<PhysioCoreApp />);
+  createRoot(rootElement).render(
+    <ErrorBoundary>
+      <PhysioCoreApp />
+    </ErrorBoundary>
+  );
 }

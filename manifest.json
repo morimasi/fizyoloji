@@ -1,0 +1,23 @@
+
+{
+  "name": "PhysioCore AI Genesis",
+  "short_name": "PhysioCore",
+  "description": "Ultra-Professional Physiotherapy & Rehabilitation Ecosystem",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F172A",
+  "theme_color": "#06B6D4",
+  "icons": [
+    {
+      "src": "https://cdn.pixabay.com/photo/2017/01/31/22/46/brain-2027331_1280.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://cdn.pixabay.com/photo/2017/01/31/22/46/brain-2027331_1280.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

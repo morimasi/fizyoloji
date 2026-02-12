@@ -1,161 +1,93 @@
 
-import { Exercise, PatientProfile, ProgressReport } from './types.ts';
+import { Exercise, PatientProfile } from './types.ts';
 
+/**
+ * PhysioDB Master Repository v4.5
+ * LocalStorage ve Remote API Senkronizasyonu
+ */
 export class PhysioDB {
   private static STORAGE_KEY = 'physiocore_exercises';
   private static PROFILE_KEY = 'physiocore_patient';
+  private static SYNC_STATUS = 'physiocore_sync_meta';
 
-  private static defaultExercises: Exercise[] = [
-    // --- SPINE (Mevcut 10 + Yeni 10 = 20) ---
-    { id: 's1', code: 'SP-01', title: 'McKenzie Prone Press-up', titleTr: 'McKenzie Yüzüstü Bas-Yukarı', category: 'Spine / Lumbar', difficulty: 4, sets: 3, reps: 10, description: 'Yüzüstü yatarken kollarınızla gövdenizi yukarı itin. Pelvis yerde kalmalı.', biomechanics: 'Lumbar Extension / Centralization.', safetyFlags: ['Akut Kırık'], muscleGroups: ['Erector Spinae'], rehabPhase: 'Sub-Akut', equipment: ['Mat'] },
-    { id: 's2', code: 'SP-02', title: 'Cat-Camel Mobility', titleTr: 'Kedi-Deve Mobilizasyonu', category: 'Spine / Thoracic', difficulty: 2, sets: 2, reps: 15, description: 'Dört ayak üzerinde omurganızı yukarı yuvarlayın ve aşağı çukurlaştırın.', biomechanics: 'Segmental Spinal Mobility.', safetyFlags: [], muscleGroups: ['Multifidus'], rehabPhase: 'Akut', equipment: [] },
-    { id: 's3', code: 'SP-03', title: 'Bird-Dog Stability', titleTr: 'Bird-Dog Stabilizasyonu', category: 'Spine / Core', difficulty: 5, sets: 3, reps: 12, description: 'Zıt kol ve bacağınızı aynı anda uzatın, beli sabit tutun.', biomechanics: 'Cross-chain neuromuscular control.', safetyFlags: [], muscleGroups: ['Core', 'Gluteus'], rehabPhase: 'Kronik', equipment: [] },
-    { id: 's4', code: 'SP-04', title: 'Dead Bug Level 1', titleTr: 'Dead Bug Seviye 1', category: 'Spine / Core', difficulty: 3, sets: 3, reps: 10, description: 'Sırtüstü yatarken zıt uzuvları yere yaklaştırın, beli bastırın.', biomechanics: 'Anti-extension core stability.', safetyFlags: [], muscleGroups: ['Abs'], rehabPhase: 'Akut', equipment: [] },
-    { id: 's5', code: 'SP-05', title: 'Chin Tuck Isometric', titleTr: 'İzometrik Çene İçeri', category: 'Spine / Cervical', difficulty: 2, sets: 3, reps: 10, description: 'Çenenizi geriye doğru çekerek boyun arkasını uzatın.', biomechanics: 'Deep Neck Flexor activation.', safetyFlags: [], muscleGroups: ['Longus Colli'], rehabPhase: 'Akut', equipment: [] },
-    { id: 's6', code: 'SP-06', title: 'Thoracic Windmill', titleTr: 'Torakal Yel Değirmeni', category: 'Spine / Thoracic', difficulty: 4, sets: 2, reps: 10, description: 'Yan yatarken üstteki kolunuzla geriye doğru daire çizin.', biomechanics: 'Thoracic rotation mobility.', safetyFlags: [], muscleGroups: ['Pectorals'], rehabPhase: 'Sub-Akut', equipment: [] },
-    { id: 's7', code: 'SP-07', title: 'Segmental Bridging', titleTr: 'Segmental Köprü Kurma', category: 'Spine / Lumbar', difficulty: 3, sets: 3, reps: 12, description: 'Omurganızı tane tane yerden kaldırarak köprü kurun.', biomechanics: 'Articular control of spine.', safetyFlags: [], muscleGroups: ['Glutes', 'Hamstrings'], rehabPhase: 'Sub-Akut', equipment: ['Mat'] },
-    { id: 's8', code: 'SP-08', title: 'Side Plank Knee Down', titleTr: 'Diz Üstü Yan Plank', category: 'Spine / Core', difficulty: 4, sets: 3, reps: 30, description: 'Dizler üzerinde yan köprü pozisyonunda bekleyin.', biomechanics: 'Lateral trunk stability.', safetyFlags: [], muscleGroups: ['Obliques'], rehabPhase: 'Sub-Akut', equipment: [] },
-    { id: 's9', code: 'SP-09', title: 'Cobra Stretch', titleTr: 'Kobra Esnemesi', category: 'Spine / Lumbar', difficulty: 3, sets: 2, reps: 30, description: 'Üst gövdenizi kollarınızla yukarı kaldırıp bekleyin.', biomechanics: 'Static lumbar extension.', safetyFlags: ['Spondylolisthesis'], muscleGroups: ['Abs Stretch'], rehabPhase: 'Kronik', equipment: [] },
-    { id: 's10', code: 'SP-10', title: 'Pelvic Tilt', titleTr: 'Pelvik Eğim', category: 'Spine / Lumbar', difficulty: 1, sets: 3, reps: 20, description: 'Beli yere bastırıp bırakarak pelvisi hareket ettirin.', biomechanics: 'Pelvic dissociation.', safetyFlags: [], muscleGroups: ['Deep Core'], rehabPhase: 'Akut', equipment: [] },
-    // Spine Yeni 10
-    { id: 's11', code: 'SP-11', title: 'Wall Angels', titleTr: 'Duvar Melekleri', category: 'Spine / Thoracic', difficulty: 5, sets: 3, reps: 12, description: 'Sırtınızı duvara yaslayın, kollarınızı yukarı ve aşağı kaydırın.', biomechanics: 'Thoracic extension & scapular control.', safetyFlags: ['Omuz İmpingement'], muscleGroups: ['Lower Trapezius'], rehabPhase: 'Sub-Akut', equipment: ['Wall'] },
-    { id: 's12', code: 'SP-12', title: 'QL Side Stretch', titleTr: 'QL Yan Esnetme', category: 'Spine / Lumbar', difficulty: 2, sets: 3, reps: 30, description: 'Ayakta dururken bir tarafa eğilerek belinizin yan tarafını esnetin.', biomechanics: 'Quadratus Lumborum release.', safetyFlags: [], muscleGroups: ['QL'], rehabPhase: 'Akut', equipment: [] },
-    { id: 's13', code: 'SP-13', title: 'Cervical Isometric Rotation', titleTr: 'İzometrik Boyun Rotasyonu', category: 'Spine / Cervical', difficulty: 2, sets: 3, reps: 10, description: 'Elinizi başınızın yanına koyun ve başınızla elinize direnç uygulayın.', biomechanics: 'Cervical neuromuscular stabilization.', safetyFlags: [], muscleGroups: ['Sternocleidomastoid'], rehabPhase: 'Akut', equipment: [] },
-    { id: 's14', code: 'SP-14', title: 'Thread the Needle', titleTr: 'İğne Deliğinden Geçiş', category: 'Spine / Thoracic', difficulty: 3, sets: 2, reps: 10, description: 'Dört ayak üzerindeyken bir kolunuzu diğerinin altından geçirin.', biomechanics: 'Thoracic rotation & rib cage mobility.', safetyFlags: [], muscleGroups: ['Rhomboids'], rehabPhase: 'Sub-Akut', equipment: [] },
-    { id: 's15', code: 'SP-15', title: 'Prone Y-Extension', titleTr: 'Yüzüstü Y-Ekstansiyonu', category: 'Spine / Thoracic', difficulty: 6, sets: 3, reps: 10, description: 'Yüzüstü yatarken kollarınızı Y şeklinde yukarı kaldırın.', biomechanics: 'Thoracic spinal extension strength.', safetyFlags: [], muscleGroups: ['Erectors', 'Trapezius'], rehabPhase: 'Kronik', equipment: ['Mat'] },
-    { id: 's16', code: 'SP-16', title: 'Jefferson Curl (Light)', titleTr: 'Hafif Jefferson Curl', category: 'Spine / Lumbar', difficulty: 7, sets: 2, reps: 8, description: 'Ayaktayken omurganızı tane tane aşağı yuvarlayın ve yavaşça kalkın.', biomechanics: 'Spinal segmental loading & flexibility.', safetyFlags: ['Disk Hernisi (Akut)'], muscleGroups: ['Spinal Erectors'], rehabPhase: 'Performans', equipment: ['Dumbbell (Hafif)'] },
-    { id: 's17', code: 'SP-17', title: 'Supine Spinal Twist', titleTr: 'Sırtüstü Omurga Dönüşü', category: 'Spine / Lumbar', difficulty: 2, sets: 2, reps: 30, description: 'Sırtüstü yatarken dizlerinizi bir tarafa yatırarak bekleyin.', biomechanics: 'Passive lumbar rotation.', safetyFlags: [], muscleGroups: ['Obliques'], rehabPhase: 'Akut', equipment: [] },
-    { id: 's18', code: 'SP-18', title: 'Sphinx Pose', titleTr: 'Sfenks Pozu', category: 'Spine / Lumbar', difficulty: 2, sets: 2, reps: 60, description: 'Yüzüstü yatarken dirseklerinizin üzerinde hafifçe yükselin.', biomechanics: 'Low-grade lumbar extension.', safetyFlags: [], muscleGroups: ['Abdominals'], rehabPhase: 'Akut', equipment: [] },
-    { id: 's19', code: 'SP-19', title: 'Upper Trap Stretch', titleTr: 'Üst Trap Esnetme', category: 'Spine / Cervical', difficulty: 1, sets: 3, reps: 30, description: 'Başınızı nazikçe yana eğerek boyun yan kaslarını esnetin.', biomechanics: 'Trapezius muscle elongation.', safetyFlags: [], muscleGroups: ['Upper Trap'], rehabPhase: 'Akut', equipment: [] },
-    { id: 's20', code: 'SP-20', title: 'Deep Neck Flexor Head Lift', titleTr: 'Derin Boyun Fleksör Baş Kaldırma', category: 'Spine / Cervical', difficulty: 4, sets: 3, reps: 10, description: 'Sırtüstü yatarken çeneniz içerdeyken başınızı 1-2 cm kaldırın.', biomechanics: 'Postural neck stabilization.', safetyFlags: [], muscleGroups: ['Longus Capitis'], rehabPhase: 'Kronik', equipment: [] },
+  static async checkRemoteStatus(): Promise<{ connected: boolean; latency: number }> {
+    const start = Date.now();
+    try {
+      // API uç noktasını kontrol et
+      const res = await fetch('/api/sync', { method: 'OPTIONS' }).catch(() => null);
+      return { connected: !!res, latency: Date.now() - start };
+    } catch {
+      return { connected: false, latency: 0 };
+    }
+  }
 
-    // --- LOWER LIMB (Mevcut 10 + Yeni 10 = 20) ---
-    { id: 'l1', code: 'LL-01', title: 'Wall Squat Isometric', titleTr: 'İzometrik Duvar Squatı', category: 'Lower Limb / Knee', difficulty: 4, sets: 3, reps: 45, description: 'Sırtınızı duvara yaslayıp 90 derece bükülü bekleyin.', biomechanics: 'Quadriceps static loading.', safetyFlags: [], muscleGroups: ['Quads'], rehabPhase: 'Sub-Akut', equipment: ['Wall'] },
-    { id: 'l2', code: 'LL-02', title: 'Clamshells Phase 1', titleTr: 'Clamshell Faz 1', category: 'Lower Limb / Hip', difficulty: 3, sets: 3, reps: 15, description: 'Yan yatarken üstteki dizinizi yukarı açın.', biomechanics: 'Gluteus Medius isolation.', safetyFlags: [], muscleGroups: ['Glute Med'], rehabPhase: 'Akut', equipment: ['Band'] },
-    { id: 'l3', code: 'LL-03', title: 'Terminal Knee Extension', titleTr: 'Terminal Diz Ekstansiyonu', category: 'Lower Limb / Knee', difficulty: 2, sets: 3, reps: 20, description: 'Dizinizi arkadan bir bantla geriye doğru kilitler gibi itin.', biomechanics: 'VMO activation.', safetyFlags: [], muscleGroups: ['Vastus Medialis'], rehabPhase: 'Akut', equipment: ['Band'] },
-    { id: 'l4', code: 'LL-04', title: 'Bulgarian Split Squat', titleTr: 'Bulgar Split Squatı', category: 'Lower Limb / Hip', difficulty: 7, sets: 3, reps: 10, description: 'Tek ayağınız arkada bir yükseltideyken squat yapın.', biomechanics: 'Unilateral strength & stability.', safetyFlags: [], muscleGroups: ['Quads', 'Glutes'], rehabPhase: 'Performans', equipment: ['Bench'] },
-    { id: 'l5', code: 'LL-05', title: 'Monster Walk', titleTr: 'Canavar Yürüyüşü', category: 'Lower Limb / Hip', difficulty: 5, sets: 3, reps: 20, description: 'Dizlere bant takılıyken yan yan yürüyün.', biomechanics: 'Hip abductor dynamic control.', safetyFlags: [], muscleGroups: ['Glute Med'], rehabPhase: 'Kronik', equipment: ['Band'] },
-    { id: 'l6', code: 'LL-06', title: 'Calf Raise Eccentric', titleTr: 'Eksantrik Kalf Kaldırma', category: 'Lower Limb / Ankle', difficulty: 4, sets: 3, reps: 12, description: 'Parmak ucuna çıkın, topuğunuzu yavaşça (3 sn) indirin.', biomechanics: 'Achilles tendon loading.', safetyFlags: [], muscleGroups: ['Gastrocnemius'], rehabPhase: 'Sub-Akut', equipment: ['Step'] },
-    { id: 'l7', code: 'LL-07', title: 'Single Leg RDL', titleTr: 'Tek Bacak RDL', category: 'Lower Limb / Hip', difficulty: 6, sets: 3, reps: 12, description: 'Tek ayak üzerinde öne eğilirken diğer bacağı arkaya uzatın.', biomechanics: 'Hamstring eccentric control.', safetyFlags: [], muscleGroups: ['Hamstrings'], rehabPhase: 'Performans', equipment: [] },
-    { id: 'l8', code: 'LL-08', title: 'Adductor Squeeze', titleTr: 'Adduktör Sıkıştırma', category: 'Lower Limb / Hip', difficulty: 2, sets: 3, reps: 15, description: 'Dizlerin arasına bir yastık koyup sıkın.', biomechanics: 'Hip adductor isometric.', safetyFlags: [], muscleGroups: ['Adductors'], rehabPhase: 'Akut', equipment: ['Pillow'] },
-    { id: 'l9', code: 'LL-09', title: 'Heel Slide Passive', titleTr: 'Pasif Topuk Kaydırma', category: 'Lower Limb / Knee', difficulty: 1, sets: 3, reps: 15, description: 'Topuğunuzu yerde sürükleyerek dizinizi bükün.', biomechanics: 'Knee flexion ROM.', safetyFlags: ['Post-Op Kısıtlar'], muscleGroups: ['Quads Stretch'], rehabPhase: 'Akut', equipment: [] },
-    { id: 'l10', code: 'LL-10', title: 'Box Step-Up', titleTr: 'Kutuya Bas-Çık', category: 'Lower Limb / Functional', difficulty: 5, sets: 3, reps: 12, description: 'Bir kutuya adım atıp kontrollü bir şekilde inin.', biomechanics: 'Functional triple extension.', safetyFlags: [], muscleGroups: ['Glutes', 'Quads'], rehabPhase: 'Kronik', equipment: ['Box'] },
-    // Lower Limb Yeni 10
-    { id: 'l11', code: 'LL-11', title: 'Heel-to-Toe Walk', titleTr: 'Topuk-Burun Yürüyüşü', category: 'Lower Limb / Ankle', difficulty: 4, sets: 3, reps: 20, description: 'Bir çizgi üzerinde bir ayağınızın topuğunu diğerinin önüne koyarak yürüyün.', biomechanics: 'Proprioception & dynamic balance.', safetyFlags: [], muscleGroups: ['Tibialis Ant'], rehabPhase: 'Sub-Akut', equipment: [] },
-    { id: 'l12', code: 'LL-12', title: 'Banded Glute Bridge', titleTr: 'Bantlı Kalça Köprüsü', category: 'Lower Limb / Hip', difficulty: 4, sets: 3, reps: 15, description: 'Dizlerinize bant takılıyken kalçanızı yukarı kaldırın.', biomechanics: 'Hip extension & abduction synergy.', safetyFlags: [], muscleGroups: ['Glute Max', 'Med'], rehabPhase: 'Kronik', equipment: ['Band'] },
-    { id: 'l13', code: 'LL-13', title: 'Lateral Step-Down', titleTr: 'Yanal Basamak İnişi', category: 'Lower Limb / Knee', difficulty: 6, sets: 3, reps: 10, description: 'Bir basamaktan tek ayağınızla kontrollü bir şekilde yana doğru inin.', biomechanics: 'Eccentric quad control & patellar tracking.', safetyFlags: ['Aktif Diz Şişliği'], muscleGroups: ['Quads'], rehabPhase: 'Performans', equipment: ['Step'] },
-    { id: 'l14', code: 'LL-14', title: 'Hip Hitching', titleTr: 'Pelvik Kaldırma (Hitching)', category: 'Lower Limb / Hip', difficulty: 3, sets: 3, reps: 15, description: 'Ayaktayken bir ayağınızı yerden kaldırmadan kalçanızı yukarı çekin.', biomechanics: 'Frontal plane pelvic stability.', safetyFlags: [], muscleGroups: ['QL', 'Glute Med'], rehabPhase: 'Kronik', equipment: [] },
-    { id: 'l15', code: 'LL-15', title: 'Seated Leg Extension (Iso)', titleTr: 'Oturarak İzometrik Diz Açma', category: 'Lower Limb / Knee', difficulty: 2, sets: 3, reps: 10, description: 'Otururken dizinizi düzleştirip 10 saniye boyunca sıkın.', biomechanics: 'Quadriceps recruitment without joint shear.', safetyFlags: [], muscleGroups: ['Quads'], rehabPhase: 'Akut', equipment: [] },
-    { id: 'l16', code: 'LL-16', title: 'Side-Lying Leg Raise', titleTr: 'Yan Yatarak Bacak Kaldırma', category: 'Lower Limb / Hip', difficulty: 3, sets: 3, reps: 15, description: 'Yan yatarken üstteki bacağınızı dümdüz yukarı kaldırın.', biomechanics: 'Pure hip abduction.', safetyFlags: [], muscleGroups: ['Glute Med'], rehabPhase: 'Sub-Akut', equipment: [] },
-    { id: 'l17', code: 'LL-17', title: 'Towel Scrunches', titleTr: 'Havlu Toplama', category: 'Lower Limb / Ankle', difficulty: 1, sets: 3, reps: 20, description: 'Ayak parmaklarınızla yerdeki bir havluyu kendinize çekin.', biomechanics: 'Intrinsic foot muscle activation.', safetyFlags: [], muscleGroups: ['Foot Flexors'], rehabPhase: 'Akut', equipment: ['Towel'] },
-    { id: 'l18', code: 'LL-18', title: 'Copenhagen Plank (Easy)', titleTr: 'Kolay Copenhagen Plank', category: 'Lower Limb / Hip', difficulty: 8, sets: 3, reps: 15, description: 'Bir ayağınız sandalyedeyken yan plank pozisyonunda kalın.', biomechanics: 'Adductor chain strength.', safetyFlags: ['Kasık Fıtığı'], muscleGroups: ['Adductors'], rehabPhase: 'Performans', equipment: ['Chair'] },
-    { id: 'l19', code: 'LL-19', title: 'Prone Hamstring Curl', titleTr: 'Yüzüstü Hamstring Bükme', category: 'Lower Limb / Knee', difficulty: 3, sets: 3, reps: 15, description: 'Yüzüstü yatarken dizinizi bükerek topuğunuzu kalçanıza çekin.', biomechanics: 'Concentric hamstring loading.', safetyFlags: [], muscleGroups: ['Hamstrings'], rehabPhase: 'Sub-Akut', equipment: [] },
-    { id: 'l20', code: 'LL-20', title: 'Standing Calf Stretch', titleTr: 'Ayakta Kalf Esnetme', category: 'Lower Limb / Ankle', difficulty: 1, sets: 3, reps: 30, description: 'Ellerinizi duvara yaslayın, bir bacağınızı arkaya alıp topuğunuzu basın.', biomechanics: 'Gastrocnemius flexibility.', safetyFlags: [], muscleGroups: ['Calf'], rehabPhase: 'Akut', equipment: ['Wall'] },
+  static async syncWithRemote(): Promise<boolean> {
+    const profile = this.getProfile();
+    if (!profile) return false;
 
-    // --- UPPER LIMB (Mevcut 10 + Yeni 10 = 20) ---
-    { id: 'u1', code: 'UL-01', title: 'Scapular Wall Slide', titleTr: 'Skapular Duvar Kaydırma', category: 'Upper Limb / Shoulder', difficulty: 4, sets: 3, reps: 12, description: 'Kollarınız duvara yaslıyken yukarı-aşağı kaydırın.', biomechanics: 'Scapular upward rotation control.', safetyFlags: [], muscleGroups: ['Serratus Ant'], rehabPhase: 'Sub-Akut', equipment: ['Wall'] },
-    { id: 'u2', code: 'UL-02', title: 'External Rotation Banded', titleTr: 'Bantla Dış Rotasyon', category: 'Upper Limb / Shoulder', difficulty: 3, sets: 3, reps: 15, description: 'Dirseğiniz yanda, bandı dışa doğru çekin.', biomechanics: 'Rotator cuff strengthening.', safetyFlags: [], muscleGroups: ['Infraspinatus'], rehabPhase: 'Sub-Akut', equipment: ['Band'] },
-    { id: 'u3', code: 'UL-03', title: 'Pendulum Exercises', titleTr: 'Pendulum (Sarkaç) Egzersizi', category: 'Upper Limb / Shoulder', difficulty: 1, sets: 1, reps: 120, description: 'Gövdeden eğilip kolunuzu yerçekimiyle serbestçe sallayın.', biomechanics: 'Glenohumeral distraction.', safetyFlags: [], muscleGroups: ['Shoulder Capsule'], rehabPhase: 'Akut', equipment: [] },
-    { id: 'u4', code: 'UL-04', title: 'Serratus Punch', titleTr: 'Serratus Punch (Yumruk)', category: 'Upper Limb / Scapula', difficulty: 2, sets: 3, reps: 15, description: 'Sırtüstü yatarken yumruğunuzu tavana doğru itin.', biomechanics: 'Scapular protraction.', safetyFlags: [], muscleGroups: ['Serratus Ant'], rehabPhase: 'Akut', equipment: [] },
-    { id: 'u5', code: 'UL-05', title: 'Y-T-W-L Series', titleTr: 'Y-T-W-L Serisi', category: 'Upper Limb / Back', difficulty: 5, sets: 2, reps: 10, description: 'Kollarınızla bu harfleri çizerek sırtınızı sıkıştırın.', biomechanics: 'Mid-lower trapezius activation.', safetyFlags: [], muscleGroups: ['Trapezius'], rehabPhase: 'Kronik', equipment: ['Mat'] },
-    { id: 'u6', code: 'UL-06', title: 'Wall Push-Up Plus', titleTr: 'Duvar Şınavı Plus', category: 'Upper Limb / Chest', difficulty: 3, sets: 3, reps: 15, description: 'Duvarda şınav çekin, en tepede kürek kemiklerini açın.', biomechanics: 'Closed chain scapular stability.', safetyFlags: [], muscleGroups: ['Pectorals'], rehabPhase: 'Sub-Akut', equipment: ['Wall'] },
-    { id: 'u7', code: 'UL-07', title: 'Wrist Extensor Stretch', titleTr: 'El Bileği Esnetme', category: 'Upper Limb / Wrist', difficulty: 1, sets: 3, reps: 30, description: 'Elinizi aşağı büküp parmak uçlarından hafifçe çekin.', biomechanics: 'Common extensor tendon tension.', safetyFlags: [], muscleGroups: ['Extensors'], rehabPhase: 'Akut', equipment: [] },
-    { id: 'u8', code: 'UL-08', title: 'Bicep Eccentric Loading', titleTr: 'Biceps Eksantrik Yükleme', category: 'Upper Limb / Arm', difficulty: 4, sets: 3, reps: 10, description: 'Ağırlığı hızlı kaldırın, çok yavaş (5 sn) indirin.', biomechanics: 'Tendon remodelling.', safetyFlags: [], muscleGroups: ['Biceps'], rehabPhase: 'Kronik', equipment: ['Dumbbell'] },
-    { id: 'u9', code: 'UL-09', title: 'Doorway Pec Stretch', titleTr: 'Kapı Eşiği Göğüs Esnetme', category: 'Upper Limb / Chest', difficulty: 2, sets: 2, reps: 30, description: 'Kapı eşiğinde kollarınızı yaslayıp öne adım atın.', biomechanics: 'Static pectoral stretch.', safetyFlags: ['Instability'], muscleGroups: ['Pectoralis Major'], rehabPhase: 'Kronik', equipment: ['Door'] },
-    { id: 'u10', code: 'UL-10', title: 'Thoracic Prone Row', titleTr: 'Yüzüstü Torakal Kürek', category: 'Upper Limb / Back', difficulty: 5, sets: 3, reps: 12, description: 'Yüzüstü yatarken dirseklerinizi arkaya çekip bekleyin.', biomechanics: 'Scapular retraction.', safetyFlags: [], muscleGroups: ['Rhomboids'], rehabPhase: 'Kronik', equipment: [] },
-    // Upper Limb Yeni 10
-    { id: 'u11', code: 'UL-11', title: 'Doorway Bicep Stretch', titleTr: 'Kapı Eşiği Biceps Esnetme', category: 'Upper Limb / Arm', difficulty: 1, sets: 3, reps: 30, description: 'Kapı kenarında kolunuzu geriye yaslayıp vücudunuzu çevirin.', biomechanics: 'Biceps long head elongation.', safetyFlags: [], muscleGroups: ['Biceps'], rehabPhase: 'Akut', equipment: ['Door'] },
-    { id: 'u12', code: 'UL-12', title: 'Overhead Tricep Stretch', titleTr: 'Baş Üstü Triceps Esnetme', category: 'Upper Limb / Arm', difficulty: 1, sets: 3, reps: 30, description: 'Kolunuzu yukarı kaldırıp dirseğinizden bükün, diğer elinizle hafifçe itin.', biomechanics: 'Triceps muscle lengthening.', safetyFlags: [], muscleGroups: ['Triceps'], rehabPhase: 'Akut', equipment: [] },
-    { id: 'u13', code: 'UL-13', title: 'Forearm Pronation/Supination', titleTr: 'Ön Kol Rotasyonu', category: 'Upper Limb / Wrist', difficulty: 2, sets: 3, reps: 15, description: 'Elinizde bir sopa veya hafif dambıl ile avucunuzu yukarı ve aşağı çevirin.', biomechanics: 'Distal radioulnar mobility.', safetyFlags: [], muscleGroups: ['Pronators', 'Supinators'], rehabPhase: 'Akut', equipment: ['Hammer'] },
-    { id: 'u14', code: 'UL-14', title: 'Standing Scapular Squeeze', titleTr: 'Ayakta Kürek Kemiği Sıkıştırma', category: 'Upper Limb / Scapula', difficulty: 2, sets: 3, reps: 15, description: 'Ayaktayken kürek kemiklerinizi arkada birleştirin ve tutun.', biomechanics: 'Rhomboid & Trapezius activation.', safetyFlags: [], muscleGroups: ['Rhomboids'], rehabPhase: 'Akut', equipment: [] },
-    { id: 'u15', code: 'UL-15', title: 'Iso Internal Rotation (Wall)', titleTr: 'İzometrik İç Rotasyon', category: 'Upper Limb / Shoulder', difficulty: 2, sets: 3, reps: 10, description: 'Dirseğiniz 90 dereceyken elinizi duvara doğru içe doğru bastırın.', biomechanics: 'Subscapularis recruitment.', safetyFlags: [], muscleGroups: ['Subscapularis'], rehabPhase: 'Akut', equipment: ['Wall'] },
-    { id: 'u16', code: 'UL-16', title: 'Iso External Rotation (Wall)', titleTr: 'İzometrik Dış Rotasyon', category: 'Upper Limb / Shoulder', difficulty: 2, sets: 3, reps: 10, description: 'Dirseğiniz 90 dereceyken elinizin arkasını duvara doğru bastırın.', biomechanics: 'Infraspinatus isometric.', safetyFlags: [], muscleGroups: ['Rotator Cuff'], rehabPhase: 'Akut', equipment: ['Wall'] },
-    { id: 'u17', code: 'UL-17', title: 'Table Top Finger Taps', titleTr: 'Parmak Tıklatma', category: 'Upper Limb / Wrist', difficulty: 1, sets: 3, reps: 30, description: 'Elinizi masaya koyun ve parmaklarınızı sırayla yukarı kaldırıp indirin.', biomechanics: 'Fine motor control & finger extension.', safetyFlags: [], muscleGroups: ['Finger Extensors'], rehabPhase: 'Akut', equipment: [] },
-    { id: 'u18', code: 'UL-18', title: 'Grip Squeeze Ball', titleTr: 'Top Sıkıştırma', category: 'Upper Limb / Wrist', difficulty: 2, sets: 3, reps: 20, description: 'Yumuşak bir topu tüm gücünüzle sıkın ve bırakın.', biomechanics: 'Grip strength development.', safetyFlags: [], muscleGroups: ['Forearm Flexors'], rehabPhase: 'Akut', equipment: ['Soft Ball'] },
-    { id: 'u19', code: 'UL-19', title: 'Lower Trap Wall Slide', titleTr: 'Alt Trap Duvar Kaydırma', category: 'Upper Limb / Back', difficulty: 5, sets: 3, reps: 10, description: 'Duvara yaslanıp kollarınızı V şeklinde yukarı itin.', biomechanics: 'Lower Trapezius isolation.', safetyFlags: [], muscleGroups: ['Lower Traps'], rehabPhase: 'Kronik', equipment: ['Wall'] },
-    { id: 'u20', code: 'UL-20', title: 'Median Nerve Glide', titleTr: 'Median Sinir Kaydırma', category: 'Upper Limb / Wrist', difficulty: 2, sets: 3, reps: 10, description: 'Kolunuzu yana açın, el bileğinizi ve başınızı senkronize hareket ettirin.', biomechanics: 'Neural mobilization.', safetyFlags: ['Karıncalanma Artarsa Durun'], muscleGroups: ['Nerves'], rehabPhase: 'Sub-Akut', equipment: [] },
+    try {
+      const response = await fetch('/api/sync', {
+        method: 'POST',
+        body: JSON.stringify(profile),
+        headers: { 'Content-Type': 'application/json' }
+      });
 
-    // --- STABILITY (Yeni 10) ---
-    { id: 'st1', code: 'ST-01', title: 'Single Leg Stand', titleTr: 'Tek Bacak Denge', category: 'Stability', difficulty: 3, sets: 3, reps: 30, description: 'Tek ayak üzerinde dengenizi koruyarak bekleyin.', biomechanics: 'Ankle & hip proprioception.', safetyFlags: [], muscleGroups: ['Glute Med', 'Core'], rehabPhase: 'Sub-Akut', equipment: [] },
-    { id: 'st2', code: 'ST-02', title: 'Tandem Stance', titleTr: 'Tandem Duruş', category: 'Stability', difficulty: 2, sets: 3, reps: 60, description: 'Bir ayağınızın parmak ucu diğerinin topuğuna değecek şekilde durun.', biomechanics: 'Narrow base balance.', safetyFlags: [], muscleGroups: ['Core'], rehabPhase: 'Akut', equipment: [] },
-    { id: 'st3', code: 'ST-03', title: 'Star Excursion Balance', titleTr: 'Yıldız Denge Testi', category: 'Stability', difficulty: 6, sets: 3, reps: 8, description: 'Tek ayak üzerindeyken diğer ayağınızla farklı yönlere dokunun.', biomechanics: 'Dynamic reach stability.', safetyFlags: [], muscleGroups: ['Full Leg'], rehabPhase: 'Kronik', equipment: [] },
-    { id: 'st4', code: 'ST-04', title: 'Supine Core Bracing', titleTr: 'Sırtüstü Karın Sıkıştırma', category: 'Stability', difficulty: 1, sets: 3, reps: 10, description: 'Nefesinizi tutmadan göbeğinizi içeri çekip belinizi bastırın.', biomechanics: 'Transversus Abdominis activation.', safetyFlags: [], muscleGroups: ['Transversus'], rehabPhase: 'Akut', equipment: [] },
-    { id: 'st5', code: 'ST-05', title: 'Plank Shoulder Taps', titleTr: 'Plank Omuz Dokunuşu', category: 'Stability', difficulty: 5, sets: 3, reps: 12, description: 'Plank pozisyonunda kalçanızı oynatmadan zıt omuzlarınıza dokunun.', biomechanics: 'Anti-rotational core stability.', safetyFlags: [], muscleGroups: ['Core', 'Shoulders'], rehabPhase: 'Kronik', equipment: [] },
-    { id: 'st6', code: 'ST-06', title: 'Physioball Sitting Balance', titleTr: 'Egzersiz Topu Denge', category: 'Stability', difficulty: 4, sets: 3, reps: 60, description: 'Büyük top üzerinde otururken ayaklarınızı yerden hafifçe kaldırın.', biomechanics: 'Perturbation response training.', safetyFlags: [], muscleGroups: ['Core'], rehabPhase: 'Sub-Akut', equipment: ['Physioball'] },
-    { id: 'st7', code: 'ST-07', title: 'Walking on Foam', titleTr: 'Sünger Üstü Yürüyüş', category: 'Stability', difficulty: 4, sets: 3, reps: 20, description: 'Yumuşak bir zemin üzerinde dengenizi bozmadan yürüyün.', biomechanics: 'Proprioceptive challenge.', safetyFlags: [], muscleGroups: ['Ankle Stabilizers'], rehabPhase: 'Kronik', equipment: ['Foam Pad'] },
-    { id: 'st8', code: 'ST-08', title: 'Reactive Standing Reach', titleTr: 'Reaktif Ayakta Uzanma', category: 'Stability', difficulty: 5, sets: 3, reps: 10, description: 'Farklı açılara hızlıca uzanıp başlangıç pozisyonuna dönün.', biomechanics: 'Center of mass control.', safetyFlags: [], muscleGroups: ['Core', 'Legs'], rehabPhase: 'Kronik', equipment: [] },
-    { id: 'st9', code: 'ST-09', title: 'Perturbation Shielding', titleTr: 'Dirençli Denge', category: 'Stability', difficulty: 6, sets: 3, reps: 10, description: 'Birinden hafifçe sizi itmesini isteyin ve pozisyonunuzu koruyun.', biomechanics: 'Anticipatory postural adjustments.', safetyFlags: [], muscleGroups: ['Full Body'], rehabPhase: 'Kronik', equipment: [] },
-    { id: 'st10', code: 'ST-10', title: 'Stability Reverse Lunge', titleTr: 'Denge Odaklı Geri Lunge', category: 'Stability', difficulty: 5, sets: 3, reps: 12, description: 'Geriye adım atarken gövdenizi dik ve sabit tutmaya odaklanın.', biomechanics: 'Dynamic lower chain stability.', safetyFlags: [], muscleGroups: ['Quads', 'Core'], rehabPhase: 'Performans', equipment: [] },
-
-    // --- NEUROLOGICAL (Yeni 10) ---
-    { id: 'n1', code: 'NE-01', title: 'Mirror Therapy (Hand)', titleTr: 'Ayna Terapisi (El)', category: 'Neurological', difficulty: 2, sets: 3, reps: 10, description: 'Aynaya bakarak sağlam elinizin hareketini felçli taraf gibi izleyin.', biomechanics: 'Neuroplastic cortical remapping.', safetyFlags: [], muscleGroups: ['Brain'], rehabPhase: 'Akut', equipment: ['Mirror'] },
-    { id: 'n2', code: 'NE-02', title: 'PNF D1 Diagonal', titleTr: 'PNF D1 Diyagonal', category: 'Neurological', difficulty: 4, sets: 3, reps: 10, description: 'Kolunuzu kalçanızdan zıt omuzunuza doğru kılıç çeker gibi çekin.', biomechanics: 'Proprioceptive neuromuscular facilitation.', safetyFlags: [], muscleGroups: ['Shoulder', 'Core'], rehabPhase: 'Sub-Akut', equipment: [] },
-    { id: 'n3', code: 'NE-03', title: 'Standing Weight Shift', titleTr: 'Ayakta Ağırlık Aktarma', category: 'Neurological', difficulty: 3, sets: 3, reps: 20, description: 'Ayaktayken ağırlığınızı bir bacağınızdan diğerine yavaşça aktarın.', biomechanics: 'Center of gravity translation.', safetyFlags: [], muscleGroups: ['Legs'], rehabPhase: 'Akut', equipment: [] },
-    { id: 'n4', code: 'NE-04', title: 'Dual-Task Walking', titleTr: 'İkili Görev Yürüyüşü', category: 'Neurological', difficulty: 6, sets: 3, reps: 30, description: 'Yürürken aynı zamanda geriye doğru sayın veya kelime türetin.', biomechanics: 'Cognitive-motor interference training.', safetyFlags: [], muscleGroups: ['Full Body'], rehabPhase: 'Kronik', equipment: [] },
-    { id: 'n5', code: 'NE-05', title: 'Frenkel Exercises (Supine)', titleTr: 'Sırtüstü Frenkel Egzersizi', category: 'Neurological', difficulty: 4, sets: 3, reps: 10, description: 'Yatarken bacağınızı kontrollü bir şekilde belirli noktalara koyun.', biomechanics: 'Coordination & precision training.', safetyFlags: [], muscleGroups: ['Legs'], rehabPhase: 'Sub-Akut', equipment: [] },
-    { id: 'n6', code: 'NE-06', title: 'Sit-to-Stand Functional', titleTr: 'Fonksiyonel Otur-Kalk', category: 'Neurological', difficulty: 5, sets: 3, reps: 12, description: 'Sandalyeden ellerinizi kullanmadan kalkmaya ve kontrollü oturmaya odaklanın.', biomechanics: 'Lower limb motor planning.', safetyFlags: [], muscleGroups: ['Quads', 'Glutes'], rehabPhase: 'Sub-Akut', equipment: ['Chair'] },
-    { id: 'n7', code: 'NE-07', title: 'Proprioceptive Hand Reach', titleTr: 'Propriyoseptif El Uzanma', category: 'Neurological', difficulty: 3, sets: 3, reps: 10, description: 'Gözleriniz kapalıyken elinizi belirlenen bir noktaya uzatmaya çalışın.', biomechanics: 'Position sense accuracy.', safetyFlags: [], muscleGroups: ['Arm'], rehabPhase: 'Sub-Akut', equipment: [] },
-    { id: 'n8', code: 'NE-08', title: 'Finger to Thumb Tapping', titleTr: 'Parmak-Başparmak Tıklatma', category: 'Neurological', difficulty: 2, sets: 3, reps: 30, description: 'Tüm parmak uçlarınızı sırayla başparmağınıza dokundurun.', biomechanics: 'Distal coordination & dexterity.', safetyFlags: [], muscleGroups: ['Hands'], rehabPhase: 'Akut', equipment: [] },
-    { id: 'n9', code: 'NE-09', title: 'Gaze Stability VOR', titleTr: 'Bakış Stabilizasyonu', category: 'Neurological', difficulty: 3, sets: 3, reps: 60, description: 'Bir noktaya odaklanın ve başınızı hafifçe sağa-sola sallayın.', biomechanics: 'Vestibular ocular reflex training.', safetyFlags: ['Baş Dönmesi Olursa Durun'], muscleGroups: ['Neck', 'Eyes'], rehabPhase: 'Sub-Akut', equipment: [] },
-    { id: 'n10', code: 'NE-10', title: 'Gait Symmetry Drill', titleTr: 'Yürüyüş Simetri Çalışması', category: 'Neurological', difficulty: 5, sets: 3, reps: 20, description: 'Adım boylarınızın ve sürelerinizin eşit olmasına odaklanarak yürüyün.', biomechanics: 'Rhythmic locomotor control.', safetyFlags: [], muscleGroups: ['Legs'], rehabPhase: 'Kronik', equipment: [] },
-
-    // --- CARDIOVASCULAR (Yeni 10) ---
-    { id: 'c1', code: 'CV-01', title: 'Interval Walking', titleTr: 'Aralıklı Yürüyüş', category: 'Cardiovascular', difficulty: 4, sets: 1, reps: 15, description: '2 dakika hızlı, 1 dakika yavaş olacak şekilde 15 dakika yürüyün.', biomechanics: 'Aerobic capacity improvement.', safetyFlags: ['Göğüs Ağrısı'], muscleGroups: ['Heart'], rehabPhase: 'Sub-Akut', equipment: [] },
-    { id: 'c2', code: 'CV-02', title: 'Arm Crank Ergometry', titleTr: 'Kol Ergometrisi', category: 'Cardiovascular', difficulty: 5, sets: 3, reps: 5, description: 'Otururken kollarınızla dairesel pedal çevirme hareketi yapın.', biomechanics: 'Upper body aerobic conditioning.', safetyFlags: [], muscleGroups: ['Upper Body'], rehabPhase: 'Akut', equipment: ['Cycle'] },
-    { id: 'c3', code: 'CV-03', title: 'Seated Marching', titleTr: 'Oturarak Yerinde Sayma', category: 'Cardiovascular', difficulty: 2, sets: 3, reps: 60, description: 'Otururken dizlerinizi sırayla karnınıza doğru çekerek tempo tutun.', biomechanics: 'Low impact cardiac load.', safetyFlags: [], muscleGroups: ['Legs'], rehabPhase: 'Akut', equipment: [] },
-    { id: 'c4', code: 'CV-04', title: 'Modified Jumping Jacks', titleTr: 'Modifiye Jumping Jacks', category: 'Cardiovascular', difficulty: 5, sets: 3, reps: 20, description: 'Zıplamadan kollarınızı ve bacaklarınızı yana doğru açıp kapatın.', biomechanics: 'Coordinated cardiovascular demand.', safetyFlags: [], muscleGroups: ['Full Body'], rehabPhase: 'Sub-Akut', equipment: [] },
-    { id: 'c5', code: 'CV-05', title: 'Low Intensity Step-Up', titleTr: 'Düşük Şiddetli Step', category: 'Cardiovascular', difficulty: 4, sets: 3, reps: 15, description: 'Alçak bir basamağa yavaş ve ritmik bir tempoda çıkıp inin.', biomechanics: 'Functional heart rate elevation.', safetyFlags: [], muscleGroups: ['Legs'], rehabPhase: 'Kronik', equipment: ['Step'] },
-    { id: 'c6', code: 'CV-06', title: 'Static Cycling (Low Res)', titleTr: 'Statik Bisiklet', category: 'Cardiovascular', difficulty: 4, sets: 1, reps: 20, description: 'Düşük dirençte sabit bir tempoda bisiklet sürün.', biomechanics: 'Cyclic aerobic loading.', safetyFlags: [], muscleGroups: ['Legs'], rehabPhase: 'Sub-Akut', equipment: ['Cycle'] },
-    { id: 'c7', code: 'CV-07', title: 'Wall Slide with Breathing', titleTr: 'Solunumlu Duvar Kaydırma', category: 'Cardiovascular', difficulty: 3, sets: 3, reps: 12, description: 'Kollarınızı kaldırırken derin nefes alın, indirirken yavaşça verin.', biomechanics: 'Respiratory mechanics synchronization.', safetyFlags: [], muscleGroups: ['Diaphragm'], rehabPhase: 'Akut', equipment: [] },
-    { id: 'c8', code: 'CV-08', title: 'Diaphragmatic Breathing', titleTr: 'Diyafram Nefesi', category: 'Cardiovascular', difficulty: 1, sets: 3, reps: 10, description: 'Eliniz karnınızda, burnunuzdan nefes alırken karnınızı şişirin.', biomechanics: 'Lung volume expansion.', safetyFlags: [], muscleGroups: ['Diaphragm'], rehabPhase: 'Akut', equipment: [] },
-    { id: 'c9', code: 'CV-09', title: 'Active Recovery Flow', titleTr: 'Aktif Toparlanma Akışı', category: 'Cardiovascular', difficulty: 3, sets: 2, reps: 5, description: 'Yavaş ve sürekli hareket içeren bir dizi hafif esneme ve hareket yapın.', biomechanics: 'Venous return enhancement.', safetyFlags: [], muscleGroups: ['Full Body'], rehabPhase: 'Kronik', equipment: [] },
-    { id: 'c10', code: 'CV-10', title: 'Lateral Step-Touch', titleTr: 'Yana Adımlama', category: 'Cardiovascular', difficulty: 3, sets: 3, reps: 60, description: 'Yana bir adım atın ve diğer ayağınızı yanına getirin, tempo tutun.', biomechanics: 'Lateral aerobic movement.', safetyFlags: [], muscleGroups: ['Legs'], rehabPhase: 'Kronik', equipment: [] },
-
-    // --- POST-OP (Yeni 10) ---
-    { id: 'p1', code: 'PO-01', title: 'Ankle Pumps', titleTr: 'Ayak Bileği Pompalaması', category: 'Post-Op', difficulty: 1, sets: 3, reps: 50, description: 'Ayak parmaklarınızı kendinize çekin ve sonra uzağa itin.', biomechanics: 'Deep vein thrombosis prophylaxis.', safetyFlags: [], muscleGroups: ['Calf'], rehabPhase: 'Akut', equipment: [] },
-    { id: 'p2', code: 'PO-02', title: 'Quad Sets (Post-Knee)', titleTr: 'Quad Sıkıştırma (Ameliyat Sonrası)', category: 'Post-Op', difficulty: 2, sets: 3, reps: 15, description: 'Dizinizin altına rulo havlu koyun ve havluyu aşağı bastırın.', biomechanics: 'Quadriceps recruitment post-trauma.', safetyFlags: [], muscleGroups: ['Quads'], rehabPhase: 'Akut', equipment: ['Towel'] },
-    { id: 'p3', code: 'PO-03', title: 'Glute Squeezes', titleTr: 'Kalça Sıkıştırma', category: 'Post-Op', difficulty: 1, sets: 3, reps: 20, description: 'Sırtüstü yatarken kalça kaslarınızı sıkın ve 5 saniye tutun.', biomechanics: 'Gluteal muscle awakening.', safetyFlags: [], muscleGroups: ['Glutes'], rehabPhase: 'Akut', equipment: [] },
-    { id: 'p4', code: 'PO-04', title: 'Passive Scapula Mob', titleTr: 'Pasif Kürek Kemiği Mobilizasyonu', category: 'Post-Op', difficulty: 2, sets: 3, reps: 10, description: 'Sağlam elinizle ameliyatlı tarafın omuzunu yavaşça yukarı kaldırın.', biomechanics: 'Non-weight bearing joint lubrication.', safetyFlags: ['Ağrı Sınırını Geçmeyin'], muscleGroups: ['Shoulder'], rehabPhase: 'Akut', equipment: [] },
-    { id: 'p5', code: 'PO-05', title: 'Incentive Spirometry', titleTr: 'Solunum Egzersizi', category: 'Post-Op', difficulty: 1, sets: 3, reps: 10, description: 'Cihazla veya derin nefesle akciğer kapasitenizi kullanın.', biomechanics: 'Alveolar recruitment.', safetyFlags: [], muscleGroups: ['Lungs'], rehabPhase: 'Akut', equipment: ['Spirometer'] },
-    { id: 'p6', code: 'PO-06', title: 'Gentle Seated Knee Flexion', titleTr: 'Oturarak Hafif Diz Bükme', category: 'Post-Op', difficulty: 2, sets: 3, reps: 15, description: 'Sandalyede otururken ayağınızı yavaşça geriye doğru çekin.', biomechanics: 'Early ROM restoration.', safetyFlags: [], muscleGroups: ['Hamstrings'], rehabPhase: 'Akut', equipment: ['Chair'] },
-    { id: 'p7', code: 'PO-07', title: 'Bed Mobility Side Roll', titleTr: 'Yatak İçi Dönme', category: 'Post-Op', difficulty: 3, sets: 2, reps: 5, description: 'Vücudunuzu bütün halinde yatak içinde bir tarafa döndürün.', biomechanics: 'Safe trunk rotation.', safetyFlags: ['Ameliyat Yeri Koruması'], muscleGroups: ['Core'], rehabPhase: 'Akut', equipment: [] },
-    { id: 'p8', code: 'PO-08', title: 'Assisted Gait (Walker)', titleTr: 'Yürüteçle Destekli Yürüyüş', category: 'Post-Op', difficulty: 4, sets: 3, reps: 5, description: 'Yürüteç yardımıyla ağırlık aktararak kısa mesafeler kat edin.', biomechanics: 'Guided weight bearing.', safetyFlags: [], muscleGroups: ['Full Body'], rehabPhase: 'Akut', equipment: ['Walker'] },
-    { id: 'p9', code: 'PO-09', title: 'Ice Compression Positioning', titleTr: 'Buz ve Elevasyon Pozisyonu', category: 'Post-Op', difficulty: 1, sets: 3, reps: 15, description: 'Ameliyatlı uzvunuzu kalp seviyesinden yukarıda buz ile dinlendirin.', biomechanics: 'Edema management.', safetyFlags: [], muscleGroups: [], rehabPhase: 'Akut', equipment: ['Ice Pack'] },
-    { id: 'p10', code: 'PO-10', title: 'Lymphatic Drainage Stroking', titleTr: 'Lenfatik Masaj Dokunuşları', category: 'Post-Op', difficulty: 1, sets: 3, reps: 10, description: 'Uzvun ucundan kalbe doğru çok hafif sıvazlama hareketleri yapın.', biomechanics: 'Interstitial fluid clearance.', safetyFlags: ['Enfeksiyon Varsa Yapmayın'], muscleGroups: ['Skin'], rehabPhase: 'Akut', equipment: [] }
-  ];
+      if (response.ok) {
+        localStorage.setItem(this.SYNC_STATUS, JSON.stringify({ 
+          lastSync: new Date().toISOString(),
+          status: 'SUCCESS'
+        }));
+        return true;
+      }
+    } catch (e) {
+      console.error("Sync failed, retrying in background...", e);
+    }
+    return false;
+  }
 
   static getExercises(): Exercise[] {
     try {
       const saved = localStorage.getItem(this.STORAGE_KEY);
       if (saved) return JSON.parse(saved);
     } catch (e) {
-      console.warn("DB parse error.");
+      console.warn("Local DB parse error.");
     }
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.defaultExercises));
-    return this.defaultExercises;
+    return [];
+  }
+
+  static addExercise(exercise: Exercise) {
+    const current = this.getExercises();
+    current.push(exercise);
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(current));
+  }
+
+  static updateExercise(exercise: Exercise) {
+    const current = this.getExercises();
+    const index = current.findIndex(ex => ex.id === exercise.id);
+    if (index !== -1) {
+      current[index] = exercise;
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(current));
+    }
   }
 
   static deleteExercise(id: string) {
-    const exercises = this.getExercises().filter(ex => ex.id !== id);
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(exercises));
-  }
-
-  static addExercise(ex: Exercise) {
-    const exercises = [...this.getExercises(), ex];
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(exercises));
-  }
-
-  static updateExercise(updatedEx: Exercise) {
-    const exercises = this.getExercises().map(ex => ex.id === updatedEx.id ? updatedEx : ex);
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(exercises));
+    const current = this.getExercises();
+    const filtered = current.filter(ex => ex.id !== id);
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(filtered));
   }
 
   static saveProfile(profile: PatientProfile) {
     localStorage.setItem(this.PROFILE_KEY, JSON.stringify(profile));
+    this.syncWithRemote().catch(console.error);
   }
 
   static getProfile(): PatientProfile | null {
     const saved = localStorage.getItem(this.PROFILE_KEY);
     return saved ? JSON.parse(saved) : null;
+  }
+
+  static getLastSync(): string | null {
+    const meta = localStorage.getItem(this.SYNC_STATUS);
+    return meta ? JSON.parse(meta).lastSync : null;
   }
 }
