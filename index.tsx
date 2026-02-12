@@ -113,8 +113,9 @@ export default function PhysioCoreApp() {
         setActiveTab('dashboard');
       }
     } catch (e: any) {
-      if (e.message?.includes("API Key")) {
-        handleAiKeyTrigger();
+      // Özel hata kodumuzu yakalıyoruz
+      if (e.message === "MISSING_API_KEY") {
+        console.warn("[PhysioCore] Analysis stopped: API Key required.");
       }
     } finally {
       setIsAnalyzing(false);
@@ -125,8 +126,6 @@ export default function PhysioCoreApp() {
     const aistudio = (window as any).aistudio;
     if (aistudio) {
       await aistudio.openSelectKey();
-      // Seçim sonrası durumu güncellemek için kısa bir süre sonra check tetiklenebilir
-      // Ancak yönerge gereği race condition varsayımı ile devam ediyoruz.
     }
   };
 
@@ -141,7 +140,9 @@ export default function PhysioCoreApp() {
       setShowFeedbackModal(false);
       setActiveTab('progress');
     } catch (e: any) {
-      if (e.message?.includes("API Key")) handleAiKeyTrigger();
+      if (e.message === "MISSING_API_KEY") {
+        console.warn("[PhysioCore] Feedback sync stopped: API Key required.");
+      }
     } finally {
       setIsAnalyzing(false);
     }
@@ -181,7 +182,7 @@ export default function PhysioCoreApp() {
 
         <div className="flex items-center gap-4">
            {/* AI KEY STATUS */}
-           <div className={`group relative flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${aiKeyStatus ? 'border-cyan-500/30 bg-cyan-500/5' : 'border-rose-500/30 bg-rose-500/5'}`}>
+           <div className={`group relative flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${aiKeyStatus ? 'border-cyan-500/30 bg-cyan-500/5' : 'border-rose-500/30 bg-rose-500/5 animate-pulse'}`}>
               <Zap size={12} className={aiKeyStatus ? 'text-cyan-400' : 'text-rose-400'} />
               <button onClick={handleAiKeyTrigger} className="text-[9px] font-black uppercase text-white tracking-widest">
                 {aiKeyStatus ? 'AI AKTİF' : 'LİSANS BAĞLA'}

@@ -73,35 +73,33 @@
     <script type="module" src="index.tsx"></script>
     <script>
       /**
-       * PHYSIOCORE AI - GENESIS SW MANAGER
-       * 'Invalid State' ve 'Origin Mismatch' hatalarını önleyen ultra-stabil kayıt mantığı.
+       * PHYSIOCORE AI - GENESIS SW MANAGER (v4.3 Stable)
+       * Relative pathing ile 404 hataları ve sandbox kısıtlamaları için ultra-stabilite.
        */
       (function() {
         if (!('serviceWorker' in navigator)) return;
 
         const registerSW = async () => {
           try {
-            // Doküman durumunu kontrol et; 'invalid state' hatasının ana sebebi erken kayıttır.
+            // Document state kontrolü; 'invalid state' hatasını engellemek için en güvenli anı bekle.
             if (document.readyState !== 'complete') {
-              window.addEventListener('load', registerSW);
+              window.addEventListener('load', registerSW, { once: true });
               return;
             }
 
-            const swUrl = new URL('sw.js', window.location.origin).href;
-            const registration = await navigator.serviceWorker.register(swUrl, { scope: '/' });
+            // ÖNEMLİ: Absolute URL yerine Relative Path kullanarak 404 (Not Found) hatası giderildi.
+            const registration = await navigator.serviceWorker.register('./sw.js', { scope: './' });
             
             console.log('%c[PhysioCore] Genesis SW Online', 'color: #06B6D4; font-weight: bold;', registration.scope);
           } catch (err) {
-            // AI Studio gibi sandboxed ortamlarda bu hata beklenen bir durumdur.
-            // Kritik bir arıza değil, sadece offline yeteneklerin kısıtlandığı anlamına gelir.
+            // Hata sessizce loglanır, uygulama 'Local-Only' modunda çalışmaya devam eder.
             console.groupCollapsed('%c[PhysioCore] SW Status: Local-Only Mode', 'color: #f59e0b; font-weight: bold;');
-            console.info('Service Worker registration skipped due to environment restrictions.');
-            console.debug('Technical Detail:', err.message);
+            console.info('Service Worker feature is disabled in this environment.');
+            console.debug('Reason:', err.message);
             console.groupEnd();
           }
         };
 
-        // İlk deneme
         registerSW();
       })();
     </script>

@@ -5,28 +5,40 @@ import { PhysioDB } from "./db-repository.ts";
 
 /**
  * PHYSIOCORE AI - GENESIS AI CONNECTION PROTOCOL
- * Google GenAI SDK yönergelerine tam uyum: 
- * 1. Her çağrıda yeni instance oluşturulur.
- * 2. Race condition varsayımı ile anahtar seçimi tetiklenir.
+ * Error Handling Strategy:
+ * 1. Throw "MISSING_API_KEY" before SDK initialization to prevent crash.
+ * 2. Handle "Requested entity was not found" for re-triggering selection.
  */
 export const ensureApiKey = async (): Promise<string> => {
+  const key = process.env.API_KEY;
+  const isKeyValid = key && key !== "undefined" && key !== "";
+
+  if (isKeyValid) return key as string;
+
   const aistudio = (window as any).aistudio;
   if (aistudio) {
-    try {
-      const hasKey = await aistudio.hasSelectedApiKey();
-      if (!hasKey) {
-        // Anahtar yoksa seçimi aç, ancak race condition kuralı gereği throw etme.
-        await aistudio.openSelectKey();
-      }
-    } catch (e) {
-      console.warn("[PhysioCore] AI Key trigger warn:", e);
-    }
+    // Anahtar seçilmemişse pencereyi aç ve işlemi durdur
+    await aistudio.openSelectKey();
+    throw new Error("MISSING_API_KEY");
   }
-  return process.env.API_KEY || "";
+
+  throw new Error("MISSING_API_KEY");
 };
 
 /**
- * Genişletilmiş Video Üretim Motoru (v4.2 - Production Stable)
+ * Helper to handle SDK errors and re-trigger key selection if needed
+ */
+const handleAiError = async (error: any) => {
+  if (error?.message?.includes("Requested entity was not found")) {
+    const aistudio = (window as any).aistudio;
+    if (aistudio) await aistudio.openSelectKey();
+  }
+  if (error?.message === "MISSING_API_KEY") return;
+  throw error;
+};
+
+/**
+ * Genişletilmiş Video Üretim Motoru (v4.5)
  */
 export const generateExerciseVideo = async (
   exercise: Partial<Exercise>, 
@@ -40,7 +52,6 @@ export const generateExerciseVideo = async (
 ): Promise<string> => {
   try {
     const apiKey = await ensureApiKey();
-    // Her çağrıda yeni instance oluşturulmalıdır.
     const ai = new GoogleGenAI({ apiKey });
     
     const prompt = `
@@ -82,7 +93,8 @@ export const generateExerciseVideo = async (
     return '';
   } catch (e: any) {
     console.error("Advanced Video Gen Error:", e);
-    throw e; // Hata UI seviyesinde yönetilecek.
+    await handleAiError(e);
+    return '';
   }
 };
 
@@ -105,7 +117,6 @@ export const runClinicalConsultation = async (
     const prompt = `Sen kıdemli bir klinik rehabilitasyon uzmanısın.
     Girdi: "${text}"
     Geçmiş: ${JSON.stringify(history || [])}
-    Ağrı Logları: ${JSON.stringify(painLogs || [])}
     Analiz et ve bir PatientProfile JSON nesnesi döndür.`;
 
     const response = await ai.models.generateContent({
@@ -125,9 +136,10 @@ export const runClinicalConsultation = async (
     const result = JSON.parse(response.text || "null");
     if (result) PhysioDB.setCachedResponse(inputHash, result);
     return result;
-  } catch (err) {
+  } catch (err: any) {
     console.error("Consultation Error:", err);
-    throw err;
+    await handleAiError(err);
+    return null;
   }
 };
 
@@ -141,9 +153,10 @@ export const runAdaptiveAdjustment = async (currentProfile: PatientProfile, feed
       config: { responseMimeType: "application/json" }
     });
     return JSON.parse(response.text || "{}");
-  } catch (err) {
+  } catch (err: any) {
     console.error("Adaptive Adjustment Error:", err);
-    throw err;
+    await handleAiError(err);
+    return currentProfile;
   }
 };
 
@@ -165,9 +178,10 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
       }
     }
     return '';
-  } catch (e) {
+  } catch (e: any) {
     console.error("Image Gen Error:", e);
-    throw e;
+    await handleAiError(e);
+    return '';
   }
 };
 
@@ -186,9 +200,10 @@ export const generateExerciseData = async (exerciseName: string): Promise<Partia
     const result = JSON.parse(response.text || "{}");
     PhysioDB.setCachedResponse(inputHash, result);
     return result;
-  } catch (err) {
+  } catch (err: any) {
     console.error("Data Gen Error:", err);
-    throw err;
+    await handleAiError(err);
+    return {};
   }
 };
 
@@ -202,8 +217,9 @@ export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: st
       config: { responseMimeType: "application/json" }
     });
     return JSON.parse(response.text || "{}");
-  } catch (err) {
+  } catch (err: any) {
     console.error("Optimization Error:", err);
-    throw err;
+    await handleAiError(err);
+    return exercise;
   }
 };
