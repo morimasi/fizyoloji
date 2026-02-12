@@ -19,24 +19,15 @@ import { UserManager } from './UserManager.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// ErrorBoundary class component to catch rendering errors in the app tree.
-// Generics are explicitly defined to satisfy TypeScript environment constraints.
+// Fixed ErrorBoundary props error by ensuring standard React.Component inheritance and proper type handling
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Explicit declaration of state property to resolve "Property 'state' does not exist" errors.
-  public state: ErrorBoundaryState = { hasError: false };
-
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    // Redundant initialization for backward compatibility and strict constructor checks.
-    this.state = { hasError: false };
-  }
+  state: ErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError(_error: Error): ErrorBoundaryState { 
     return { hasError: true }; 
   }
 
   render() {
-    // Accessing this.state which is now explicitly declared.
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-12 text-center">
@@ -48,7 +39,6 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
-    // Accessing this.props which is inherited from React.Component.
     return this.props.children;
   }
 }
@@ -73,24 +63,18 @@ export default function PhysioCoreApp() {
     const profile = PhysioDB.getProfile();
     if (profile) setPatientData(profile);
     
-    const checkKeyStatus = async () => {
-      const aistudio = (window as any).aistudio;
-      if (aistudio) {
-        const result = await aistudio.hasSelectedApiKey();
-        // Exclusively use process.env.API_KEY as per GenAI guidelines.
-        setHasKey(result || !!process.env.API_KEY);
-      }
+    // Key availability is handled externally via process.env.API_KEY
+    const checkKeyStatus = () => {
+      setHasKey(!!process.env.API_KEY);
     };
     checkKeyStatus();
-    const interval = setInterval(checkKeyStatus, 3000);
-    return () => clearInterval(interval);
   }, []);
 
   const handleOpenKey = async () => {
+    // Standard key selection bridge for AI Studio environments
     const aistudio = (window as any).aistudio;
     if (aistudio) {
       await aistudio.openSelectKey();
-      // Assume success after opening the dialog to avoid race conditions.
       setHasKey(true);
       setShowKeyWarning(false);
     }
@@ -108,7 +92,7 @@ export default function PhysioCoreApp() {
       }
     } catch (err: any) {
       console.error("Consultation Crash:", err);
-      if (err.message === "API_KEY_NOT_FOUND") {
+      if (err.message === "API_KEY_NOT_FOUND" || err.message?.includes("Requested entity was not found")) {
         setShowKeyWarning(true);
       }
     } finally {
@@ -256,16 +240,8 @@ export default function PhysioCoreApp() {
               <div className="space-y-4 relative z-10">
                 <h3 className="text-3xl font-black italic tracking-tighter uppercase text-white">BAĞLANTI <span className="text-rose-500">KESİLDİ</span></h3>
                 <p className="text-xs text-slate-400 leading-relaxed font-medium">
-                  Vercel veya Vite üzerindeki <b>API_KEY</b> çevresel değişkeni tarayıcı tarafına sızdırılmamış olabilir. Lütfen AI Studio köprüsü üzerinden bir anahtar seçin veya Vercel panelinden "Redeploy" yapın.
+                  Hizmet anahtarı bulunamadı veya geçersiz. Lütfen AI Studio köprüsü üzerinden bir anahtar seçin.
                 </p>
-                <div className="bg-slate-950 p-6 rounded-2xl border border-white/5 text-left space-y-3">
-                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><Info size={12}/> Teknik Çözüm Yolları</p>
-                   <ul className="text-[10px] text-slate-400 space-y-2 list-disc pl-4 italic">
-                     <li>Vercel Ayarlarında değişken adını <b>API_KEY</b> olarak kontrol edin.</li>
-                     <li>Vite projesinde <b>.env</b> dosyasına <b>VITE_API_KEY</b> ekleyin.</li>
-                     <li>Aşağıdaki butona basarak manuel anahtar seçin.</li>
-                   </ul>
-                </div>
               </div>
               <div className="flex gap-4 relative z-10">
                  <button onClick={() => setShowKeyWarning(false)} className="flex-1 py-5 bg-slate-800 rounded-2xl text-[11px] font-black text-slate-500 uppercase tracking-widest border border-slate-800">KAPAT</button>
