@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Play, Pause, RotateCcw, ChevronLeft, Info, Zap, 
   Layers, Wind, Maximize2, FastForward, Heart, 
   CheckCircle2, WifiOff, ChevronRight, Video, Eye, EyeOff,
-  Loader2
+  Loader2, Trophy
 } from 'lucide-react';
 import { Exercise } from './types.ts';
 import { ExerciseActions } from './ExerciseActions.tsx';
@@ -20,8 +19,8 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
   const [currentRep, setCurrentRep] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [activeView, setActiveView] = useState<'normal' | 'xray' | 'muscles'>('normal');
-  const [isFavorite, setIsFavorite] = useState(exercise.isFavorite || false);
   const [isCinematic, setIsCinematic] = useState(false);
+  const [showSetComplete, setShowSetComplete] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const handleNextSet = () => {
@@ -29,6 +28,8 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
       setCurrentSet(prev => prev + 1);
       setCurrentRep(0);
       setIsPlaying(false);
+      setShowSetComplete(true);
+      setTimeout(() => setShowSetComplete(false), 3000);
     } else {
       onClose(true);
     }
@@ -37,14 +38,20 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
   useEffect(() => {
     let interval: any;
     if (isPlaying && currentRep < exercise.reps) {
+      // Rep speed based on clinical tempo or default 4s
+      const tempoSpeed = exercise.tempo ? 4000 : 4000;
       interval = setInterval(() => {
-        setCurrentRep(prev => prev + 1);
-      }, 4000 / playbackSpeed); 
-    } else if (currentRep === exercise.reps) {
-      setIsPlaying(false);
+        setCurrentRep(prev => {
+          if (prev + 1 === exercise.reps) {
+            setIsPlaying(false);
+            return exercise.reps;
+          }
+          return prev + 1;
+        });
+      }, tempoSpeed / playbackSpeed); 
     }
     return () => clearInterval(interval);
-  }, [isPlaying, currentRep, exercise.reps, playbackSpeed]);
+  }, [isPlaying, currentRep, exercise.reps, playbackSpeed, exercise.tempo]);
 
   useEffect(() => {
     if (videoRef.current) {
@@ -67,7 +74,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
             <span className="font-inter font-black text-[10px] uppercase tracking-widest">İPTAL</span>
           </button>
           <div className="text-center">
-            <h2 className="font-inter text-xl font-black italic tracking-tighter uppercase leading-tight text-white">{exercise.title}</h2>
+            <h2 className="font-inter text-xl font-black italic tracking-tighter uppercase leading-tight text-white">{exercise.titleTr || exercise.title}</h2>
             <div className="flex items-center justify-center gap-3">
                <p className="text-[10px] font-mono text-cyan-500 uppercase tracking-widest flex items-center gap-1">
                  <Video size={10} /> CINEMATIC MOTION ACTIVE
@@ -94,7 +101,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
         <div className="flex-1 relative bg-black flex items-center justify-center overflow-hidden">
           
           <div className="w-full h-full relative flex items-center justify-center">
-            {exercise.videoUrl || exercise.visualUrl ? (
+            {(exercise.videoUrl || exercise.visualUrl) ? (
               exercise.isMotion ? (
                 <video 
                   ref={videoRef}
@@ -120,7 +127,12 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
             
             {!isCinematic && (
               <div className="absolute top-10 left-10 space-y-4 pointer-events-none animate-in slide-in-from-left-4 duration-1000">
-                <div className="bg-black/60 backdrop-blur-2xl p-8 rounded-[3rem] border border-white/5 space-y-1 shadow-2xl">
+                <div className="bg-black/60 backdrop-blur-2xl p-8 rounded-[3rem] border border-white/5 space-y-1 shadow-2xl relative">
+                  {showSetComplete && (
+                    <div className="absolute -top-4 -right-4 bg-emerald-500 text-white p-2 rounded-full animate-bounce shadow-lg">
+                      <Trophy size={20} />
+                    </div>
+                  )}
                   <p className="text-[10px] font-mono text-cyan-500 uppercase tracking-[0.3em] font-black mb-2">PROGRESS_LIVE</p>
                   <p className="text-4xl font-black text-white italic tracking-tighter">
                     {currentRep} <span className="text-[14px] text-slate-500 opacity-50">/ {exercise.reps}</span>
@@ -139,7 +151,6 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
                 className="absolute top-10 right-10 p-5 bg-white/5 hover:bg-white/10 backdrop-blur-xl rounded-2xl border border-white/10 text-white/50 hover:text-white transition-all z-50 group"
               >
                 <EyeOff size={24} />
-                <span className="absolute right-full mr-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 bg-black px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-opacity whitespace-nowrap">ÇIKIŞ</span>
               </button>
             )}
           </div>
@@ -192,7 +203,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" /> UYGULAMA ADIMLARI
                 </h3>
                 <div className="space-y-6">
-                   {exercise.description.split('.').filter(s => s.trim()).map((step, i) => (
+                   {(exercise.description || "").split('.').filter(s => s.trim()).map((step, i) => (
                      <div key={i} className="flex gap-6 group">
                         <div className="w-8 h-8 bg-slate-900 border border-white/5 rounded-xl flex items-center justify-center text-[11px] font-black text-cyan-500 group-hover:bg-cyan-500 group-hover:text-white transition-all duration-500 shadow-inner">{i+1}</div>
                         <p className="text-[13px] text-slate-500 group-hover:text-slate-300 transition-colors leading-relaxed">{step.trim()}.</p>

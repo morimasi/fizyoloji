@@ -7,14 +7,17 @@ import { Exercise } from './types.ts';
 export const ExerciseCMS = () => {
   const [exercises, setExercises] = useState<Exercise[]>([]);
 
+  // Fix: Handle the promise returned by getExercises asynchronously to resolve Type mismatch
   useEffect(() => {
-    setExercises(PhysioDB.getExercises());
+    PhysioDB.getExercises().then(setExercises);
   }, []);
 
-  const handleDelete = (id: string) => {
+  // Fix: Made handleDelete async and correctly await the database operations to resolve Type mismatch
+  const handleDelete = async (id: string) => {
     if (window.confirm('Bu egzersizi klinik kütüphaneden silmek istediğinize emin misiniz?')) {
-      PhysioDB.deleteExercise(id);
-      setExercises(PhysioDB.getExercises());
+      await PhysioDB.deleteExercise(id);
+      const updated = await PhysioDB.getExercises();
+      setExercises(updated);
     }
   };
 
