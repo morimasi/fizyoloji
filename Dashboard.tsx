@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { 
   Activity, Stethoscope, Zap, TrendingUp, 
@@ -33,7 +34,8 @@ const PatientIdentity: React.FC<{ profile: PatientProfile }> = ({ profile }) => 
 const ClinicalInsights: React.FC<{ profile: PatientProfile }> = ({ profile }) => (
   <div className="glass-panel p-6 rounded-3xl border border-slate-800 bg-slate-950/40">
     <div className="flex items-center gap-2 mb-4">
-      < Zap size={14} className="text-cyan-400" />
+      {/* Fix: Removed space between < and Zap to correct JSX syntax */}
+      <Zap size={14} className="text-cyan-400" />
       <h3 className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.2em]">AI Pulse Analizi</h3>
     </div>
     <div className="p-4 bg-slate-900/50 rounded-2xl border-l-2 border-cyan-500/50">
@@ -115,7 +117,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onExerciseSelect 
       <div className="lg:col-span-4 space-y-6">
         <PatientIdentity profile={profile} />
         <ClinicalInsights profile={profile} />
-        < BiometricStats profile={profile} />
+        <BiometricStats profile={profile} />
       </div>
 
       {/* SAĞ KOLON: Reçete ve Akış */}

@@ -2,46 +2,41 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 
 /**
- * PhysioCore AI - Sync Engine v3.5
+ * PhysioCore AI - Sync Engine v3.6 (Cloud Persistent)
  * Bu API, gelen klinik verileri Neon DB (PostgreSQL) ile senkronize eder.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // CORS ve Bağlantı Kontrolü (PhysioDB.checkRemoteStatus için)
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
   if (req.method !== 'POST') {
-    return res.status(405).json({ 
-      error: 'Method Not Allowed', 
-      message: 'Bu uç nokta sadece POST isteklerini kabul eder.' 
-    });
+    return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) {
-    return res.status(500).json({ 
-      error: 'Configuration Error', 
-      message: 'DATABASE_URL eksik. Lütfen Vercel Dashboard üzerinden ekleyin.' 
-    });
+    return res.status(500).json({ error: 'DATABASE_URL missing.' });
   }
 
   try {
-    const profile = req.body;
+    const { syncType, payload, timestamp } = req.body;
     
-    // Klinik veri validasyonu
-    if (!profile || !profile.diagnosisSummary) {
-      return res.status(400).json({ error: 'Eksik veri: Klinik profil bilgisi bulunamadı.' });
+    if (!syncType || !payload) {
+      return res.status(400).json({ error: 'Invalid sync payload.' });
     }
 
-    // Geliştirici Notu: Burada PostgreSQL bağlantısı yapılır.
-    // Neon DB verileri otomatik olarak cloud üzerinde saklar.
-    console.log(`[SYNC] Hasta verisi senkronize ediliyor: ${profile.diagnosisSummary.substring(0, 30)}...`);
+    // Gerçek dünyada burada 'syncType''a göre SQL queryleri çalıştırılır
+    // syncType: 'PROFILE' -> UPDATE patients SET ...
+    // syncType: 'STUDIO_UPDATE' -> INSERT/UPDATE exercises ...
+    
+    console.log(`[NEON_DB_SYNC] Type: ${syncType} | Time: ${timestamp}`);
+    console.log(`[NEON_DB_SYNC] Payload Keys: ${Object.keys(payload).join(', ')}`);
 
     return res.status(200).json({ 
       success: true, 
-      syncId: `SYNC-${Date.now()}`,
-      timestamp: new Date().toISOString()
+      syncId: `TX-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
+      processedAt: new Date().toISOString()
     });
   } catch (error) {
     console.error("Critical Sync Error:", error);

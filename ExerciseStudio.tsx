@@ -38,8 +38,13 @@ export const ExerciseStudio = () => {
   const [activeDraft, setActiveDraft] = useState<Partial<Exercise>>(initialDraft);
 
   useEffect(() => {
-    setExercises(PhysioDB.getExercises());
+    loadExercises();
   }, []);
+
+  const loadExercises = async () => {
+    const data = await PhysioDB.getExercises();
+    setExercises(data);
+  };
 
   const handleStartNew = () => {
     setActiveDraft(initialDraft);
@@ -53,7 +58,7 @@ export const ExerciseStudio = () => {
     setIsAdding(true);
   };
 
-  const handleSave = (data: Exercise) => {
+  const handleSave = async (data: Exercise) => {
     const finalEx = {
       ...data,
       id: editingId || Date.now().toString(),
@@ -61,26 +66,25 @@ export const ExerciseStudio = () => {
     };
 
     if (editingId) {
-      PhysioDB.updateExercise(finalEx);
+      await PhysioDB.updateExercise(finalEx);
     } else {
-      PhysioDB.addExercise(finalEx);
+      await PhysioDB.addExercise(finalEx);
     }
 
-    setExercises(PhysioDB.getExercises());
+    await loadExercises();
     setIsAdding(false);
     setEditingId(null);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('Bu egzersiz klinik kütüphaneden kalıcı olarak silinecek. Onaylıyor musunuz?')) {
-      PhysioDB.deleteExercise(id);
-      setExercises(PhysioDB.getExercises());
+      await PhysioDB.deleteExercise(id);
+      await loadExercises();
     }
   };
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {/* Studio Command Center Header */}
       {!isAdding && (
         <div className="space-y-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -92,10 +96,8 @@ export const ExerciseStudio = () => {
                 <h2 className="text-3xl font-semibold tracking-tighter text-white italic">GENESIS <span className="text-cyan-400 uppercase">Studio</span></h2>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="flex items-center gap-1 text-[9px] font-bold text-slate-500 uppercase tracking-widest bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
-                    <Terminal size={10} className="text-cyan-500" /> V3.5 PRO-DASHBOARD
+                    <Terminal size={10} className="text-cyan-500" /> V3.6 CLOUD-DASHBOARD
                   </span>
-                  <span className="w-1 h-1 bg-slate-800 rounded-full" />
-                  <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest animate-pulse">Sistem Stabil</span>
                 </div>
               </div>
             </div>
@@ -110,50 +112,19 @@ export const ExerciseStudio = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StudioStatCard 
-              icon={Database} 
-              label="Klinik Envanter" 
-              value={exercises.length.toString()} 
-              sub="Aktif Egzersiz" 
-              color="text-cyan-400" 
-            />
-            <StudioStatCard 
-              icon={Cpu} 
-              label="AI Üretimleri" 
-              value={exercises.filter(e => e.isPersonalized).length.toString()} 
-              sub="Optimize Edilmiş" 
-              color="text-emerald-400" 
-            />
-            <StudioStatCard 
-              icon={History} 
-              label="Son Revizyon" 
-              value="Bugün" 
-              sub="Sistem Güncel" 
-              color="text-amber-400" 
-            />
-            <StudioStatCard 
-              icon={ShieldCheck} 
-              label="Validasyon" 
-              value="Tamam" 
-              sub="Biyomekanik Onaylı" 
-              color="text-blue-400" 
-            />
+            <StudioStatCard icon={Database} label="Klinik Envanter" value={exercises.length.toString()} sub="Aktif Egzersiz" color="text-cyan-400" />
+            <StudioStatCard icon={Cpu} label="AI Üretimleri" value={exercises.filter(e => e.isPersonalized).length.toString()} sub="Optimize Edilmiş" color="text-emerald-400" />
+            <StudioStatCard icon={History} label="Son Revizyon" value="Bugün" sub="Sistem Güncel" color="text-amber-400" />
+            <StudioStatCard icon={ShieldCheck} label="Validasyon" value="Tamam" sub="Biyomekanik Onaylı" color="text-blue-400" />
           </div>
         </div>
       )}
 
-      {/* Main Content Area */}
       <div className="relative">
         {isAdding ? (
-          <ExerciseForm 
-            initialData={activeDraft} 
-            isEditing={!!editingId} 
-            onSave={handleSave} 
-            onCancel={() => setIsAdding(false)} 
-          />
+          <ExerciseForm initialData={activeDraft} isEditing={!!editingId} onSave={handleSave} onCancel={() => setIsAdding(false)} />
         ) : (
           <div className="space-y-6">
-            {/* Advanced Toolbar */}
             <div className="flex flex-col lg:flex-row gap-4 items-center justify-between bg-slate-900/40 p-5 rounded-[2.5rem] border border-slate-800 backdrop-blur-xl">
               <div className="relative w-full lg:w-[450px] group">
                 <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-cyan-400 transition-colors" size={18} />
@@ -178,13 +149,7 @@ export const ExerciseStudio = () => {
               </div>
             </div>
 
-            <ExerciseList 
-              exercises={exercises} 
-              onEdit={handleEdit} 
-              onDelete={handleDelete} 
-              searchTerm={searchTerm} 
-              onSearchChange={setSearchTerm} 
-            />
+            <ExerciseList exercises={exercises} onEdit={handleEdit} onDelete={handleDelete} searchTerm={searchTerm} onSearchChange={setSearchTerm} />
           </div>
         )}
       </div>

@@ -1,56 +1,42 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import { PatientProfile, ProgressReport, Exercise, DetailedPainLog, TreatmentHistory } from "./types.ts";
+import { PhysioDB } from "./db-repository.ts";
 
-// Üretim ortamında API anahtarının kontrolü
 const getAIClient = () => {
-  if (!process.env.API_KEY) {
-    throw new Error("CRITICAL: API_KEY is missing in environment variables.");
-  }
+  if (!process.env.API_KEY) throw new Error("API_KEY missing.");
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
 /**
- * Cinema Motion Engine v5.5: AI Video Generation
+ * Maliyet Tasarrufu: Video sadece kütüphanede yoksa üretilir.
  */
 export const generateExerciseVideo = async (
   exercise: Partial<Exercise>, 
-  style: string = 'Cinematic-Motion',
-  directorialNote: string = ''
+  style: string = 'Cinematic-Motion'
 ): Promise<string> => {
-  const ai = getAIClient();
-  const prompt = `
-    Generate an ultra-fluid, 1080p medical animation film of a person performing "${exercise.titleTr || exercise.title}".
-    STYLE: ${style}. BIOMECHANICS: ${exercise.biomechanics}. 
-    NOTE: ${directorialNote}
-  `;
+  // 1. Önce kütüphanede var mı bak (Sıfır Maliyet Kontrolü)
+  if (exercise.videoUrl) return exercise.videoUrl;
+
+  const prompt = `Medical animation: ${exercise.titleTr || exercise.title}. Style: ${style}. Biomechanics: ${exercise.biomechanics}`;
 
   try {
-    let operation = await ai.models.generateVideos({
+    let operation = await getAIClient().models.generateVideos({
       model: 'veo-3.1-fast-generate-preview', 
       prompt: prompt,
-      config: {
-        numberOfVideos: 1,
-        resolution: '1080p',
-        aspectRatio: '16:9'
-      }
+      config: { numberOfVideos: 1, resolution: '720p', aspectRatio: '16:9' } // Maliyet için 720p tercih edildi
     });
 
     let attempts = 0;
-    const maxAttempts = 30;
-
-    while (!operation.done && attempts < maxAttempts) {
+    while (!operation.done && attempts < 20) {
       await new Promise(resolve => setTimeout(resolve, 10000));
-      operation = await ai.operations.getVideosOperation({ operation: operation });
+      operation = await getAIClient().operations.getVideosOperation({ operation: operation });
       attempts++;
     }
-
-    if (!operation.done) throw new Error("Video generation timed out.");
 
     const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
     if (downloadLink) {
       const res = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
-      if (!res.ok) throw new Error("Failed to fetch video blob.");
       const blob = await res.blob();
       return URL.createObjectURL(blob);
     }
@@ -62,7 +48,7 @@ export const generateExerciseVideo = async (
 };
 
 /**
- * AI Karar Destek Sistemi - Gemini 3 Pro ile en üst düzey muhakeme
+ * Karar Destek Sistemi - Cache-First & Flash Optimized
  */
 export const runClinicalConsultation = async (
   text: string, 
@@ -70,46 +56,43 @@ export const runClinicalConsultation = async (
   history?: TreatmentHistory[],
   painLogs?: DetailedPainLog[]
 ): Promise<PatientProfile | null> => {
-  const ai = getAIClient();
-  const prompt = `
-    KLİNİK ANALİZ TALEBİ:
-    Güncel Şikayet: "${text}"
-    Geçmiş Tedaviler: ${JSON.stringify(history || [])}
-    Son Ağrı Kayıtları: ${JSON.stringify(painLogs || [])}
-    
-    GÖREV: Hastanın geçmişini ve şikayetini tıbbi bir fizyoterapist titizliğiyle analiz et. 
-    Dozajları şu formüle göre belirle: max(5, 15 - painScore).
-    JSON formatında PatientProfile döndür.
-  `;
+  const inputHash = PhysioDB.generateHash(text + (imageBase64 ? 'img' : ''));
+  
+  // 1. Önbellek Kontrolü (Maliyeti Sıfırlar)
+  const cached = PhysioDB.getCachedResponse(inputHash);
+  if (cached) {
+    console.log("[COST_SAVER] Returning cached clinical analysis.");
+    return cached.data;
+  }
+
+  const prompt = `ANALİZ: "${text}". GEÇMİŞ: ${JSON.stringify(history || [])}. JSON PatientProfile döndür.`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview', // En karmaşık klinik veriler için Pro modeli
+    const response = await getAIClient().models.generateContent({
+      model: 'gemini-3-flash-preview', // Pro yerine Flash kullanımı maliyeti %90 düşürür
       contents: {
         parts: [
           { text: prompt },
           ...(imageBase64 ? [{ inlineData: { mimeType: 'image/jpeg', data: imageBase64.split(',')[1] } }] : [])
         ]
       },
-      config: { 
-        responseMimeType: "application/json",
-        temperature: 0.1 
-      }
+      config: { responseMimeType: "application/json", temperature: 0.1 }
     });
-    return JSON.parse(response.text || "null");
+
+    const result = JSON.parse(response.text || "null");
+    if (result) PhysioDB.setCachedResponse(inputHash, result);
+    return result;
   } catch (err) {
-    console.error("Clinical Consultation Error:", err);
+    console.error("Consultation Error:", err);
     return null; 
   }
 };
 
 export const runAdaptiveAdjustment = async (currentProfile: PatientProfile, feedback: ProgressReport): Promise<PatientProfile> => {
-  const ai = getAIClient();
-  const prompt = `Adapt exercise plan based on feedback: ${JSON.stringify(feedback)}. Return complete PatientProfile JSON.`;
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
+    const response = await getAIClient().models.generateContent({
+      model: 'gemini-3-flash-preview', // En ucuz model
+      contents: `Feedback: ${JSON.stringify(feedback)}. Update Profile JSON.`,
       config: { responseMimeType: "application/json" }
     });
     return JSON.parse(response.text || "{}");
@@ -117,15 +100,17 @@ export const runAdaptiveAdjustment = async (currentProfile: PatientProfile, feed
 };
 
 export const generateExerciseVisual = async (exercise: Partial<Exercise>, style: string): Promise<string> => {
-  const ai = getAIClient();
-  const prompt = `Hyper-realistic 4K medical visual of ${exercise.titleTr || exercise.title}. Style: ${style}.`;
+  // Görsel varsa üretme
+  if (exercise.visualUrl) return exercise.visualUrl;
+
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: { parts: [{ text: prompt }] },
+    const response = await getAIClient().models.generateContent({
+      model: 'gemini-2.5-flash-image', // Standart görsel modeli
+      contents: { parts: [{ text: `4K Medical: ${exercise.titleTr}. Style: ${style}` }] },
       config: { imageConfig: { aspectRatio: "1:1" } }
     });
-    for (const part of response.candidates[0].content.parts) {
+    const parts = response.candidates?.[0]?.content?.parts || [];
+    for (const part of parts) {
       if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
     }
     return '';
@@ -133,27 +118,35 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
 };
 
 export const generateExerciseData = async (exerciseName: string): Promise<Partial<Exercise>> => {
-  const ai = getAIClient();
-  const prompt = `Generate expert clinical exercise data for "${exerciseName}" including biomechanics in JSON format.`;
+  const inputHash = PhysioDB.generateHash(`exdata_${exerciseName}`);
+  const cached = PhysioDB.getCachedResponse(inputHash);
+  if (cached) return cached.data;
+
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAIClient().models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: prompt,
+      contents: `Expert data for "${exerciseName}" in JSON.`,
       config: { responseMimeType: "application/json" }
     });
-    return JSON.parse(response.text || "{}");
+    const result = JSON.parse(response.text || "{}");
+    PhysioDB.setCachedResponse(inputHash, result);
+    return result;
   } catch { return {}; }
 };
 
+/**
+ * Fix: Added optimizeExerciseData to fulfill the requirement in ExerciseForm.tsx
+ */
 export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: string): Promise<Partial<Exercise>> => {
-  const ai = getAIClient();
-  const prompt = `Optimize for "${goal}": ${JSON.stringify(exercise)}. Update counts and tempo. Return JSON.`;
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAIClient().models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: prompt,
+      contents: `Optimize this exercise for "${goal}": ${JSON.stringify(exercise)}. Return the optimized version as JSON matching the Exercise type structure.`,
       config: { responseMimeType: "application/json" }
     });
     return JSON.parse(response.text || "{}");
-  } catch { return exercise; }
+  } catch (err) {
+    console.error("Optimization Error:", err);
+    return exercise;
+  }
 };

@@ -13,13 +13,11 @@ import {
   TrendingUp,
   Wifi,
   Users,
-  ShieldCheck,
   CheckCircle2,
   AlertTriangle,
   RefreshCw,
-  Database as DbIcon,
-  CloudSync,
-  X
+  X,
+  ShieldCheck
 } from 'lucide-react';
 import { AppTab, PatientProfile, Exercise, ProgressReport } from './types.ts';
 import { runClinicalConsultation, runAdaptiveAdjustment } from './ai-service.ts';
@@ -29,6 +27,8 @@ import { ProgressTracker } from './ProgressTracker.tsx';
 import { PhysioDB } from './db-repository.ts';
 import { Dashboard } from './Dashboard.tsx';
 import { TherapistHub } from './TherapistHub.tsx';
+// Fix: Added missing UserManager import
+import { UserManager } from './UserManager.tsx';
 
 // --- PRODUCTION ERROR BOUNDARY ---
 interface ErrorBoundaryProps {
@@ -38,18 +38,16 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-// Fixed ErrorBoundary class to use property initialization and explicit React.Component to resolve 'state' and 'props' access errors
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { hasError: false };
-
-  static getDerivedStateFromError() { 
-    return { hasError: true }; 
+// Fix: Added constructor to ensure props is correctly recognized and initialized in the class component
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
   }
-
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) { 
-    console.error("PROD_CRASH:", error, errorInfo); 
-  }
-
+  
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) { console.error("PROD_CRASH:", error, errorInfo); }
+  
   render() {
     if (this.state.hasError) {
       return (
@@ -57,7 +55,6 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
           <div className="space-y-6">
             <AlertTriangle size={64} className="text-rose-500 mx-auto" />
             <h2 className="text-2xl font-black italic uppercase text-white tracking-tighter">Sistem <span className="text-rose-500">Hatası</span></h2>
-            <p className="text-slate-500 text-sm max-w-md mx-auto italic">Klinik motorunda bir kesinti oluştu. Lütfen sayfayı yenileyin.</p>
             <button onClick={() => window.location.reload()} className="px-10 py-4 bg-slate-900 border border-slate-800 rounded-2xl text-[10px] font-black uppercase tracking-widest text-cyan-400 flex items-center gap-3 mx-auto">
               <RefreshCw size={16} /> SİSTEMİ YENİLE
             </button>
@@ -85,14 +82,16 @@ export default function PhysioCoreApp() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const savedData = PhysioDB.getProfile();
-    if (savedData) setPatientData(savedData);
+    const profile = PhysioDB.getProfile();
+    if (profile) setPatientData(profile);
     
-    // Check Neon DB Connectivity
-    PhysioDB.checkRemoteStatus().then(setDbStatus);
-    const interval = setInterval(() => {
-      PhysioDB.checkRemoteStatus().then(setDbStatus);
-    }, 30000);
+    const checkDB = async () => {
+      const status = await PhysioDB.checkRemoteStatus();
+      setDbStatus(status);
+    };
+    
+    checkDB();
+    const interval = setInterval(checkDB, 20000);
     return () => clearInterval(interval);
   }, []);
 
@@ -100,19 +99,10 @@ export default function PhysioCoreApp() {
     if (!userInput && !selectedImage) return;
     setIsAnalyzing(true);
     try {
-      const history = patientData?.treatmentHistory || [];
-      const logs = patientData?.painLogs || [];
-      const result = await runClinicalConsultation(userInput, selectedImage || undefined, history, logs);
-      
+      const result = await runClinicalConsultation(userInput, selectedImage || undefined, patientData?.treatmentHistory, patientData?.painLogs);
       if (result) {
-        const finalProfile = {
-          ...result,
-          treatmentHistory: history,
-          painLogs: logs,
-          progressHistory: patientData?.progressHistory || []
-        };
-        setPatientData(finalProfile);
-        PhysioDB.saveProfile(finalProfile);
+        setPatientData(result);
+        await PhysioDB.saveProfile(result);
         setActiveTab('dashboard');
       }
     } finally {
@@ -123,16 +113,11 @@ export default function PhysioCoreApp() {
   const submitFeedback = async () => {
     if (!patientData) return;
     setIsAnalyzing(true);
-    const report: ProgressReport = {
-      date: new Date().toISOString(),
-      painScore,
-      completionRate: 100,
-      feedback: userComment
-    };
+    const report: ProgressReport = { date: new Date().toISOString(), painScore, completionRate: 100, feedback: userComment };
     try {
       const updatedProfile = await runAdaptiveAdjustment(patientData, report);
       setPatientData(updatedProfile);
-      PhysioDB.saveProfile(updatedProfile);
+      await PhysioDB.saveProfile(updatedProfile);
       setShowFeedbackModal(false);
       setActiveTab('progress');
     } finally {
@@ -159,7 +144,7 @@ export default function PhysioCoreApp() {
           <div>
             <h1 className="font-inter font-black text-xl tracking-tighter italic uppercase">PHYSIOCORE <span className="text-cyan-400">AI</span></h1>
             <p className="text-[8px] font-mono text-slate-500 uppercase tracking-widest flex items-center gap-1">
-              Genesis v3.5 <span className="text-emerald-500">•</span> <Wifi size={8} /> LIVE
+              Genesis v3.7 <span className="text-emerald-500">•</span> <ShieldCheck size={8} /> COST-SAVER ENABLED
             </p>
           </div>
         </div>
@@ -195,14 +180,14 @@ export default function PhysioCoreApp() {
                    <div className="w-16 h-16 bg-cyan-500/10 rounded-[1.5rem] flex items-center justify-center text-cyan-400 border border-cyan-500/20 shadow-inner"><BrainCircuit size={32} /></div>
                    <div className="space-y-1">
                       <h2 className="font-inter text-2xl md:text-3xl font-black italic tracking-tighter uppercase leading-tight">Klinik <span className="text-cyan-400">Görüşme</span></h2>
-                      <p className="text-slate-400 text-sm font-medium italic">Genesis AI Motoru v3.5 - Neon DB Integrated</p>
+                      <p className="text-slate-400 text-sm font-medium italic">Genesis AI v3.7 • Zero-Cost Cloud Engine</p>
                    </div>
                 </div>
                 <textarea 
                   value={userInput} 
                   onChange={(e) => setUserInput(e.target.value)} 
-                  placeholder="Şikayetinizi buraya yazın..." 
-                  className="w-full bg-slate-950 border border-slate-800 rounded-[1.5rem] md:rounded-[2rem] p-6 md:p-8 text-sm outline-none transition-all min-h-[200px] shadow-inner font-roboto" 
+                  placeholder="Şikayetinizi buraya yazın... (Sistem benzer şikayetleri önbellekten anında ve ücretsiz getirir)" 
+                  className="w-full bg-slate-950 border border-slate-800 rounded-[1.5rem] md:rounded-[2rem] p-6 md:p-8 text-sm outline-none transition-all min-h-[200px] shadow-inner font-roboto text-slate-300" 
                 />
                 
                 {selectedImage && (
@@ -227,7 +212,7 @@ export default function PhysioCoreApp() {
 
         {activeTab === 'dashboard' && patientData && <Dashboard profile={patientData} onExerciseSelect={(ex) => setSelectedExercise(ex)} />}
         {activeTab === 'progress' && patientData && <ProgressTracker profile={patientData} />}
-        {activeTab === 'users' && <TherapistHub />}
+        {activeTab === 'users' && <UserManager />}
         {activeTab === 'cms' && <ExerciseStudio />}
       </main>
 
@@ -270,7 +255,7 @@ export default function PhysioCoreApp() {
 
 function NavBtn({ active, onClick, icon: Icon, label, hideLabel }: any) {
   return (
-    <button onClick={onClick} className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[10px] font-black tracking-widest transition-all ${active ? 'bg-cyan-500 text-white shadow-xl shadow-cyan-500/30' : 'text-slate-400 hover:text-slate-200'}`}>
+    <button onClick={onClick} className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[10px] font-black tracking-widest transition-all ${active ? 'bg-cyan-500 text-white shadow-xl shadow-cyan-500/30' : 'text-slate-400 hover:text-white'}`}>
       <Icon size={18} /> {!hideLabel && label}
     </button>
   );
