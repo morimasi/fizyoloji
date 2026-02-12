@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect, Component, ErrorInfo, ReactNode } from 'react';
+import React, { useState, useRef, useEffect, ErrorInfo, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { 
   Activity, 
@@ -38,9 +38,8 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-// Fix: Corrected ErrorBoundary inheritance by extending 'Component' directly and removing 'override' modifier.
-// This resolves TS errors where 'props' and 'state' were not recognized as members of the class.
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fix: Corrected ErrorBoundary inheritance by extending 'React.Component' directly to ensure 'props' and 'state' are correctly recognized as members of the class by TypeScript.
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false };
 
   constructor(props: ErrorBoundaryProps) {
@@ -65,7 +64,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
-    // Corrected props access
+    // Fix: Accessing children via this.props which is now correctly inherited from React.Component
     return this.props.children;
   }
 }
