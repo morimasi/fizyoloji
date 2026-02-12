@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'physiocore-genesis-v3.5';
+const CACHE_NAME = 'physiocore-genesis-v4.1';
 const ASSETS = [
   '/',
   '/index.html',
@@ -8,14 +8,20 @@ const ASSETS = [
 
 // Kurulum: Statik dosyaları önbelleğe al
 self.addEventListener('install', (event) => {
+  console.log('[SW] Installing version:', CACHE_NAME);
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(ASSETS).catch(err => {
+        console.error('[SW] Pre-cache failed:', err);
+      });
+    })
   );
   self.skipWaiting();
 });
 
 // Aktivasyon: Eski cache versiyonlarını temizle
 self.addEventListener('activate', (event) => {
+  console.log('[SW] Activating...');
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
@@ -28,14 +34,16 @@ self.addEventListener('activate', (event) => {
 
 // Fetch: Önce cache, sonra network stratejisi
 self.addEventListener('fetch', (event) => {
-  // API isteklerini cache'leme
-  if (event.request.url.includes('/api/')) {
+  // API veya dış kaynak isteklerini cache'leme
+  if (event.request.url.includes('/api/') || !event.request.url.startsWith(self.location.origin)) {
     return;
   }
   
   event.respondWith(
     caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
+      return response || fetch(event.request).catch(() => {
+        // Fallback or handle offline
+      });
     })
   );
 });

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -73,13 +74,13 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          // Absolute path used to ensure correct scope even with SPA rewrites
+          // Relatif yol yerine kök dizinden (/sw.js) yükleme yapılıyor
           navigator.serviceWorker.register('/sw.js', { scope: '/' })
             .then(reg => {
                 console.log('%c[PhysioCore] Core System Registered', 'color: #06B6D4; font-weight: bold;', reg.scope);
             })
             .catch(err => {
-                console.warn('%c[PhysioCore] Offline Engine Initializing...', 'color: #EF4444;', err);
+                console.warn('%c[PhysioCore] SW Error:', 'color: #EF4444;', err);
             });
         });
       }

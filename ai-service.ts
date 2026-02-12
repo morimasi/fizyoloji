@@ -1,33 +1,24 @@
+
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { PatientProfile, ProgressReport, Exercise, DetailedPainLog, TreatmentHistory } from "./types.ts";
 import { PhysioDB } from "./db-repository.ts";
 
 /**
- * AI Studio Key Selection Logic
+ * API Anahtarı Seçim Protokolü (Veo ve Gemini 3 Pro için zorunlu)
  */
-const ensureApiKey = async (): Promise<string> => {
+const ensureApiKey = async (): Promise<void> => {
   const aistudio = (window as any).aistudio;
   if (aistudio) {
     const hasKey = await aistudio.hasSelectedApiKey();
     if (!hasKey) {
       await aistudio.openSelectKey();
+      // Yarış durumunu (race condition) önlemek için seçim sonrası doğrudan devam ediyoruz.
     }
   }
-  
-  const key = process.env.API_KEY;
-  if (!key) {
-    throw new Error("API_KEY missing. Please select a valid key from the dialog.");
-  }
-  return key;
-};
-
-const getAIClient = (apiKey: string) => {
-  return new GoogleGenAI({ apiKey });
 };
 
 /**
- * Genişletilmiş Video Üretim Motoru (v4.0)
- * Anatomik katmanları ve reji notlarını işler.
+ * Genişletilmiş Video Üretim Motoru (v4.1 - Production)
  */
 export const generateExerciseVideo = async (
   exercise: Partial<Exercise>, 
@@ -40,10 +31,11 @@ export const generateExerciseVideo = async (
   } = {}
 ): Promise<string> => {
   try {
-    const apiKey = await ensureApiKey();
-    const ai = getAIClient(apiKey);
+    await ensureApiKey();
     
-    // Klinik Prompt Mühendisliği
+    // Her çağrı için yeni instance (SDK kuralları gereği)
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
     const prompt = `
       MEDICAL GRADE SIMULATION: ${exercise.titleTr || exercise.title}. 
       VISUAL STYLE: ${style}. 
@@ -54,8 +46,8 @@ export const generateExerciseVideo = async (
       - Detail Focus: ${directorialNotes.focus || 'Musculoskeletal Integrity'}
       - Simulation Speed: ${directorialNotes.speed || 'Natural Rhythm'}
       
-      INSTRUCTION: Show exact anatomical movement. If muscular style, highlight primary muscles: ${exercise.muscleGroups?.join(', ') || 'Agonist chains'}. 
-      Ensure 4K high-fidelity textures. No artifacts.
+      INSTRUCTION: Show exact anatomical movement. Highlight primary muscles: ${exercise.muscleGroups?.join(', ') || 'Agonist chains'}. 
+      Ensure 4K high-fidelity textures. Professional cinematography.
     `;
 
     let operation = await ai.models.generateVideos({
@@ -68,16 +60,20 @@ export const generateExerciseVideo = async (
       }
     });
 
-    let attempts = 0;
-    while (!operation.done && attempts < 40) {
-      await new Promise(resolve => setTimeout(resolve, 8000));
+    while (!operation.done) {
+      await new Promise(resolve => setTimeout(resolve, 10000));
       operation = await ai.operations.getVideosOperation({ operation: operation });
-      attempts++;
     }
 
     const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
     if (downloadLink) {
-      const res = await fetch(`${downloadLink}&key=${apiKey}`);
+      const res = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+      if (res.status === 404) {
+        // Eğer anahtar geçersizse tekrar seçim kutusunu aç
+        const aistudio = (window as any).aistudio;
+        if (aistudio) await aistudio.openSelectKey();
+        throw new Error("Requested entity was not found - API Key reset required.");
+      }
       if (!res.ok) throw new Error("Video fetch failed");
       const blob = await res.blob();
       return URL.createObjectURL(blob);
@@ -90,7 +86,7 @@ export const generateExerciseVideo = async (
 };
 
 /**
- * Karar Destek Sistemi - Flash Optimized
+ * Klinik Danışmanlık Motoru
  */
 export const runClinicalConsultation = async (
   text: string, 
@@ -103,9 +99,8 @@ export const runClinicalConsultation = async (
   if (cached) return cached.data;
 
   try {
-    const apiKey = process.env.API_KEY || await ensureApiKey();
-    const ai = getAIClient(apiKey);
-    const prompt = `Fizyoterapist Karar Destek Sistemi Analizi.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const prompt = `Sen kıdemli bir klinik rehabilitasyon uzmanısın.
     Girdi: "${text}"
     Geçmiş: ${JSON.stringify(history || [])}
     Ağrı Logları: ${JSON.stringify(painLogs || [])}
@@ -120,8 +115,8 @@ export const runClinicalConsultation = async (
         ]
       },
       config: { 
-        responseMimeType: "application/json", 
-        systemInstruction: "Sen kıdemli bir klinik rehabilitasyon uzmanısın."
+        responseMimeType: "application/json",
+        systemInstruction: "Kesinlikle tıbbi terminoloji kullan ve JSON formatında yanıt ver."
       }
     });
 
@@ -129,17 +124,17 @@ export const runClinicalConsultation = async (
     if (result) PhysioDB.setCachedResponse(inputHash, result);
     return result;
   } catch (err) {
+    console.error("Consultation Error:", err);
     return null; 
   }
 };
 
 export const runAdaptiveAdjustment = async (currentProfile: PatientProfile, feedback: ProgressReport): Promise<PatientProfile> => {
   try {
-    const apiKey = process.env.API_KEY || await ensureApiKey();
-    const ai = getAIClient(apiKey);
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Feedback: ${JSON.stringify(feedback)}. Profile: ${JSON.stringify(currentProfile)}.`,
+      contents: `Feedback: ${JSON.stringify(feedback)}. Mevcut Profil: ${JSON.stringify(currentProfile)}. Adaptif güncelleme yap ve JSON döndür.`,
       config: { responseMimeType: "application/json" }
     });
     return JSON.parse(response.text || "{}");
@@ -147,21 +142,24 @@ export const runAdaptiveAdjustment = async (currentProfile: PatientProfile, feed
 };
 
 export const generateExerciseVisual = async (exercise: Partial<Exercise>, style: string): Promise<string> => {
-  if (exercise.visualUrl) return exercise.visualUrl;
   try {
-    const apiKey = process.env.API_KEY || await ensureApiKey();
-    const ai = getAIClient(apiKey);
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
-      contents: { parts: [{ text: `High-fidelity 4K Medical Illustration: ${exercise.titleTr || exercise.title}. Style: ${style}.` }] },
+      contents: { parts: [{ text: `High-fidelity 4K Medical Illustration: ${exercise.titleTr || exercise.title}. Style: ${style}. Biomechanics focused.` }] },
       config: { imageConfig: { aspectRatio: "1:1" } }
     });
-    const parts = response.candidates?.[0]?.content?.parts || [];
-    for (const part of parts) {
-      if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
+    
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) {
+        return `data:image/png;base64,${part.inlineData.data}`;
+      }
     }
     return '';
-  } catch { return ''; }
+  } catch (e) {
+    console.error("Image Gen Error:", e);
+    return '';
+  }
 };
 
 export const generateExerciseData = async (exerciseName: string): Promise<Partial<Exercise>> => {
@@ -169,11 +167,10 @@ export const generateExerciseData = async (exerciseName: string): Promise<Partia
   const cached = PhysioDB.getCachedResponse(inputHash);
   if (cached) return cached.data;
   try {
-    const apiKey = process.env.API_KEY || await ensureApiKey();
-    const ai = getAIClient(apiKey);
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Biyomekanik veriler oluştur: "${exerciseName}".`,
+      contents: `Biyomekanik veriler oluştur (JSON): "${exerciseName}". Dahil et: reps, sets, tempo, muscleGroups.`,
       config: { responseMimeType: "application/json" }
     });
     const result = JSON.parse(response.text || "{}");
@@ -184,11 +181,10 @@ export const generateExerciseData = async (exerciseName: string): Promise<Partia
 
 export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: string): Promise<Partial<Exercise>> => {
   try {
-    const apiKey = process.env.API_KEY || await ensureApiKey();
-    const ai = getAIClient(apiKey);
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Şu egzersizi "${goal}" hedefi için optimize et: ${JSON.stringify(exercise)}.`,
+      contents: `Şu egzersizi "${goal}" hedefi için optimize et (JSON): ${JSON.stringify(exercise)}.`,
       config: { responseMimeType: "application/json" }
     });
     return JSON.parse(response.text || "{}");
