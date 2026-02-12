@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Play, Pause, RotateCcw, ChevronLeft, Info, Zap, 
   Layers, Wind, Maximize2, FastForward, Heart, 
   CheckCircle2, WifiOff, ChevronRight, Video, Eye, EyeOff,
-  Loader2, Trophy
+  Loader2, Trophy, Flame
 } from 'lucide-react';
 import { Exercise } from './types.ts';
 import { ExerciseActions } from './ExerciseActions.tsx';
@@ -21,6 +22,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
   const [activeView, setActiveView] = useState<'normal' | 'xray' | 'muscles'>('normal');
   const [isCinematic, setIsCinematic] = useState(false);
   const [showSetComplete, setShowSetComplete] = useState(false);
+  const [streak, setStreak] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const handleNextSet = () => {
@@ -29,6 +31,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
       setCurrentRep(0);
       setIsPlaying(false);
       setShowSetComplete(true);
+      setStreak(prev => prev + 1);
       setTimeout(() => setShowSetComplete(false), 3000);
     } else {
       onClose(true);
@@ -38,8 +41,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
   useEffect(() => {
     let interval: any;
     if (isPlaying && currentRep < exercise.reps) {
-      // Rep speed based on clinical tempo or default 4s
-      const tempoSpeed = exercise.tempo ? 4000 : 4000;
+      const tempoSpeed = 4000; // Default medical tempo
       interval = setInterval(() => {
         setCurrentRep(prev => {
           if (prev + 1 === exercise.reps) {
@@ -84,11 +86,15 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
             </div>
           </div>
           <div className="flex gap-4">
+            <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+               <Flame size={14} className="text-amber-500 animate-pulse" />
+               <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">STREAK: {streak}</span>
+            </div>
             <button 
               onClick={() => setIsCinematic(true)}
               className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-cyan-400 flex items-center gap-2 transition-all"
             >
-              <Eye size={16} /> <span className="text-[9px] font-black uppercase tracking-widest">SİNEMATİK MOD</span>
+              <Eye size={16} /> <span className="text-[9px] font-black uppercase tracking-widest">SİNEMATİK</span>
             </button>
             <button onClick={() => onClose(true)} className="px-8 bg-cyan-500 text-white rounded-xl font-inter font-black italic text-xs shadow-xl shadow-cyan-500/30">
               BİTİR <ChevronRight size={16} className="inline ml-1" />
