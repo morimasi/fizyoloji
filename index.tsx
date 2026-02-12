@@ -38,17 +38,19 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-// Fix: Added constructor to ensure props is correctly recognized and initialized in the class component
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fix: Explicitly using React.Component and declaring state property to resolve TS errors regarding 'state' and 'props' not existing on the type.
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public override state: ErrorBoundaryState = { hasError: false };
+
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false };
   }
   
   static getDerivedStateFromError() { return { hasError: true }; }
   componentDidCatch(error: Error, errorInfo: ErrorInfo) { console.error("PROD_CRASH:", error, errorInfo); }
   
   render() {
+    // Corrected state access
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-12 text-center">
@@ -62,6 +64,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
+    // Corrected props access
     return this.props.children;
   }
 }

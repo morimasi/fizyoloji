@@ -8,29 +8,27 @@ import { Exercise, PatientProfile } from './types.ts';
 export class PhysioDB {
   private static EXERCISES_KEY = 'physiocore_exercises';
   private static PROFILE_KEY = 'physiocore_patient';
-  private static CACHE_KEY = 'physiocore_ai_cache'; // AI Yanıtları Önbelleği
+  private static CACHE_KEY = 'physiocore_ai_cache'; 
   private static SYNC_STATUS_KEY = 'physiocore_sync_meta';
 
-  /**
-   * Semantik Önbellek Sorgulama (Maliyet Savunması)
-   */
   static getCachedResponse(inputHash: string): any | null {
-    const cache = JSON.parse(localStorage.getItem(this.CACHE_KEY) || '{}');
-    return cache[inputHash] || null;
+    try {
+      const cache = JSON.parse(localStorage.getItem(this.CACHE_KEY) || '{}');
+      return cache[inputHash] || null;
+    } catch { return null; }
   }
 
   static setCachedResponse(inputHash: string, response: any) {
-    const cache = JSON.parse(localStorage.getItem(this.CACHE_KEY) || '{}');
-    cache[inputHash] = {
-      data: response,
-      timestamp: Date.now()
-    };
-    localStorage.setItem(this.CACHE_KEY, JSON.stringify(cache));
+    try {
+      const cache = JSON.parse(localStorage.getItem(this.CACHE_KEY) || '{}');
+      cache[inputHash] = {
+        data: response,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(this.CACHE_KEY, JSON.stringify(cache));
+    } catch (e) { console.warn("Cache save failed", e); }
   }
 
-  /**
-   * Basit bir input hash fonksiyonu (Prompt tekrarını önlemek için)
-   */
   static generateHash(text: string): string {
     return text.toLowerCase().replace(/\s+/g, '').slice(0, 32);
   }
@@ -38,6 +36,7 @@ export class PhysioDB {
   static async checkRemoteStatus(): Promise<{ connected: boolean; latency: number }> {
     const start = Date.now();
     try {
+      // API endpointi mevcut değilse sessizce hata döndür
       const res = await fetch('/api/sync', { method: 'OPTIONS' }).catch(() => null);
       return { connected: !!res, latency: Date.now() - start };
     } catch {
@@ -58,15 +57,28 @@ export class PhysioDB {
     }
   }
 
+  /**
+   * Egzersiz kütüphanesini getirir. Boşsa seed-data.ts'den yükler.
+   */
   static async getExercises(): Promise<Exercise[]> {
     const cached = localStorage.getItem(this.EXERCISES_KEY);
-    let exercises: Exercise[] = cached ? JSON.parse(cached) : [];
-    if (exercises.length === 0) {
-      const { SEED_EXERCISES } = await import('./seed-data.ts').catch(() => ({ SEED_EXERCISES: [] }));
-      exercises = SEED_EXERCISES;
-      localStorage.setItem(this.EXERCISES_KEY, JSON.stringify(exercises));
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch {
+        localStorage.removeItem(this.EXERCISES_KEY);
+      }
     }
-    return exercises;
+
+    // Fix: Dynamic import error handling and direct seed loading
+    try {
+      const { SEED_EXERCISES } = await import('./seed-data.ts');
+      localStorage.setItem(this.EXERCISES_KEY, JSON.stringify(SEED_EXERCISES));
+      return SEED_EXERCISES;
+    } catch (err) {
+      console.error("Seed data loading failed:", err);
+      return [];
+    }
   }
 
   static async addExercise(exercise: Exercise): Promise<void> {
@@ -100,6 +112,8 @@ export class PhysioDB {
 
   static getProfile(): PatientProfile | null {
     const saved = localStorage.getItem(this.PROFILE_KEY);
-    return saved ? JSON.parse(saved) : null;
+    try {
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
   }
 }
