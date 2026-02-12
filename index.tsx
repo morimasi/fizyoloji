@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect, ErrorInfo, ReactNode } from 'react';
+import React, { Component, useState, useRef, useEffect, ErrorInfo, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { 
   Activity, 
@@ -38,15 +38,21 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fixed: Inheriting from Component instead of React.Component and specifying generic types explicitly to resolve the missing 'props' property error.
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false };
 
   constructor(props: ErrorBoundaryProps) {
     super(props);
   }
   
-  static getDerivedStateFromError() { return { hasError: true }; }
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) { console.error("PROD_CRASH:", error, errorInfo); }
+  static getDerivedStateFromError(_error: Error): ErrorBoundaryState { 
+    return { hasError: true }; 
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) { 
+    console.error("PROD_CRASH:", error, errorInfo); 
+  }
   
   render() {
     if (this.state.hasError) {
@@ -62,6 +68,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
+    // Correctly accessing props.children
     return this.props.children;
   }
 }
