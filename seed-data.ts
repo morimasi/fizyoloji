@@ -2,108 +2,582 @@
 import { Exercise } from './types.ts';
 
 /**
- * PhysioCore AI - Clinical Seed Library v3.7
- * Bu veriler, AI maliyetini düşürmek için önbellekten sunulan standart protokollerdir.
+ * PhysioCore AI - Clinical Seed Library v3.7 (Master Edition)
+ * Bu veriler, klinik karar destek sisteminin (CDS) omurgasını oluşturur.
+ * Toplam: 70 Klinik Protokol (7 Kategori x 10 Egzersiz)
  */
 export const SEED_EXERCISES: Exercise[] = [
+  // --- CATEGORY 1: SPINE (LUMBAR & CERVICAL) ---
   {
-    id: 'seed-001',
-    code: 'SP-LUM-01',
-    title: 'McKenzie Prone Press-up',
-    titleTr: 'McKenzie Yüzüstü Doğrulma',
-    category: 'Spine / Lumbar',
-    difficulty: 3,
-    sets: 3,
-    reps: 10,
-    description: 'Yüzüstü yatın. Ellerinizi omuz hizasında yerleştirin. Kalçanızı yerden ayırmadan kollarınızla gövdenizi yukarı doğru itin. Tepe noktasında 2 saniye bekleyin ve yavaşça inin.',
-    biomechanics: 'L4-L5 segmentinde distraksiyon sağlar. Disk materyalinin santralizasyonunu (merkeze dönüşünü) destekler. Ekstansiyon biaslı bir harekettir.',
-    safetyFlags: ['Spondylolisthesis', 'Akut Fraktür'],
-    equipment: ['Mat'],
-    muscleGroups: ['Erector Spinae', 'Multifidus'],
-    rehabPhase: 'Akut',
-    movementPlane: 'Sagittal',
-    tempo: '2-2-2',
-    restPeriod: 60,
-    visualStyle: 'Cinematic-Motion'
+    id: 'sp-001', code: 'SP-LUM-01', title: 'McKenzie Prone Press-up', titleTr: 'McKenzie Yüzüstü Doğrulma',
+    category: 'Spine', difficulty: 3, sets: 3, reps: 10, restPeriod: 60, visualStyle: 'Cinematic-Motion',
+    description: 'Yüzüstü yatın. Ellerinizi omuz hizasında yerleştirin. Kalçanızı yerden ayırmadan kollarınızla gövdenizi yukarı doğru itin.',
+    biomechanics: 'L4-L5 segmentinde distraksiyon sağlar. Disk materyalinin santralizasyonunu destekler.',
+    safetyFlags: ['Spondylolisthesis', 'Akut Fraktür'], equipment: ['Mat'], muscleGroups: ['Erector Spinae'],
+    rehabPhase: 'Akut', movementPlane: 'Sagittal', tempo: '2-2-2'
   },
   {
-    id: 'seed-002',
-    code: 'SP-LUM-02',
-    title: 'Bird-Dog Stability',
-    titleTr: 'Çapraz Kol-Bacak Uzatma',
-    category: 'Spine / Lumbar',
-    difficulty: 5,
-    sets: 3,
-    reps: 12,
-    description: 'Dört ayak üzerinde durun. Karın kaslarınızı hafifçe sıkın. Aynı anda sağ kolunuzu ileri, sol bacağınızı geriye doğru uzatın. Sırtınızın dümdüz bir masa gibi kalmasına dikkat edin.',
-    biomechanics: 'Lumbar multifidus ve gluteus maximus kaslarının ko-kontraksiyonunu sağlar. Spinal stabilite ve motor kontrolü geliştirir.',
-    safetyFlags: ['Şiddetli Denge Kaybı'],
-    equipment: ['Mat'],
-    muscleGroups: ['Core', 'Multifidus', 'Gluteus Maximus'],
-    rehabPhase: 'Sub-Akut',
-    movementPlane: 'Transverse',
-    tempo: '3-1-3',
-    restPeriod: 45,
-    visualStyle: 'X-Ray'
+    id: 'sp-002', code: 'SP-LUM-02', title: 'Bird-Dog Stability', titleTr: 'Çapraz Kol-Bacak Uzatma',
+    category: 'Spine', difficulty: 5, sets: 3, reps: 12, restPeriod: 45, visualStyle: 'X-Ray',
+    description: 'Dört ayak üzerinde durun. Aynı anda sağ kolunuzu ileri, sol bacağınızı geriye doğru uzatın.',
+    biomechanics: 'Lumbar multifidus aktivasyonu ve core stabilitesi sağlar.',
+    safetyFlags: ['Denge Kaybı'], equipment: ['Mat'], muscleGroups: ['Core', 'Multifidus'],
+    rehabPhase: 'Sub-Akut', movementPlane: 'Transverse', tempo: '3-1-3'
   },
   {
-    id: 'seed-003',
-    code: 'LL-KNE-01',
-    title: 'Terminal Knee Extension (TKE)',
-    titleTr: 'Terminal Diz Ekstansiyonu',
-    category: 'Lower Limb / Knee',
-    difficulty: 4,
-    sets: 3,
-    reps: 15,
-    description: 'Ayakta durun. Bir direnç bandını diz arkasına sabitleyin. Diziniz hafif bükülüyken bandın direncine karşı dizinizi tam düz hale getirin ve Vastus Medialis kasınızı sıkın.',
-    biomechanics: 'VMO (Vastus Medialis Obliquus) aktivasyonunu maksimize eder. Patellofemoral tracking sorunlarında etkilidir.',
-    safetyFlags: ['Akut Menisküs Yırtığı'],
-    equipment: ['Direnç Bandı'],
-    muscleGroups: ['Quadriceps', 'VMO'],
-    rehabPhase: 'Sub-Akut',
-    movementPlane: 'Sagittal',
-    tempo: '1-2-1',
-    restPeriod: 30,
-    visualStyle: '4K-Render'
+    id: 'sp-003', code: 'SP-LUM-03', title: 'Pelvic Tilts', titleTr: 'Pelvik Tilt (Pelvis Eğme)',
+    category: 'Spine', difficulty: 2, sets: 3, reps: 15, restPeriod: 30, visualStyle: 'Schematic',
+    description: 'Sırtüstü yatın, dizleri bükün. Bel çukurunu yere bastırarak karın kaslarını sıkın ve bırakın.',
+    biomechanics: 'Lumbar mobilizasyon ve derin karın kası farkındalığı.',
+    safetyFlags: ['Şiddetli Akut Ağrı'], equipment: ['Mat'], muscleGroups: ['Abs', 'Pelvic Floor'],
+    rehabPhase: 'Akut', movementPlane: 'Sagittal', tempo: '2-0-2'
   },
   {
-    id: 'seed-004',
-    code: 'UL-SHO-01',
-    title: 'Scapular Wall Slides',
-    titleTr: 'Duvarda Kürek Kemiği Kaydırma',
-    category: 'Upper Limb / Shoulder',
-    difficulty: 6,
-    sets: 3,
-    reps: 10,
-    description: 'Sırtınızı duvara yaslayın. Kollarınızı "W" şeklinde duvara yerleştirin. Dirsekleri ve el sırtını duvardan ayırmadan kollarınızı yukarı "Y" şekline doğru kaydırın.',
-    biomechanics: 'Serratus anterior aktivasyonu sağlar ve skapular diskiniziyi düzeltir. Omuz mobilitesini artırırken stabiliteyi korur.',
-    safetyFlags: ['Impingement Sendromu (Ağrılı Faz)'],
-    equipment: ['Duvar'],
-    muscleGroups: ['Serratus Anterior', 'Lower Trapezius'],
-    rehabPhase: 'Kronik',
-    movementPlane: 'Frontal',
-    tempo: '3-0-3',
-    restPeriod: 60,
-    visualStyle: 'Cinematic-Motion'
+    id: 'sp-004', code: 'SP-CER-01', title: 'Cervical Chin Tuck', titleTr: 'Boyun Geri Çekme (Çift Çene)',
+    category: 'Spine', difficulty: 2, sets: 3, reps: 10, restPeriod: 30, visualStyle: 'Cinematic-Motion',
+    description: 'Dik oturun. Başınızı öne eğmeden geriye doğru çekerek çift çene yapın.',
+    biomechanics: 'Derin boyun fleksörlerini (Longus Colli) aktive eder, başın öne eğilmesini düzeltir.',
+    safetyFlags: ['Baş Dönmesi'], equipment: ['Yok'], muscleGroups: ['Cervical Flexors'],
+    rehabPhase: 'Akut', movementPlane: 'Sagittal', tempo: '5-2-5'
   },
   {
-    id: 'seed-005',
-    code: 'SP-CER-01',
-    title: 'Chin Tuck Isometric',
-    titleTr: 'Boyun Geri Çekme (İzometrik)',
-    category: 'Spine / Cervical',
-    difficulty: 2,
-    sets: 3,
-    reps: 10,
-    description: 'Dik oturun. Başınızı öne eğmeden, çift çene yapacakmış gibi geriye doğru çekin. Boyun arkasındaki derin kasların gerildiğini hissedin. 5 saniye tutun.',
-    biomechanics: 'Deep Cervical Flexors (Derin boyun fleksörleri) aktivasyonu sağlar. Forward head posture (öne eğik baş) düzeltilmesinde altın standarttır.',
-    safetyFlags: ['Baş Dönmesi', 'Vasküler Yetmezlik'],
-    equipment: ['Yok'],
-    muscleGroups: ['Longus Colli', 'Longus Capitis'],
-    rehabPhase: 'Akut',
-    movementPlane: 'Sagittal',
-    tempo: '5-5-5',
-    restPeriod: 30,
-    visualStyle: 'Schematic'
+    id: 'sp-005', code: 'SP-THO-01', title: 'Thoracic Extension (Foam Roller)', titleTr: 'Sırt Ekstansiyonu (Silindir)',
+    category: 'Spine', difficulty: 4, sets: 2, reps: 10, restPeriod: 60, visualStyle: '4K-Render',
+    description: 'Foam rollerı sırtınızın altına koyun. Ellerinizi başınızın arkasına alıp geriye doğru esneyin.',
+    biomechanics: 'Torakal omurga mobilitesini artırır, kifozu (kamburluğu) azaltır.',
+    safetyFlags: ['Osteoporoz', 'Kaburga Kırığı'], equipment: ['Foam Roller'], muscleGroups: ['Thoracic Spine'],
+    rehabPhase: 'Kronik', movementPlane: 'Sagittal', tempo: '5-5-5'
+  },
+  {
+    id: 'sp-006', code: 'SP-LUM-04', title: 'Dead Bug Core Support', titleTr: 'Dead Bug Karın Kontrolü',
+    category: 'Spine', difficulty: 4, sets: 3, reps: 10, restPeriod: 45, visualStyle: 'X-Ray',
+    description: 'Sırtüstü yatın, bacaklar masa pozisyonunda. Belinizi yerden ayırmadan çapraz kol-bacağı açın.',
+    biomechanics: 'Lumbopelvik stabiliteyi (Dead Bug) geliştirir, alt karın aktivasyonu sağlar.',
+    safetyFlags: ['Bel Boşluğu Kontrol Kaybı'], equipment: ['Mat'], muscleGroups: ['Transversus Abdominis'],
+    rehabPhase: 'Sub-Akut', movementPlane: 'Frontal', tempo: '3-0-3'
+  },
+  {
+    id: 'sp-007', code: 'SP-LUM-05', title: 'Child’s Pose Stretch', titleTr: 'Çocuk Pozisyonu Esneme',
+    category: 'Spine', difficulty: 1, sets: 3, reps: 30, restPeriod: 30, visualStyle: 'Schematic',
+    description: 'Diz çökün, topuklarınıza oturun ve kollarınızı ileri uzatarak alnınızı yere koyun.',
+    biomechanics: 'Lumbar paravertebral kaslarda pasif germe ve dekompresyon.',
+    safetyFlags: ['Diz Yaralanması'], equipment: ['Mat'], muscleGroups: ['Paraspinals'],
+    rehabPhase: 'Akut', movementPlane: 'Sagittal', tempo: 'Static'
+  },
+  {
+    id: 'sp-008', code: 'SP-CER-02', title: 'Levator Scapulae Stretch', titleTr: 'Omuz-Boyun Esnetme',
+    category: 'Spine', difficulty: 2, sets: 3, reps: 3, restPeriod: 30, visualStyle: 'Cinematic-Motion',
+    description: 'Dik oturun. Başınızı 45 derece yana çevirip koltuk altınıza bakacakmış gibi öne eğin.',
+    biomechanics: 'Levator Scapulae kasındaki gerginliği azaltarak boyun ağrısını hafifletir.',
+    safetyFlags: ['Sinir Sıkışması Bulguları'], equipment: ['Sandalye'], muscleGroups: ['Levator Scapulae'],
+    rehabPhase: 'Akut', movementPlane: 'Oblique', tempo: '30s Hold'
+  },
+  {
+    id: 'sp-009', code: 'SP-LUM-06', title: 'Cat-Camel Mobilization', titleTr: 'Kedi-Deve Egzersizi',
+    category: 'Spine', difficulty: 2, sets: 3, reps: 10, restPeriod: 30, visualStyle: '4K-Render',
+    description: 'Dört ayak üzerinde durun. Sırtınızı yukarı kamburlaştırın, sonra aşağı doğru çukurlaştırın.',
+    biomechanics: 'Tüm omurga segmentlerinde segmental mobilizasyon sağlar.',
+    safetyFlags: ['Akut Disk Hernisi (Sınırlı Hareket)'], equipment: ['Mat'], muscleGroups: ['Spinal Column'],
+    rehabPhase: 'Akut', movementPlane: 'Sagittal', tempo: '4-0-4'
+  },
+  {
+    id: 'sp-010', code: 'SP-LUM-07', title: 'Cobra Stretch', titleTr: 'Kobra Esnemesi',
+    category: 'Spine', difficulty: 3, sets: 3, reps: 10, restPeriod: 45, visualStyle: 'Cinematic-Motion',
+    description: 'Yüzüstü yatın. Ellerinizi omuzlarınızın altına koyun ve göğsünüzü yukarı kaldırın.',
+    biomechanics: 'Karın kaslarını gerer ve lumbar ekstansiyonu teşvik eder.',
+    safetyFlags: ['Stenoz'], equipment: ['Mat'], muscleGroups: ['Rectus Abdominis'],
+    rehabPhase: 'Kronik', movementPlane: 'Sagittal', tempo: '3-2-3'
+  },
+
+  // --- CATEGORY 2: LOWER LIMB (HIP & KNEE) ---
+  {
+    id: 'll-001', code: 'LL-KNE-01', title: 'Terminal Knee Extension (TKE)', titleTr: 'Terminal Diz Ekstansiyonu',
+    category: 'Lower Limb', difficulty: 3, sets: 3, reps: 15, restPeriod: 30, visualStyle: '4K-Render',
+    description: 'Direnç bandını diz arkasına takın. Bandın direncine karşı dizinizi tam düz hale getirin.',
+    biomechanics: 'Vastus Medialis Obliquus (VMO) aktivasyonu sağlar.',
+    safetyFlags: ['Diz Kapağı Çıkığı'], equipment: ['Direnç Bandı'], muscleGroups: ['VMO', 'Quads'],
+    rehabPhase: 'Sub-Akut', movementPlane: 'Sagittal', tempo: '1-2-1'
+  },
+  {
+    id: 'll-002', code: 'LL-HIP-01', title: 'Clamshells', titleTr: 'İstiridye Egzersizi',
+    category: 'Lower Limb', difficulty: 4, sets: 3, reps: 12, restPeriod: 45, visualStyle: 'Cinematic-Motion',
+    description: 'Yan yatın, dizler bükülü. Üstteki dizinizi ayakları ayırmadan yukarı doğru açın.',
+    biomechanics: 'Gluteus Medius aktivasyonu ile kalça stabilitesi sağlar.',
+    safetyFlags: ['Bursit'], equipment: ['Yok'], muscleGroups: ['Gluteus Medius'],
+    rehabPhase: 'Sub-Akut', movementPlane: 'Frontal', tempo: '2-1-2'
+  },
+  {
+    id: 'll-003', code: 'LL-KNE-02', title: 'Wall Squat (Static)', titleTr: 'Duvarda Squat (Statik)',
+    category: 'Lower Limb', difficulty: 5, sets: 3, reps: 45, restPeriod: 60, visualStyle: 'X-Ray',
+    description: 'Sırtınızı duvara yaslayın. Dizleriniz 90 derece bükülene kadar aşağı kayın ve bekleyin.',
+    biomechanics: 'İzometrik quadriceps kuvveti ve eklem stabilitesi.',
+    safetyFlags: ['Patellofemoral Ağrı'], equipment: ['Duvar'], muscleGroups: ['Quadriceps', 'Glutes'],
+    rehabPhase: 'Sub-Akut', movementPlane: 'Sagittal', tempo: 'Static'
+  },
+  {
+    id: 'll-004', code: 'LL-ANK-01', title: 'Standing Calf Raise', titleTr: 'Parmak Ucunda Yükselme',
+    category: 'Lower Limb', difficulty: 3, sets: 3, reps: 15, restPeriod: 45, visualStyle: 'Schematic',
+    description: 'Bir basamakta veya düz zeminde ayak parmak uçlarınızda yükselin ve yavaşça inin.',
+    biomechanics: 'Gastrocnemius ve Soleus kuvveti, ayak bileği stabilitesi.',
+    safetyFlags: ['Aşil Tendiniti (Akut)'], equipment: ['Yok'], muscleGroups: ['Calves'],
+    rehabPhase: 'Sub-Akut', movementPlane: 'Sagittal', tempo: '1-1-2'
+  },
+  {
+    id: 'll-005', code: 'LL-HIP-02', title: 'Bridges', titleTr: 'Köprü Kurma',
+    category: 'Lower Limb', difficulty: 4, sets: 3, reps: 12, restPeriod: 45, visualStyle: '4K-Render',
+    description: 'Sırtüstü yatın, dizler bükülü. Kalçanızı yerden kaldırarak düz bir çizgi oluşturun.',
+    biomechanics: 'Gluteal zinciri ve hamstring kaslarını aktive eder.',
+    safetyFlags: ['Lumbar Hiper-Ekstansiyon'], equipment: ['Mat'], muscleGroups: ['Glutes', 'Hamstrings'],
+    rehabPhase: 'Akut', movementPlane: 'Sagittal', tempo: '2-2-2'
+  },
+  {
+    id: 'll-006', code: 'LL-KNE-03', title: 'Straight Leg Raise (SLR)', titleTr: 'Düz Bacak Kaldırma',
+    category: 'Lower Limb', difficulty: 3, sets: 3, reps: 10, restPeriod: 30, visualStyle: 'Cinematic-Motion',
+    description: 'Sırtüstü yatın. Bir bacağınızı düz tutarak 45 derece yukarı kaldırın ve bekleyin.',
+    biomechanics: 'Eklem yükü bindirmeden Quadriceps kuvvetlendirme.',
+    safetyFlags: ['Bel Ağrısı (Eğer bacak ağır gelirse)'], equipment: ['Yok'], muscleGroups: ['Quadriceps'],
+    rehabPhase: 'Akut', movementPlane: 'Sagittal', tempo: '2-2-2'
+  },
+  {
+    id: 'll-007', code: 'LL-HIP-03', title: 'Lateral Band Walk', titleTr: 'Bantla Yana Yürüyüş',
+    category: 'Lower Limb', difficulty: 6, sets: 3, reps: 10, restPeriod: 60, visualStyle: 'X-Ray',
+    description: 'Dizlerinizin üzerine direnç bandı takın. Hafif çömelerek yana doğru adımlar atın.',
+    biomechanics: 'Dinamik kalça stabilitesi ve abduktor kuvveti.',
+    safetyFlags: ['Diz Valgus Riski'], equipment: ['Direnç Bandı'], muscleGroups: ['Gluteus Medius'],
+    rehabPhase: 'Kronik', movementPlane: 'Frontal', tempo: 'Step'
+  },
+  {
+    id: 'll-008', code: 'LL-KNE-04', title: 'Heel Slides', titleTr: 'Topuk Kaydırma',
+    category: 'Lower Limb', difficulty: 2, sets: 3, reps: 15, restPeriod: 30, visualStyle: 'Schematic',
+    description: 'Sırtüstü yatın. Topuğunuzu yerden ayırmadan dizinizi bükerek kendinize çekin.',
+    biomechanics: 'Diz ekleminde ROM (Hareket Açıklığı) kazanımı sağlar.',
+    safetyFlags: ['Post-Op Sınırlamalar'], equipment: ['Havlu'], muscleGroups: ['Hamstrings'],
+    rehabPhase: 'Akut', movementPlane: 'Sagittal', tempo: '2-0-2'
+  },
+  {
+    id: 'll-009', code: 'LL-ANK-02', title: 'Ankle Alphabet', titleTr: 'Bilekle Alfabe Yazma',
+    category: 'Lower Limb', difficulty: 1, sets: 2, reps: 1, restPeriod: 30, visualStyle: 'Cinematic-Motion',
+    description: 'Ayağınız boşluktayken, ayak baş parmağınızla havaya alfabenin harflerini yazın.',
+    biomechanics: 'Ayak bileğinin tüm düzlemlerde mobilizasyonu.',
+    safetyFlags: ['Şiddetli Ödem'], equipment: ['Yok'], muscleGroups: ['Ankle Stabilizers'],
+    rehabPhase: 'Akut', movementPlane: 'Multi-Planar', tempo: 'Fluid'
+  },
+  {
+    id: 'll-010', code: 'LL-HIP-04', title: 'Glute Squeeze (Isometric)', titleTr: 'Kalça Sıkma (İzometrik)',
+    category: 'Lower Limb', difficulty: 1, sets: 3, reps: 10, restPeriod: 30, visualStyle: '4K-Render',
+    description: 'Herhangi bir pozisyonda kalça kaslarınızı olabildiğince sıkın ve 5 saniye bekleyin.',
+    biomechanics: 'Gluteal kaslarda nöral aktivasyonu artırır.',
+    safetyFlags: ['Yok'], equipment: ['Yok'], muscleGroups: ['Gluteus Maximus'],
+    rehabPhase: 'Akut', movementPlane: 'Static', tempo: '5-0-5'
+  },
+
+  // --- CATEGORY 3: UPPER LIMB (SHOULDER & ELBOW) ---
+  {
+    id: 'ul-001', code: 'UL-SHO-01', title: 'Pendulum Exercises', titleTr: 'Sarkaç Egzersizleri',
+    category: 'Upper Limb', difficulty: 1, sets: 3, reps: 2, restPeriod: 30, visualStyle: 'Cinematic-Motion',
+    description: 'Bir masaya dayanın. Boştaki kolunuzu serbest bırakıp daireler çizdirin.',
+    biomechanics: 'Omuz ekleminde distraksiyon ve pasif mobilizasyon sağlar.',
+    safetyFlags: ['Şiddetli Instabilite'], equipment: ['Masa'], muscleGroups: ['Shoulder Capsule'],
+    rehabPhase: 'Akut', movementPlane: 'Circumduction', tempo: 'Fluid'
+  },
+  {
+    id: 'ul-002', code: 'UL-SHO-02', title: 'Scapular Wall Slides', titleTr: 'Duvarda Kürek Kemiği Kaydırma',
+    category: 'Upper Limb', difficulty: 5, sets: 3, reps: 10, restPeriod: 45, visualStyle: '4K-Render',
+    description: 'Kollarınızı duvara "W" şeklinde yaslayın ve "Y" şekline doğru yukarı kaydırın.',
+    biomechanics: 'Serratus anterior aktivasyonu ve skapular kontrol.',
+    safetyFlags: ['Sıkışma Sendromu'], equipment: ['Duvar'], muscleGroups: ['Serratus Anterior'],
+    rehabPhase: 'Kronik', movementPlane: 'Frontal', tempo: '3-1-3'
+  },
+  {
+    id: 'ul-003', code: 'UL-SHO-03', title: 'Shoulder External Rotation', titleTr: 'Omuz Dış Rotasyonu (Bantla)',
+    category: 'Upper Limb', difficulty: 4, sets: 3, reps: 12, restPeriod: 45, visualStyle: 'X-Ray',
+    description: 'Dirseğiniz vücudunuza yapışık, elinizde bant varken kolunuzu dışa doğru açın.',
+    biomechanics: 'Rotator manşet kaslarını (Infraspinatus) kuvvetlendirir.',
+    safetyFlags: ['Akut Yırtık Şüphesi'], equipment: ['Direnç Bandı'], muscleGroups: ['Rotator Cuff'],
+    rehabPhase: 'Sub-Akut', movementPlane: 'Transverse', tempo: '2-1-2'
+  },
+  {
+    id: 'ul-004', code: 'UL-ELB-01', title: 'Wrist Flexor Stretch', titleTr: 'El Bileği Fleksör Germe',
+    category: 'Upper Limb', difficulty: 1, sets: 3, reps: 30, restPeriod: 30, visualStyle: 'Schematic',
+    description: 'Kolunuzu ileri uzatın, avuç içi karşıya baksın. Diğer elinizle parmaklarınızı geriye çekin.',
+    biomechanics: 'Medial epikondilit riskini azaltır, ön kol kaslarını gerer.',
+    safetyFlags: ['Karpal Tünel Sendromu'], equipment: ['Yok'], muscleGroups: ['Forearm Flexors'],
+    rehabPhase: 'Akut', movementPlane: 'Sagittal', tempo: 'Static'
+  },
+  {
+    id: 'ul-005', code: 'UL-SHO-04', title: 'Serratus Punch', titleTr: 'Serratus Yumruğu',
+    category: 'Upper Limb', difficulty: 3, sets: 3, reps: 15, restPeriod: 30, visualStyle: 'Cinematic-Motion',
+    description: 'Sırtüstü yatın, kolunuzu havaya dikin. Sadece kürek kemiğinizi kullanarak elinizi tavana itin.',
+    biomechanics: 'Skapular protraksiyon ve Serratus Anterior kuvvetlendirme.',
+    safetyFlags: ['Akut Omuz Ağrısı'], equipment: ['Yok'], muscleGroups: ['Serratus Anterior'],
+    rehabPhase: 'Sub-Akut', movementPlane: 'Sagittal', tempo: '1-0-1'
+  },
+  {
+    id: 'ul-006', code: 'UL-ELB-02', title: 'Wrist Extensor Stretch', titleTr: 'El Bileği Ekstansör Germe',
+    category: 'Upper Limb', difficulty: 1, sets: 3, reps: 30, restPeriod: 30, visualStyle: 'Schematic',
+    description: 'Kolunuzu ileri uzatın, el sırtı karşıya baksın. Diğer elinizle elinizi aşağı doğru çekin.',
+    biomechanics: 'Lateral epikondilit (Tenisçi Dirseği) rehabilitasyonu.',
+    safetyFlags: ['Yok'], equipment: ['Yok'], muscleGroups: ['Forearm Extensors'],
+    rehabPhase: 'Akut', movementPlane: 'Sagittal', tempo: 'Static'
+  },
+  {
+    id: 'ul-007', code: 'UL-SHO-05', title: 'Sleeper Stretch', titleTr: 'Omuz İç Rotasyon Germe',
+    category: 'Upper Limb', difficulty: 4, sets: 3, reps: 30, restPeriod: 60, visualStyle: '4K-Render',
+    description: 'Ağrılı tarafın üzerine yan yatın. Dirseğiniz 90 dereceyken elinizi yere doğru bastırın.',
+    biomechanics: 'Posterior kapsül gerginliğini azaltır (GIRD tedavisi).',
+    safetyFlags: ['Bursit', 'Kalkifik Tendinit'], equipment: ['Mat'], muscleGroups: ['Posterior Capsule'],
+    rehabPhase: 'Kronik', movementPlane: 'Transverse', tempo: 'Static'
+  },
+  {
+    id: 'ul-008', code: 'UL-SHO-06', title: 'Doorway Pectoral Stretch', titleTr: 'Kapı Eşiğinde Göğüs Esnetme',
+    category: 'Upper Limb', difficulty: 2, sets: 3, reps: 30, restPeriod: 30, visualStyle: 'Cinematic-Motion',
+    description: 'Bir kapı eşiğinde durun. Kollarınızı yanlara dayayıp hafifçe öne doğru adım atın.',
+    biomechanics: 'Pectoralis major/minor gerginliğini azaltarak postürü düzeltir.',
+    safetyFlags: ['Anterior Instabilite'], equipment: ['Kapı Eşiği'], muscleGroups: ['Pectorals'],
+    rehabPhase: 'Kronik', movementPlane: 'Frontal', tempo: 'Static'
+  },
+  {
+    id: 'ul-009', code: 'UL-SHO-07', title: 'Isometric Shoulder Flexion', titleTr: 'İzometrik Omuz Fleksiyonu',
+    category: 'Upper Limb', difficulty: 2, sets: 3, reps: 10, restPeriod: 30, visualStyle: 'X-Ray',
+    description: 'Yumruğunuzu bir duvara dayayın. Kolunuzu öne kaldırmak istiyormuş gibi duvara bastırın.',
+    biomechanics: 'Eklem hareketi olmadan kas aktivasyonu (Deltoid/Supraspinatus).',
+    safetyFlags: ['Akut Kırık'], equipment: ['Duvar'], muscleGroups: ['Deltoids'],
+    rehabPhase: 'Akut', movementPlane: 'Static', tempo: '5-0-5'
+  },
+  {
+    id: 'ul-010', code: 'UL-SHO-08', title: 'Shoulder Shrugs', titleTr: 'Omuz Silkme (Trapez)',
+    category: 'Upper Limb', difficulty: 2, sets: 3, reps: 15, restPeriod: 30, visualStyle: 'Schematic',
+    description: 'Ayakta durun. Omuzlarınızı kulaklarınıza doğru çekin ve yavaşça indirin.',
+    biomechanics: 'Üst trapez kaslarını aktive eder.',
+    safetyFlags: ['Boyun Ağrısı (Eğer gerginlik varsa)'], equipment: ['Yok'], muscleGroups: ['Upper Trapezius'],
+    rehabPhase: 'Sub-Akut', movementPlane: 'Frontal', tempo: '2-1-2'
+  },
+
+  // --- CATEGORY 4: STABILITY & BALANCE ---
+  {
+    id: 'st-001', code: 'STB-BAL-01', title: 'Single Leg Stance', titleTr: 'Tek Ayak Üzerinde Durma',
+    category: 'Stability', difficulty: 4, sets: 3, reps: 30, restPeriod: 45, visualStyle: 'Cinematic-Motion',
+    description: 'Tek ayağınızın üzerinde durun. Dengede kalmaya çalışın. Gerekirse bir sandalyeden destek alın.',
+    biomechanics: 'Propriyosepsiyon ve ayak bileği/kalça stabilitesini artırır.',
+    safetyFlags: ['Yüksek Düşme Riski'], equipment: ['Sandalye (Destek için)'], muscleGroups: ['Core', 'Ankle'],
+    rehabPhase: 'Sub-Akut', movementPlane: 'Multi-Planar', tempo: 'Static'
+  },
+  {
+    id: 'st-002', code: 'STB-BAL-02', title: 'Tandem Stance', titleTr: 'Ardışık Duruş (Tandem)',
+    category: 'Stability', difficulty: 3, sets: 3, reps: 30, restPeriod: 30, visualStyle: '4K-Render',
+    description: 'Bir ayağınızın topuğunu diğer ayağınızın parmak ucuna tam değecek şekilde yerleştirin.',
+    biomechanics: 'Destek yüzeyini daraltarak denge kontrolünü geliştirir.',
+    safetyFlags: ['Vestibüler Sorunlar'], equipment: ['Yok'], muscleGroups: ['Core'],
+    rehabPhase: 'Akut', movementPlane: 'Sagittal', tempo: 'Static'
+  },
+  {
+    id: 'st-003', code: 'STB-BAL-03', title: 'Heel-to-Toe Walk', titleTr: 'Topuk-Parmak Ucu Yürüyüşü',
+    category: 'Stability', difficulty: 5, sets: 2, reps: 20, restPeriod: 45, visualStyle: 'Cinematic-Motion',
+    description: 'Bir ipin üzerinde yürüyormuş gibi bir ayağınızı diğerinin önüne koyarak düz yürüyün.',
+    biomechanics: 'Dinamik denge ve koordinasyonu artırır.',
+    safetyFlags: ['Diz Yaralanması'], equipment: ['Yok'], muscleGroups: ['Global Stabiliers'],
+    rehabPhase: 'Kronik', movementPlane: 'Sagittal', tempo: 'Slow'
+  },
+  {
+    id: 'st-004', code: 'STB-BAL-04', title: 'Side Plank', titleTr: 'Yan Plank (Dinamik)',
+    category: 'Stability', difficulty: 7, sets: 3, reps: 10, restPeriod: 60, visualStyle: 'X-Ray',
+    description: 'Yan yatın, dirsek üzerindeyken kalçanızı yukarı kaldırın. Sabit bekleyin veya kalçayı indirin.',
+    biomechanics: 'Quadratus Lumborum ve Oblik kaslarını kuvvetlendirir.',
+    safetyFlags: ['Omuz Ağrısı'], equipment: ['Mat'], muscleGroups: ['QL', 'Obliques'],
+    rehabPhase: 'Kronik', movementPlane: 'Frontal', tempo: '3-2-3'
+  },
+  {
+    id: 'st-005', code: 'STB-BAL-05', title: 'Plank with Shoulder Taps', titleTr: 'Plank Pozisyonunda Omuz Teması',
+    category: 'Stability', difficulty: 8, sets: 3, reps: 12, restPeriod: 60, visualStyle: '4K-Render',
+    description: 'Şınav pozisyonu alın. Gövdenizi döndürmeden bir elinizle karşı omzunuza dokunun.',
+    biomechanics: 'Anti-rotasyonel core stabilitesi.',
+    safetyFlags: ['Bel Çökmesi'], equipment: ['Mat'], muscleGroups: ['Core', 'Shoulder Stability'],
+    rehabPhase: 'Kronik', movementPlane: 'Transverse', tempo: '1-0-1'
+  },
+  {
+    id: 'st-006', code: 'STB-BAL-06', title: 'Star Excursion Balance', titleTr: 'Yıldız Denge Testi (Egzersiz)',
+    category: 'Stability', difficulty: 9, sets: 2, reps: 8, restPeriod: 60, visualStyle: 'Schematic',
+    description: 'Tek ayak üzerinde dururken boştaki ayağınızı 8 farklı yöne doğru uzatıp zemine dokunun.',
+    biomechanics: 'İleri düzey alt ekstremite propriyosepsiyonu.',
+    safetyFlags: ['Akut ACL Yaralanması'], equipment: ['Yok'], muscleGroups: ['Lower Extremity'],
+    rehabPhase: 'Performans', movementPlane: 'Multi-Planar', tempo: 'Controlled'
+  },
+  {
+    id: 'st-007', code: 'STB-BAL-07', title: 'Dead Bug with Ball', titleTr: 'Topla Dead Bug (Zorlayıcı)',
+    category: 'Stability', difficulty: 6, sets: 3, reps: 10, restPeriod: 45, visualStyle: 'X-Ray',
+    description: 'Sırtüstü yatın. El ve karşı diz arasına bir top koyup bastırın. Diğer kol/bacağı açın.',
+    biomechanics: 'Maksimum lumbopelvik stabilite ve koordinasyon.',
+    safetyFlags: ['Bel Boşluğu'], equipment: ['Pilates Topu'], muscleGroups: ['Deep Core'],
+    rehabPhase: 'Sub-Akut', movementPlane: 'Sagittal', tempo: '4-0-4'
+  },
+  {
+    id: 'st-008', code: 'STB-BAL-08', title: 'Single Leg RDL (Bodyweight)', titleTr: 'Tek Bacak Üstünde Öne Eğilme',
+    category: 'Stability', difficulty: 7, sets: 3, reps: 10, restPeriod: 60, visualStyle: 'Cinematic-Motion',
+    description: 'Tek ayak üzerinde durun. Sırtınızı düz tutarak öne eğilin, diğer bacağı arkaya uzatın.',
+    biomechanics: 'Posterior zincir kuvveti ve dinamik kalça dengesi.',
+    safetyFlags: ['Hamstring Gerginliği'], equipment: ['Yok'], muscleGroups: ['Glutes', 'Hamstrings'],
+    rehabPhase: 'Kronik', movementPlane: 'Sagittal', tempo: '3-1-3'
+  },
+  {
+    id: 'st-009', code: 'STB-BAL-09', title: 'Balance Board Weight Shift', titleTr: 'Denge Tahtasında Ağırlık Aktarımı',
+    category: 'Stability', difficulty: 6, sets: 3, reps: 2, restPeriod: 60, visualStyle: '4K-Render',
+    description: 'Denge tahtası üzerinde durun. Ağırlığınızı yavaşça sağa ve sola vererek kenarları dokundurun.',
+    biomechanics: 'Ayak bileği eversiyon/inversiyon kuvveti ve vestibüler denge.',
+    safetyFlags: ['Düşme Riski'], equipment: ['Denge Tahtası'], muscleGroups: ['Ankle Peroneals'],
+    rehabPhase: 'Kronik', movementPlane: 'Frontal', tempo: 'Slow'
+  },
+  {
+    id: 'st-010', code: 'STB-BAL-10', title: 'Toe Taps (Supine)', titleTr: 'Yatarak Parmak Ucu Dokunuşu',
+    category: 'Stability', difficulty: 3, sets: 3, reps: 15, restPeriod: 30, visualStyle: 'Schematic',
+    description: 'Sırtüstü yatın, dizler 90 derece havada. Sırasıyla ayak uçlarını yere değdirip çekin.',
+    biomechanics: 'Alt karın (lower abs) kontrolü ve pelvik stabilite.',
+    safetyFlags: ['Bel Boşluğu Artışı'], equipment: ['Mat'], muscleGroups: ['Abs'],
+    rehabPhase: 'Akut', movementPlane: 'Sagittal', tempo: '2-0-2'
+  },
+
+  // --- CATEGORY 5: NEUROLOGICAL ---
+  {
+    id: 'ne-001', code: 'NEU-MOB-01', title: 'Sciatic Nerve Glide', titleTr: 'Siyatik Sinir Kaydırma (Mobilizasyon)',
+    category: 'Neurological', difficulty: 3, sets: 3, reps: 10, restPeriod: 45, visualStyle: 'Cinematic-Motion',
+    description: 'Sırtüstü yatın. Bacağınızı kaldırın. Ayağınızı kendinize çekip itin, dizinizi hafif büküp açın.',
+    biomechanics: 'Siyatik sinirin kılıfı içinde kaymasını sağlayarak inflamasyonu azaltır.',
+    safetyFlags: ['Artan Karıncalanma/Uyuşma'], equipment: ['Yok'], muscleGroups: ['Sciatic Nerve'],
+    rehabPhase: 'Akut', movementPlane: 'Sagittal', tempo: 'Slow'
+  },
+  {
+    id: 'ne-002', code: 'NEU-MOB-02', title: 'Median Nerve Flossing', titleTr: 'Median Sinir Kaydırma',
+    category: 'Neurological', difficulty: 3, sets: 3, reps: 10, restPeriod: 30, visualStyle: 'Schematic',
+    description: 'Kolunuzu yana açın. Elinizi arkaya eğerken başınızı diğer yana yatırın.',
+    biomechanics: 'Brakial pleksus ve median sinir mobilitesi.',
+    safetyFlags: ['Elektriklenme Hissi'], equipment: ['Yok'], muscleGroups: ['Median Nerve'],
+    rehabPhase: 'Akut', movementPlane: 'Frontal', tempo: 'Fluid'
+  },
+  {
+    id: 'ne-003', code: 'NEU-MOB-03', title: 'Femoral Nerve Glide', titleTr: 'Femoral Sinir Kaydırma',
+    category: 'Neurological', difficulty: 4, sets: 3, reps: 10, restPeriod: 45, visualStyle: 'X-Ray',
+    description: 'Yan yatın. Üstteki dizinizi bükün ve bacağınızı arkaya doğru alırken başınızı öne eğin.',
+    biomechanics: 'Femoral sinirdeki gerginliği azaltır.',
+    safetyFlags: ['Kasık Ağrısı'], equipment: ['Yok'], muscleGroups: ['Femoral Nerve'],
+    rehabPhase: 'Sub-Akut', movementPlane: 'Sagittal', tempo: 'Controlled'
+  },
+  {
+    id: 'ne-004', code: 'NEU-MOB-04', title: 'Sit-to-Stand Transitions', titleTr: 'Otur-Kalk Egzersizi',
+    category: 'Neurological', difficulty: 4, sets: 3, reps: 10, restPeriod: 60, visualStyle: '4K-Render',
+    description: 'Sandalye kenarına oturun. Gövdenizi öne vererek destek almadan ayağa kalkın.',
+    biomechanics: 'Motor kontrol ve fonksiyonel alt ekstremite kuvveti.',
+    safetyFlags: ['Ortostatik Hipotansiyon'], equipment: ['Sandalye'], muscleGroups: ['Quads', 'Glutes'],
+    rehabPhase: 'Kronik', movementPlane: 'Sagittal', tempo: '3-1-3'
+  },
+  {
+    id: 'ne-005', code: 'NEU-MOB-05', title: 'Marching in Place (Neuro)', titleTr: 'Olduğu Yerde Sayma (Nöral)',
+    category: 'Neurological', difficulty: 3, sets: 3, reps: 20, restPeriod: 45, visualStyle: 'Cinematic-Motion',
+    description: 'Ayakta durun. Dizlerinizi karnınıza doğru çekerek olduğu yerde adım atın.',
+    biomechanics: 'Resiprokal koordinasyon ve denge kontrolü.',
+    safetyFlags: ['Denge Kaybı'], equipment: ['Duvar (Destek için)'], muscleGroups: ['Hip Flexors'],
+    rehabPhase: 'Sub-Akut', movementPlane: 'Sagittal', tempo: 'Steady'
+  },
+  {
+    id: 'ne-006', code: 'NEU-MOB-06', title: 'Weight Shifting (Paretic Side)', titleTr: 'Etkilenen Tarafa Ağırlık Aktarımı',
+    category: 'Neurological', difficulty: 2, sets: 3, reps: 10, restPeriod: 30, visualStyle: 'Schematic',
+    description: 'Ayakta durun. Vücut ağırlığınızı yavaşça zayıf bacağınıza aktarın ve bekleyin.',
+    biomechanics: 'Sensomotorik girdi ve paretik bacak yüklenme eğitimi.',
+    safetyFlags: ['Diz Kilitlenmesi'], equipment: ['Yok'], muscleGroups: ['Lower Limb Stability'],
+    rehabPhase: 'Akut', movementPlane: 'Frontal', tempo: 'Slow'
+  },
+  {
+    id: 'ne-007', code: 'NEU-MOB-07', title: 'Mirror Therapy Sim', titleTr: 'Ayna Terapisi (Görsel Simülasyon)',
+    category: 'Neurological', difficulty: 2, sets: 3, reps: 5, restPeriod: 60, visualStyle: 'Cinematic-Motion',
+    description: 'Sağlam elinizle hareketleri yaparken aynadaki yansımasına (zayıf taraf gibi) bakın.',
+    biomechanics: 'Kortikal reorganizasyon ve nöroplastisite.',
+    safetyFlags: ['Görsel Karışıklık'], equipment: ['Ayna'], muscleGroups: ['Brain / Motor Cortex'],
+    rehabPhase: 'Kronik', movementPlane: 'Visual', tempo: 'Patient-led'
+  },
+  {
+    id: 'ne-008', code: 'NEU-MOB-08', title: 'Box and Block Sim', titleTr: 'Kutu ve Blok Koordinasyonu',
+    category: 'Neurological', difficulty: 5, sets: 2, reps: 20, restPeriod: 45, visualStyle: '4K-Render',
+    description: 'Küçük nesneleri bir kaptan diğerine hızlıca ve kontrollü şekilde taşıyın.',
+    biomechanics: 'İnce motor beceri ve el-göz koordinasyonu.',
+    safetyFlags: ['Yorgunluk'], equipment: ['Nesneler / Kaplar'], muscleGroups: ['Hand Intrinsics'],
+    rehabPhase: 'Sub-Akut', movementPlane: 'Multi-Planar', tempo: 'Fast'
+  },
+  {
+    id: 'ne-009', code: 'NEU-MOB-09', title: 'Coordination Tapping', titleTr: 'Koordinasyonel Parmak Vurma',
+    category: 'Neurological', difficulty: 1, sets: 3, reps: 30, restPeriod: 30, visualStyle: 'Schematic',
+    description: 'Baş parmağınızı sırasıyla diğer tüm parmak uçlarınıza dokundurun.',
+    biomechanics: 'Parmak opozisyonu ve motor planlama.',
+    safetyFlags: ['Yok'], equipment: ['Yok'], muscleGroups: ['Fine Motor'],
+    rehabPhase: 'Akut', movementPlane: 'Static', tempo: 'Fluid'
+  },
+  {
+    id: 'ne-010', code: 'NEU-MOB-10', title: 'Trunk Rotation (Neuro)', titleTr: 'Gövde Rotasyonu (Nöral)',
+    category: 'Neurological', difficulty: 3, sets: 3, reps: 12, restPeriod: 45, visualStyle: 'Cinematic-Motion',
+    description: 'Sandalye üzerindeyken gövdenizi yavaşça sağa ve sola döndürerek arkaya bakın.',
+    biomechanics: 'Spinal mobilizasyon ve gövde motor kontrolü.',
+    safetyFlags: ['Bel Ağrısı'], equipment: ['Sandalye'], muscleGroups: ['Trunk Rotators'],
+    rehabPhase: 'Kronik', movementPlane: 'Transverse', tempo: '2-2-2'
+  },
+
+  // --- CATEGORY 6: CARDIOVASCULAR ---
+  {
+    id: 'ca-001', code: 'CARD-END-01', title: 'Diaphragmatic Breathing', titleTr: 'Diyafram Nefesi',
+    category: 'Cardiovascular', difficulty: 1, sets: 3, reps: 10, restPeriod: 30, visualStyle: '4K-Render',
+    description: 'Bir elinizi karnınıza, diğerini göğsünüze koyun. Nefes alırken sadece karnınız yükselsin.',
+    biomechanics: 'Solunum kapasitesini artırır, parasempatik aktivasyonu teşvik eder.',
+    safetyFlags: ['Hiperventilasyon'], equipment: ['Yok'], muscleGroups: ['Diaphragm'],
+    rehabPhase: 'Akut', movementPlane: 'Deep', tempo: '4-2-6'
+  },
+  {
+    id: 'ca-002', code: 'CARD-END-02', title: 'Pursed Lip Breathing', titleTr: 'Büzük Dudak Solunumu',
+    category: 'Cardiovascular', difficulty: 1, sets: 3, reps: 5, restPeriod: 30, visualStyle: 'Cinematic-Motion',
+    description: 'Burnunuzdan nefes alın, dudaklarınızı büzerek (ıslık çalar gibi) yavaşça verin.',
+    biomechanics: 'Hava yolu basıncını artırır, KOAH ve dispne yönetiminde etkilidir.',
+    safetyFlags: ['Baş Dönmesi'], equipment: ['Yok'], muscleGroups: ['Lungs'],
+    rehabPhase: 'Akut', movementPlane: 'Internal', tempo: '2-0-4'
+  },
+  {
+    id: 'ca-003', code: 'CARD-END-03', title: 'Seated Arm Circles', titleTr: 'Oturarak Kol Daireleri',
+    category: 'Cardiovascular', difficulty: 2, sets: 3, reps: 20, restPeriod: 60, visualStyle: 'Schematic',
+    description: 'Otururken kollarınızı yanlara açın ve küçük/orta daireler çizin.',
+    biomechanics: 'Düşük yoğunluklu aerobik egzersiz ve omuz mobilizasyonu.',
+    safetyFlags: ['Kalp Hızı Sınırları'], equipment: ['Sandalye'], muscleGroups: ['Shoulder Girdle'],
+    rehabPhase: 'Sub-Akut', movementPlane: 'Circumduction', tempo: 'Steady'
+  },
+  {
+    id: 'ca-004', code: 'CARD-END-04', title: 'Ankle Pumps (DVT Prophylaxis)', titleTr: 'Ayak Bileği Pompası (DVT Önleme)',
+    category: 'Cardiovascular', difficulty: 1, sets: 5, reps: 20, restPeriod: 30, visualStyle: '4K-Render',
+    description: 'Ayak bileklerinizi hızlıca yukarı ve aşağı doğru çekip itin.',
+    biomechanics: 'Venöz dönüşü artırır, pıhtı oluşumunu engeller.',
+    safetyFlags: ['Mevcut DVT Şüphesi'], equipment: ['Yok'], muscleGroups: ['Calf Pump'],
+    rehabPhase: 'Akut', movementPlane: 'Sagittal', tempo: 'Fast'
+  },
+  {
+    id: 'ca-005', code: 'CARD-END-05', title: 'Low Intensity Walking', titleTr: 'Düşük Yoğunluklu Yürüyüş',
+    category: 'Cardiovascular', difficulty: 3, sets: 1, reps: 10, restPeriod: 0, visualStyle: 'Cinematic-Motion',
+    description: 'Düz bir zeminde, nefes nefese kalmadan 10 dakika boyunca yürüyün.',
+    biomechanics: 'Genel aerobik dayanıklılık ve dolaşım sağlığı.',
+    safetyFlags: ['Göğüs Ağrısı'], equipment: ['Yok'], muscleGroups: ['Global'],
+    rehabPhase: 'Kronik', movementPlane: 'Sagittal', tempo: 'Normal'
+  },
+  {
+    id: 'ca-006', code: 'CARD-END-06', title: 'Step-in-place (Cardio)', titleTr: 'Olduğu Yerde Adım Atma (Kardiyo)',
+    category: 'Cardiovascular', difficulty: 4, sets: 3, reps: 2, restPeriod: 60, visualStyle: 'X-Ray',
+    description: 'Olduğunuz yerde 2 dakika boyunca dizlerinizi hafif kaldırarak yürüyün.',
+    biomechanics: 'Kalp hızını kontrollü şekilde artırır.',
+    safetyFlags: ['Aşırı Yorgunluk'], equipment: ['Yok'], muscleGroups: ['Lower Extremity'],
+    rehabPhase: 'Sub-Akut', movementPlane: 'Sagittal', tempo: 'Rhythmic'
+  },
+  {
+    id: 'ca-007', code: 'CARD-END-07', title: 'Arm Ergometer Sim', titleTr: 'Kol Ergometresi Simülasyonu',
+    category: 'Cardiovascular', difficulty: 4, sets: 3, reps: 5, restPeriod: 60, visualStyle: '4K-Render',
+    description: 'Kollarınızla havada pedal çeviriyormuş gibi dairesel hareketler yapın.',
+    biomechanics: 'Üst vücut aerobik kapasite eğitimi.',
+    safetyFlags: ['Borg Skoru > 13'], equipment: ['Yok'], muscleGroups: ['Arms', 'Back'],
+    rehabPhase: 'Kronik', movementPlane: 'Sagittal', tempo: 'Continuous'
+  },
+  {
+    id: 'ca-008', code: 'CARD-END-08', title: 'Box Breathing', titleTr: 'Kutu Solunumu (Otonom Düzenleme)',
+    category: 'Cardiovascular', difficulty: 1, sets: 3, reps: 5, restPeriod: 30, visualStyle: 'Schematic',
+    description: '4 sn nefes al, 4 sn tut, 4 sn ver, 4 sn tut. Kare şeklinde devam et.',
+    biomechanics: 'Otonom sinir sistemini dengeler, stresi azaltır.',
+    safetyFlags: ['Yok'], equipment: ['Yok'], muscleGroups: ['Respiratory'],
+    rehabPhase: 'Akut', movementPlane: 'Internal', tempo: '4-4-4-4'
+  },
+  {
+    id: 'ca-009', code: 'CARD-END-09', title: 'Controlled Stair Climbing', titleTr: 'Kontrollü Merdiven Çıkma',
+    category: 'Cardiovascular', difficulty: 6, sets: 2, reps: 1, restPeriod: 120, visualStyle: 'Cinematic-Motion',
+    description: '1 kat merdiveni yavaşça, dinlenerek ve nefes kontrolüyle çıkın.',
+    biomechanics: 'Fonksiyonel güç ve kardiyorespiratuar kapasite.',
+    safetyFlags: ['Denge Sorunları'], equipment: ['Merdiven'], muscleGroups: ['Lower Body'],
+    rehabPhase: 'Kronik', movementPlane: 'Sagittal', tempo: 'Slow'
+  },
+  {
+    id: 'ca-010', code: 'CARD-END-10', title: 'Seated Thoracic Expansion', titleTr: 'Oturarak Göğüs Kafesi Genişletme',
+    category: 'Cardiovascular', difficulty: 2, sets: 3, reps: 10, restPeriod: 45, visualStyle: '4K-Render',
+    description: 'Otururken nefes alırken kollarınızı yanlara açıp göğsünüzü şişirin.',
+    biomechanics: 'Akciğer ekspanziyonunu maksimize eder.',
+    safetyFlags: ['Yok'], equipment: ['Yok'], muscleGroups: ['Intercostals'],
+    rehabPhase: 'Akut', movementPlane: 'Frontal', tempo: '4-1-4'
+  },
+
+  // --- CATEGORY 7: POST-OP RECOVERY ---
+  {
+    id: 'po-001', code: 'POP-REC-01', title: 'Post-Op Ankle Pumps', titleTr: 'Post-Op Ayak Bileği Pompası',
+    category: 'Post-Op', difficulty: 1, sets: 5, reps: 20, restPeriod: 30, visualStyle: 'Schematic',
+    description: 'Ameliyat sonrası yatarken ayak bileklerinizi sürekli hareket ettirin.',
+    biomechanics: 'Dolaşımı korur ve emboli riskini minimize eder.',
+    safetyFlags: ['Şiddetli Akut Kanama'], equipment: ['Yok'], muscleGroups: ['Calves'],
+    rehabPhase: 'Akut', movementPlane: 'Sagittal', tempo: 'Rhythmic'
+  },
+  {
+    id: 'po-002', code: 'POP-REC-02', title: 'Passive Range of Motion (Shoulder)', titleTr: 'Pasif Omuz Hareket Açıklığı',
+    category: 'Post-Op', difficulty: 2, sets: 3, reps: 10, restPeriod: 45, visualStyle: 'Cinematic-Motion',
+    description: 'Diğer elinizin desteğiyle ameliyatlı kolunuzu yavaşça ağrı sınırına kadar kaldırın.',
+    biomechanics: 'Eklemi korurken hareket kaybını önler.',
+    safetyFlags: ['Cerrahi Protokol Kısıtlamaları'], equipment: ['Yok'], muscleGroups: ['Shoulder Joint'],
+    rehabPhase: 'Akut', movementPlane: 'Sagittal', tempo: 'Slow'
+  },
+  {
+    id: 'po-003', code: 'POP-REC-03', title: 'Knee Pendulums', titleTr: 'Diz Sarkaç Egzersizi',
+    category: 'Post-Op', difficulty: 1, sets: 3, reps: 2, restPeriod: 60, visualStyle: '4K-Render',
+    description: 'Bir masaya oturun, bacaklarınızı sallayın. Yerçekimi ile dizinizin bükülmesine izin verin.',
+    biomechanics: 'Eklem içi adezyonları (yapışıklıkları) önler.',
+    safetyFlags: ['Kısmi Yük Kısıtlamaları'], equipment: ['Yüksek Sandalye'], muscleGroups: ['Knee joint'],
+    rehabPhase: 'Akut', movementPlane: 'Sagittal', tempo: 'Fluid'
+  },
+  {
+    id: 'po-004', code: 'POP-REC-04', title: 'Gluteal Squeezes (Post-Op)', titleTr: 'Post-Op Kalça Sıkma',
+    category: 'Post-Op', difficulty: 1, sets: 3, reps: 10, restPeriod: 30, visualStyle: 'X-Ray',
+    description: 'Ameliyatlı bacağı oynatmadan kalça kaslarınızı sıkın ve bırakın.',
+    biomechanics: 'İzometrik kas aktivasyonu.',
+    safetyFlags: ['Yok'], equipment: ['Yok'], muscleGroups: ['Glutes'],
+    rehabPhase: 'Akut', movementPlane: 'Static', tempo: '5-0-5'
+  },
+  {
+    id: 'po-005', code: 'POP-REC-05', title: 'Deep Breathing (Incentive Spirometry)', titleTr: 'Derin Nefes (Spirometre Yardımlı)',
+    category: 'Post-Op', difficulty: 2, sets: 5, reps: 10, restPeriod: 60, visualStyle: '4K-Render',
+    description: 'Cihazla veya cihazsız, akciğerlerinizin en altına kadar nefes alın.',
+    biomechanics: 'Atelektazi (akciğer sönmesi) riskini azaltır.',
+    safetyFlags: ['Torakal Ağrı'], equipment: ['Spirometre (Opsiyonel)'], muscleGroups: ['Lungs'],
+    rehabPhase: 'Akut', movementPlane: 'Internal', tempo: '5-2-5'
+  },
+  {
+    id: 'po-006', code: 'POP-REC-06', title: 'Log Roll Technique', titleTr: 'Kütük Yuvarlanma Tekniği (Eğitim)',
+    category: 'Post-Op', difficulty: 3, sets: 1, reps: 5, restPeriod: 60, visualStyle: 'Cinematic-Motion',
+    description: 'Yataktan kalkarken omurganızı bükmeden, gövdenizi bir bütün olarak döndürün.',
+    biomechanics: 'Spinal cerrahi sonrası disk yükünü korur.',
+    safetyFlags: ['Dikiş Ayrılması'], equipment: ['Yatak'], muscleGroups: ['Core'],
+    rehabPhase: 'Akut', movementPlane: 'Transverse', tempo: 'Safe'
+  },
+  {
+    id: 'po-007', code: 'POP-REC-07', title: 'Gentle Isometric Quads', titleTr: 'Hafif İzometrik Quads',
+    category: 'Post-Op', difficulty: 2, sets: 3, reps: 10, restPeriod: 30, visualStyle: 'X-Ray',
+    description: 'Dizinizin altına havlu koyun. Dizinizi havluya bastırarak üst bacak kasınızı sıkın.',
+    biomechanics: 'Diz operasyonu sonrası kas inhibisyonunu önler.',
+    safetyFlags: ['Ağrı Sınırı'], equipment: ['Rulo Havlu'], muscleGroups: ['Quadriceps'],
+    rehabPhase: 'Akut', movementPlane: 'Static', tempo: '5-0-5'
+  },
+  {
+    id: 'po-008', code: 'POP-REC-08', title: 'Scar Tissue Mobilization (Self)', titleTr: 'Yara Dokusu Mobilizasyonu',
+    category: 'Post-Op', difficulty: 2, sets: 1, reps: 5, restPeriod: 30, visualStyle: 'Schematic',
+    description: 'Dikişler kapandıktan sonra yara etrafına dairesel ve yatay masaj uygulayın.',
+    biomechanics: 'Fibröz dokuyu yumuşatır, esnekliği artırır.',
+    safetyFlags: ['Enfeksiyon Bulguları', 'Açık Yara'], equipment: ['Nemlendirici Krem'], muscleGroups: ['Skin / Fascia'],
+    rehabPhase: 'Kronik', movementPlane: 'Fascial', tempo: 'Gentle'
+  },
+  {
+    id: 'po-009', code: 'POP-REC-09', title: 'Assistive Device Ambulation', titleTr: 'Yardımcı Cihazla Yürüyüş',
+    category: 'Post-Op', difficulty: 4, sets: 1, reps: 5, restPeriod: 0, visualStyle: 'Cinematic-Motion',
+    description: 'Walker veya koltuk değneğiyle, doktorunuzun izin verdiği yükle yürüyün.',
+    biomechanics: 'Fonksiyonel mobilite ve kemik yüklenme eğitimi.',
+    safetyFlags: ['Denge Kaybı'], equipment: ['Walker / Koltuk Değneği'], muscleGroups: ['Whole Body'],
+    rehabPhase: 'Akut', movementPlane: 'Sagittal', tempo: 'Safe'
+  },
+  {
+    id: 'po-010', code: 'POP-REC-10', title: 'Heel Propping (Extension Gain)', titleTr: 'Topuk Destekli Uzatma',
+    category: 'Post-Op', difficulty: 3, sets: 3, reps: 5, restPeriod: 60, visualStyle: '4K-Render',
+    description: 'Topuğunuzun altına bir rulo koyun. Yerçekiminin dizinizi düzleştirmesine izin verin.',
+    biomechanics: 'Diz ekstansiyon kısıtlılığını (Fleksiyon kontraktürü) giderir.',
+    safetyFlags: ['Diz Arkası Ağrısı'], equipment: ['Rulo'], muscleGroups: ['Knee Joint'],
+    rehabPhase: 'Sub-Akut', movementPlane: 'Sagittal', tempo: 'Static'
   }
 ];

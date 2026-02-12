@@ -38,9 +38,10 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-// Fix: Explicitly using React.Component and declaring state property to resolve TS errors regarding 'state' and 'props' not existing on the type.
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public override state: ErrorBoundaryState = { hasError: false };
+// Fix: Corrected ErrorBoundary inheritance by extending 'Component' directly and removing 'override' modifier.
+// This resolves TS errors where 'props' and 'state' were not recognized as members of the class.
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public state: ErrorBoundaryState = { hasError: false };
 
   constructor(props: ErrorBoundaryProps) {
     super(props);
