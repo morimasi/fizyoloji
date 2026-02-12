@@ -5,6 +5,7 @@ import { PhysioDB } from "./db-repository.ts";
 
 /**
  * API Anahtarı Seçim Protokolü (Veo ve Gemini 3 Pro için zorunlu)
+ * Kullanıcının ücretli bir API anahtarı seçtiğinden emin olur.
  */
 const ensureApiKey = async (): Promise<void> => {
   const aistudio = (window as any).aistudio;
@@ -12,13 +13,14 @@ const ensureApiKey = async (): Promise<void> => {
     const hasKey = await aistudio.hasSelectedApiKey();
     if (!hasKey) {
       await aistudio.openSelectKey();
-      // Yarış durumunu (race condition) önlemek için seçim sonrası doğrudan devam ediyoruz.
+      // Yarış durumunu (race condition) önlemek için seçim tetiklendikten sonra devam edilir.
+      // process.env.API_KEY otomatik olarak güncellenecektir.
     }
   }
 };
 
 /**
- * Genişletilmiş Video Üretim Motoru (v4.1 - Production)
+ * Genişletilmiş Video Üretim Motoru (v4.2 - Production Stable)
  */
 export const generateExerciseVideo = async (
   exercise: Partial<Exercise>, 
@@ -31,10 +33,15 @@ export const generateExerciseVideo = async (
   } = {}
 ): Promise<string> => {
   try {
+    // Veo modelleri için anahtar seçimini zorunlu kıl
     await ensureApiKey();
     
-    // Her çağrı için yeni instance (SDK kuralları gereği)
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // SDK KURALI: Her API çağrısından hemen önce yeni instance oluşturulmalıdır.
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+       throw new Error("API_KEY missing. Please select a valid key from the dialog.");
+    }
+    const ai = new GoogleGenAI({ apiKey });
     
     const prompt = `
       MEDICAL GRADE SIMULATION: ${exercise.titleTr || exercise.title}. 
@@ -67,20 +74,29 @@ export const generateExerciseVideo = async (
 
     const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
     if (downloadLink) {
-      const res = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
-      if (res.status === 404) {
-        // Eğer anahtar geçersizse tekrar seçim kutusunu aç
+      // API Key indirme linkine eklenmelidir
+      const res = await fetch(`${downloadLink}&key=${apiKey}`);
+      
+      if (res.status === 404 || (res.status === 403)) {
+        // "Requested entity was not found" veya yetki hatası durumunda anahtar seçimini sıfırla
         const aistudio = (window as any).aistudio;
         if (aistudio) await aistudio.openSelectKey();
-        throw new Error("Requested entity was not found - API Key reset required.");
+        throw new Error("API Key validation failed. Please select a valid paid project key.");
       }
-      if (!res.ok) throw new Error("Video fetch failed");
+      
+      if (!res.ok) throw new Error(`Video fetch failed with status: ${res.status}`);
+      
       const blob = await res.blob();
       return URL.createObjectURL(blob);
     }
     return '';
-  } catch (e) {
+  } catch (e: any) {
     console.error("Advanced Video Gen Error:", e);
+    // Hata mesajı anahtar eksikliğini belirtiyorsa diyaloğu aç
+    if (e.message?.includes("API Key") || e.message?.includes("not found")) {
+      const aistudio = (window as any).aistudio;
+      if (aistudio) await aistudio.openSelectKey();
+    }
     return '';
   }
 };

@@ -72,15 +72,19 @@
     <div id="root"></div>
     <script type="module" src="index.tsx"></script>
     <script>
+      // Service Worker Kaydı - 404 hatalarını önlemek için daha sağlam bir kontrol
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          // Relatif yol yerine kök dizinden (/sw.js) yükleme yapılıyor
-          navigator.serviceWorker.register('/sw.js', { scope: '/' })
+          // Mevcut dizine göre relatif yol kullanıyoruz
+          const swPath = './sw.js';
+          navigator.serviceWorker.register(swPath)
             .then(reg => {
-                console.log('%c[PhysioCore] Core System Registered', 'color: #06B6D4; font-weight: bold;', reg.scope);
+                console.log('%c[PhysioCore] Core System Online', 'color: #06B6D4; font-weight: bold;', reg.scope);
             })
             .catch(err => {
-                console.warn('%c[PhysioCore] SW Error:', 'color: #EF4444;', err);
+                // Eğer relatif yol başarısız olursa kök dizini dene
+                navigator.serviceWorker.register('/sw.js')
+                  .catch(e => console.warn('%c[PhysioCore] SW Registration Skipped:', 'color: #EF4444;', e));
             });
         });
       }
