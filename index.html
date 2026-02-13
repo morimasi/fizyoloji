@@ -63,7 +63,8 @@
     "@google/genai": "https://esm.sh/@google/genai@^1.40.0",
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
     "@vercel/node": "https://esm.sh/@vercel/node@^5.6.2",
-    "@vercel/postgres": "https://esm.sh/@vercel/postgres@^0.10.0"
+    "@vercel/postgres": "https://esm.sh/@vercel/postgres@^0.10.0",
+    "recharts": "https://esm.sh/recharts@2.15.0"
   }
 }
 </script>
@@ -72,50 +73,30 @@
     <div id="root"></div>
     <script type="module" src="index.tsx"></script>
     <script>
-      /**
-       * PHYSIOCORE AI - GENESIS SW MANAGER (v5.1 Production Patch)
-       * Service Worker sadece güvenli üretim ortamlarında çalışır.
-       * Localhost ve Cloud Preview ortamları (usercontent.goog) hariç tutulur.
-       */
       (function() {
         if (!('serviceWorker' in navigator)) return;
-
         const hostname = window.location.hostname;
-        
-        // Geliştirme ve Önizleme ortamlarını tespit et
         const isDevEnvironment = Boolean(
           hostname === 'localhost' ||
           hostname === '[::1]' ||
           hostname.match(/^127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$/) ||
-          hostname.includes('usercontent.goog') || // Google Cloud Shell / IDX Preview
-          hostname.includes('web.app') || // Firebase Preview channels
-          hostname.includes('ngrok-free.app') // Tunnels
+          hostname.includes('usercontent.goog') ||
+          hostname.includes('web.app') ||
+          hostname.includes('ngrok-free.app')
         );
-
-        if (isDevEnvironment) {
-          console.groupCollapsed('%c[PhysioCore] SW: Dev/Preview Mode', 'color: #f59e0b; font-weight: bold;');
-          console.info('Service Worker geliştirme ortamında (%s) devre dışı bırakıldı.', hostname);
-          console.debug('Origin Mismatch hatalarını önlemek için SW pasif.');
-          console.groupEnd();
-          return;
-        }
-
+        if (isDevEnvironment) return;
         const registerSW = async () => {
           try {
             if (document.readyState !== 'complete') {
               window.addEventListener('load', registerSW, { once: true });
               return;
             }
-
-            // Origin güvenliği için tam URL oluştur
             const swUrl = new URL('/sw.js', window.location.origin).href;
             const registration = await navigator.serviceWorker.register(swUrl);
-            console.log('%c[PhysioCore] Genesis SW Online', 'color: #06B6D4; font-weight: bold;', registration.scope);
           } catch (err) {
             console.warn('[PhysioCore] SW Kayıt Uyarısı:', err);
           }
         };
-
         registerSW();
       })();
     </script>
