@@ -3,10 +3,11 @@ import React, { useState } from 'react';
 import { 
   Download, Share2, Archive, Star, 
   Instagram, Linkedin, MessageCircle, Copy, Check, FileText, Smartphone,
-  ExternalLink, Mail
+  ExternalLink, Mail, Film, FileImage, Presentation, FileVideo, ChevronDown, Loader2
 } from 'lucide-react';
 import { Exercise } from './types.ts';
 import { PhysioDB } from './db-repository.ts';
+import { MediaConverter, ExportFormat } from './MediaConverter.ts';
 
 interface ExerciseActionsProps {
   exercise: Exercise;
@@ -16,40 +17,28 @@ interface ExerciseActionsProps {
 
 export const ExerciseActions: React.FC<ExerciseActionsProps> = ({ exercise, onUpdate, variant = 'card' }) => {
   const [showShare, setShowShare] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [isConverting, setIsConverting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isFavorite, setIsFavorite] = useState(exercise.isFavorite || false);
 
-  const handleDownload = async () => {
-    const url = exercise.videoUrl || exercise.visualUrl;
+  const handleExport = async (format: ExportFormat) => {
+    const url = exercise.visualUrl || exercise.videoUrl;
     if (!url) {
-      alert("Lütfen önce bir AI görseli/videosu üretin.");
+      alert("Lütfen önce bir AI görseli üretin.");
       return;
     }
-    
+
+    setIsConverting(true);
     try {
-      const response = await fetch(url);
-      const blob = await response.blob();
-      const isVideo = blob.type.includes('video') || !!exercise.videoUrl;
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = `PhysioCore_${exercise.code}_${exercise.title.replace(/\s+/g, '_')}${isVideo ? '.mp4' : '.png'}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(downloadUrl);
-      
-      // Feedback toast simülasyonu
-      const msg = `${exercise.title} ${isVideo ? 'MP4 Videosu' : 'Klinik Görseli'} başarıyla indirildi.`;
-      console.log(msg);
+        await MediaConverter.export(url, format, `PhysioCore_${exercise.code}`);
+        console.log("Export success");
     } catch (err) {
-      console.error("Download Error:", err);
-      // Fallback for direct links
-      const link = document.createElement('a');
-      link.href = url;
-      link.target = "_blank";
-      link.download = `PhysioCore_${exercise.code}.mp4`;
-      link.click();
+        console.error("Export failed:", err);
+        alert("Dönüştürme başarısız oldu. Tarayıcı desteğini kontrol edin.");
+    } finally {
+        setIsConverting(false);
+        setShowExportMenu(false);
     }
   };
 
@@ -76,18 +65,12 @@ export const ExerciseActions: React.FC<ExerciseActionsProps> = ({ exercise, onUp
   const shareToSocial = (platform: string) => {
     const text = encodeURIComponent(`PhysioCore AI: ${exercise.titleTr || exercise.title} klinik egzersiz animasyonunu inceleyin.`);
     const url = encodeURIComponent(window.location.origin);
-    
     const links: Record<string, string> = {
       whatsapp: `https://wa.me/?text=${text}%20${url}`,
       linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${url}`,
-      instagram: `https://www.instagram.com/` // Instagram API direct share is limited to mobile deep links
+      instagram: `https://www.instagram.com/` 
     };
-
-    if (links[platform]) {
-      window.open(links[platform], '_blank');
-    } else if (platform === 'instagram') {
-      alert("Instagram paylaşımı için lütfen videoyu indirip mobil uygulama üzerinden yükleyin.");
-    }
+    if (links[platform]) window.open(links[platform], '_blank');
   };
 
   const socialLinks = [
@@ -97,17 +80,57 @@ export const ExerciseActions: React.FC<ExerciseActionsProps> = ({ exercise, onUp
     { id: 'mobile', icon: Smartphone, color: 'hover:text-cyan-500', label: 'App Sync', bg: 'bg-cyan-500/10' }
   ];
 
+  const exportOptions = [
+      { id: 'mp4', label: 'MP4 Video', icon: FileVideo, desc: 'Mobil & Sosyal Medya İçin' },
+      { id: 'webm', label: 'WebM (Hafif)', icon: Film, desc: 'Web Siteleri İçin' },
+      { id: 'gif', label: 'Hareketli GIF', icon: FileImage, desc: 'E-Posta & Mesajlaşma' },
+      { id: 'png-sequence', label: 'Sunum Slaytları', icon: Presentation, desc: 'PowerPoint İçin Kareler' },
+      { id: 'svg', label: 'Vektörel SVG', icon: FileText, desc: 'Yüksek Çözünürlüklü Baskı' },
+  ];
+
   if (variant === 'player') {
     return (
       <div className="flex items-center gap-4 relative">
-        <button 
-          onClick={handleDownload} 
-          className="p-5 bg-slate-900 border border-slate-800 rounded-2xl text-slate-400 hover:text-cyan-400 transition-all shadow-xl hover:scale-110 active:scale-95 group" 
-          title="Sinematik MP4 İndir"
-        >
-          <Download size={24} className="group-hover:translate-y-0.5 transition-transform" />
-        </button>
+        <div className="relative">
+            <button 
+              onClick={() => setShowExportMenu(!showExportMenu)} 
+              disabled={isConverting}
+              className="p-5 bg-slate-900 border border-slate-800 rounded-2xl text-slate-400 hover:text-cyan-400 transition-all shadow-xl hover:scale-105 active:scale-95 group flex items-center gap-2" 
+              title="Medya Dönüştürücü"
+            >
+              {isConverting ? <Loader2 size={24} className="animate-spin text-cyan-500" /> : <Download size={24} className="group-hover:translate-y-0.5 transition-transform" />}
+              <span className="text-[10px] font-black uppercase hidden md:inline">İNDİR</span>
+              <ChevronDown size={14} className={`transition-transform ${showExportMenu ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showExportMenu && (
+                <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)} />
+                <div className="absolute bottom-full left-0 mb-4 bg-slate-950 border border-slate-800 p-2 rounded-2xl shadow-2xl min-w-[240px] z-50 animate-in fade-in slide-in-from-bottom-2">
+                    <div className="p-3 border-b border-slate-800 mb-2">
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">EXPORT FORMATI SEÇİN</p>
+                    </div>
+                    {exportOptions.map((opt) => (
+                        <button
+                            key={opt.id}
+                            onClick={() => handleExport(opt.id as ExportFormat)}
+                            className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-900 text-left group transition-colors"
+                        >
+                            <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-cyan-500 group-hover:bg-cyan-500 group-hover:text-white transition-all">
+                                <opt.icon size={14} />
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-300 group-hover:text-white uppercase">{opt.label}</p>
+                                <p className="text-[8px] text-slate-600 group-hover:text-cyan-400/80">{opt.desc}</p>
+                            </div>
+                        </button>
+                    ))}
+                </div>
+                </>
+            )}
+        </div>
         
+        {/* Share Button Logic (Mevcut kod aynen korunuyor) */}
         <div className="relative">
           <button 
             onClick={() => setShowShare(!showShare)} 
@@ -170,45 +193,41 @@ export const ExerciseActions: React.FC<ExerciseActionsProps> = ({ exercise, onUp
     );
   }
 
+  // Card Variant
   return (
     <div className="flex gap-2 relative">
-      <ActionBtn icon={Download} onClick={handleDownload} tooltip="MP4 İndir" />
+      <div className="relative group">
+        <ActionBtn icon={Download} onClick={() => setShowExportMenu(!showExportMenu)} tooltip="Formatlı İndir" />
+         {showExportMenu && (
+             <div className="absolute top-full left-0 mt-2 bg-slate-950 border border-slate-800 p-2 rounded-xl shadow-2xl w-48 z-50">
+                  {exportOptions.slice(0,3).map((opt) => (
+                        <button
+                            key={opt.id}
+                            onClick={() => handleExport(opt.id as ExportFormat)}
+                            className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-slate-900 text-left"
+                        >
+                            <opt.icon size={12} className="text-cyan-500" />
+                            <span className="text-[9px] font-bold text-slate-300 uppercase">{opt.label}</span>
+                        </button>
+                    ))}
+             </div>
+         )}
+      </div>
       <ActionBtn icon={Share2} onClick={() => setShowShare(!showShare)} tooltip="Hızlı Paylaş" />
       <ActionBtn icon={Archive} onClick={handleArchive} active={exercise.isArchived} tooltip={exercise.isArchived ? "Arşivden Çıkar" : "Arşive Kaldır"} color="hover:text-amber-500" />
       <ActionBtn icon={Star} active={isFavorite} onClick={toggleFavorite} tooltip="Favorilere Ekle" color="hover:text-yellow-500" />
       
+      {/* Share Modal for Card Variant (Simplified) */}
       {showShare && (
         <div className="fixed inset-0 z-[150] bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={() => setShowShare(false)}>
-          <div className="bg-slate-900 border border-slate-800 p-12 rounded-[4rem] shadow-[0_40px_100px_rgba(0,0,0,0.9)] max-w-md w-full space-y-10 relative overflow-hidden" onClick={e => e.stopPropagation()}>
-             <div className="absolute top-0 right-0 w-48 h-48 bg-cyan-500/5 rounded-full blur-3xl -mr-24 -mt-24" />
-             
-             <div className="text-center space-y-4">
-                <div className="w-16 h-16 bg-cyan-500/10 rounded-2xl mx-auto flex items-center justify-center text-cyan-400 border border-cyan-500/20">
-                  <Share2 size={32} />
-                </div>
-                <h4 className="text-2xl font-black italic tracking-tighter uppercase text-white">PROFESYONEL <span className="text-cyan-400">PAYLAŞIM</span></h4>
-                <p className="text-[10px] text-slate-500 font-mono uppercase tracking-[0.2em]">"{exercise.titleTr || exercise.title}"</p>
-             </div>
-
-             <div className="grid grid-cols-2 gap-4">
-                {socialLinks.map(soc => (
-                  <button 
-                    key={soc.id} 
-                    onClick={() => shareToSocial(soc.id)}
-                    className={`flex flex-col items-center gap-4 p-6 ${soc.bg} rounded-[2.5rem] transition-all ${soc.color} group border border-white/5 hover:border-white/10`}
-                  >
-                    <soc.icon size={32} className="group-hover:scale-125 transition-transform duration-500" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">{soc.label}</span>
-                  </button>
-                ))}
-             </div>
-
+          <div className="bg-slate-900 border border-slate-800 p-8 rounded-[2rem] shadow-2xl max-w-sm w-full space-y-4" onClick={e => e.stopPropagation()}>
+             <h4 className="text-lg font-black italic uppercase text-white text-center">PAYLAŞ</h4>
              <button 
                 onClick={copyToClipboard} 
-                className="w-full bg-slate-950 border border-slate-800 p-6 rounded-2xl flex items-center justify-center gap-4 text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-all shadow-inner"
+                className="w-full bg-slate-950 border border-slate-800 p-4 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase text-slate-300"
               >
-                {copied ? <Check size={20} className="text-emerald-400" /> : <Copy size={20} />} 
-                {copied ? 'KOPYALANDI' : 'KLİNİK LİNKİ KOPYALA'}
+                {copied ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />} 
+                {copied ? 'KOPYALANDI' : 'LİNKİ KOPYALA'}
              </button>
           </div>
         </div>
@@ -224,9 +243,6 @@ function ActionBtn({ icon: Icon, onClick, tooltip, color = 'hover:text-cyan-400'
       className={`p-3 rounded-xl bg-slate-950 border border-slate-800 transition-all group relative hover:scale-110 active:scale-90 ${active ? 'text-yellow-500 border-yellow-500/30 bg-yellow-500/5' : 'text-slate-600'} ${color}`}
     >
       <Icon size={14} fill={active ? 'currentColor' : 'none'} />
-      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 px-3 py-1.5 bg-slate-950 border border-slate-800 text-[8px] font-black uppercase tracking-[0.2em] text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-2xl z-[160]">
-        {tooltip}
-      </span>
     </button>
   );
 }

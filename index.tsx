@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, ErrorInfo, ReactNode } from 'react';
+import React, { Component, useState, useRef, useEffect, ErrorInfo, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { 
   Activity, 
@@ -30,9 +30,12 @@ import { UserManager } from './UserManager.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// Fixed ErrorBoundary class by using React.Component explicit extension to ensure props typing
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { hasError: false };
+// Fixed ErrorBoundary class by using Component explicit extension to ensure props typing
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
   
   static getDerivedStateFromError(_error: Error): ErrorBoundaryState { return { hasError: true }; }
   
