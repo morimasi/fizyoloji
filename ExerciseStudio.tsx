@@ -29,7 +29,9 @@ export const ExerciseStudio = () => {
     biomechanics: '',
     safetyFlags: [],
     equipment: [],
-    muscleGroups: [],
+    // Fix: Updated muscleGroups to primaryMuscles and added secondaryMuscles
+    primaryMuscles: [],
+    secondaryMuscles: [],
     rehabPhase: 'Sub-Akut',
     movementPlane: 'Sagittal',
     tempo: '3-1-3',

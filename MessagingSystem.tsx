@@ -2,13 +2,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Send, X, Paperclip, ShieldCheck, 
-  User, CheckCheck, Smile, MoreHorizontal,
+  User as UserIcon, CheckCheck, Smile, MoreHorizontal,
   Phone, Video, Info
 } from 'lucide-react';
-import { PatientUser, Message } from './types.ts';
+// Fix: PatientUser member not exported, using base User type instead
+import { User, Message } from './types.ts';
 
 interface MessagingSystemProps {
-  patient: PatientUser;
+  patient: User;
   onClose: () => void;
 }
 

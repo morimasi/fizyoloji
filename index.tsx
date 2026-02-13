@@ -32,8 +32,8 @@ import { UserManager } from './UserManager.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// Fix: Explicitly use React.Component with generics to resolve "Property 'props' does not exist on type 'ErrorBoundary'" error.
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fix: Use the imported Component directly to help TypeScript infer 'props' and 'state' correctly.
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false };
 
   constructor(props: ErrorBoundaryProps) {
@@ -56,6 +56,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
+    // Accessing this.props.children is now safe with correct generic extension of Component
     return this.props.children;
   }
 }
@@ -163,7 +164,6 @@ export default function PhysioCoreApp() {
           <NavBtn active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={LayoutDashboard} label="PANEL" />
           <NavBtn active={activeTab === 'progress'} onClick={() => setActiveTab('progress')} icon={TrendingUp} label="TAKİP" />
           <NavBtn active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={Users} label="KADRO" />
-          {/* Fix: Resolved syntax error by adding missing closing parenthesis in the setActiveTab call */}
           <NavBtn active={activeTab === 'cms'} onClick={() => setActiveTab('cms')} icon={Database} label="STUDIO" />
         </nav>
 
