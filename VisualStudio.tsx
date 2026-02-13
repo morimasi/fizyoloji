@@ -39,7 +39,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
   const handleGenerate = async () => {
     setError(null);
     
-    // PRE-FLIGHT CHECK: Prevent throwing error if key is missing
+    // PRE-FLIGHT CHECK
     if (!process.env.API_KEY) {
         const aistudio = (window as any).aistudio;
         if (aistudio) await aistudio.openSelectKey();
@@ -69,16 +69,17 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
       }
       setIsMotionActive(true);
     } catch (err: any) {
-      console.error("Generation failed:", err);
-      
       if (
-        err.message?.includes("API key must be set") || 
+        err.message === "API_KEY_MISSING" || 
+        err.message?.includes("API key") || 
         err.message?.includes("Requested entity was not found")
       ) {
+        console.warn("[VisualStudio] API Key missing, prompting user.");
         const aistudio = (window as any).aistudio;
         if (aistudio) await aistudio.openSelectKey();
         setError("API Anahtarı bulunamadı veya geçersiz. Lütfen tekrar bir anahtar seçin.");
       } else {
+        console.error("Generation failed:", err);
         setError(`Üretim hatası: ${err.message || 'Bilinmeyen hata'}`);
       }
     } finally {

@@ -37,7 +37,7 @@ export const DosageEngineModule: React.FC<DosageEngineModuleProps> = ({ data, on
   const volumeLoad = sets * reps; // Without weight, just reps volume
 
   const handleOptimize = async () => {
-    // PRE-FLIGHT CHECK: Prevent throwing error if key is missing
+    // PRE-FLIGHT CHECK
     if (!process.env.API_KEY) {
         const aistudio = (window as any).aistudio;
         if (aistudio) await aistudio.openSelectKey();
@@ -49,11 +49,12 @@ export const DosageEngineModule: React.FC<DosageEngineModuleProps> = ({ data, on
       const optimized = await optimizeExerciseData(data, optimizationGoal);
       onUpdate({ ...data, ...optimized, isPersonalized: true });
     } catch (err: any) {
-      console.error("Optimization Failed", err);
-      if (err.message?.includes("Requested entity was not found")) {
+      if (err.message === "API_KEY_MISSING" || err.message?.includes("API key") || err.message?.includes("Requested entity was not found")) {
+         console.warn("[DosageEngine] API Key missing, prompting user.");
          const aistudio = (window as any).aistudio;
          if (aistudio) await aistudio.openSelectKey();
       } else {
+         console.error("Optimization Failed", err);
          alert("Optimizasyon başarısız: " + (err.message || "Bilinmeyen hata"));
       }
     } finally {
