@@ -4,7 +4,7 @@ import { PatientProfile, ProgressReport, Exercise, DetailedPainLog, TreatmentHis
 import { PhysioDB } from "./db-repository.ts";
 
 /**
- * PHYSIOCORE AI - GEMINI 3 FLASH ENGINE (v7.0)
+ * PHYSIOCORE AI - GEMINI 3 FLASH ENGINE (v7.2 Deep Context Edition)
  * Zero-Cost Vector Puppetry & Clinical Logic
  */
 
@@ -118,37 +118,63 @@ export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: st
   }
 };
 
-// GÖRSEL MOTOR: Gemini 2.5 Flash Image (Sprite Sheet Mode)
+// GÖRSEL MOTOR: Gemini 2.5 Flash Image (Deep Context Injection Enabled)
 export const generateExerciseVisual = async (exercise: Partial<Exercise>, style: string): Promise<string> => {
   try {
     const apiKey = await ensureApiKey();
     const ai = new GoogleGenAI({ apiKey });
     
-    // VECTOR PUPPETRY PROMPT ENGINEERING
-    // Tek bir geniş resimde (16:9) iki kare (Başlangıç ve Bitiş) istiyoruz.
+    // 1. DATA EXTRACTION FROM CLINICAL MODULE
+    const primaryMuscles = exercise.primaryMuscles?.join(', ') || 'Target Muscles';
+    const equipment = exercise.equipment?.join(', ') || 'Bodyweight Only';
+    const biomechanics = exercise.biomechanics || 'Standard biomechanical alignment';
+    const intensity = exercise.targetRpe ? (exercise.targetRpe > 7 ? 'High Intensity, Muscle Strain Visible' : 'Low Intensity, Relaxed Form') : 'Moderate Intensity';
+    const plane = exercise.movementPlane || 'Sagittal';
+
+    // 2. CONTEXT AWARE PROMPT CONSTRUCTION
     let stylePrompt = "Create a wide aspect ratio image (16:9) split into exactly two equal panels side-by-side. ";
     
     switch (style) {
         case 'Medical-Vector':
-            stylePrompt += "Style: Minimalist Medical Vector Art on dark slate background. Neon cyan lines for muscles. Clean, flat design.";
+            stylePrompt += `
+            Style: Minimalist Medical Vector Art on dark slate background. 
+            ANATOMY HIGHLIGHT: The ${primaryMuscles} must be glowing NEON CYAN. Other muscles are faint gray lines.
+            `;
             break;
         case 'X-Ray-Lottie':
-            stylePrompt += "Style: Glowing X-Ray skeleton. Bones are visible and glowing blue. Muscles are semi-transparent holograms.";
+            stylePrompt += `
+            Style: Glowing X-Ray skeleton visualization. 
+            SKELETAL FOCUS: Highlight the joints involved in the ${plane} plane.
+            MUSCLE FOCUS: Show ${primaryMuscles} as semi-transparent blue holograms contracting.
+            `;
             break;
         case 'Cinematic-GIF':
-            stylePrompt += "Style: Photorealistic 8k, dramatic studio lighting, professional athlete model.";
+            stylePrompt += `
+            Style: Photorealistic 8k, dramatic studio lighting.
+            ATMOSPHERE: ${intensity}. The model should look focused.
+            EQUIPMENT: Clearly show the ${equipment} being used correctly.
+            `;
             break;
         default:
             stylePrompt += "Style: Professional clinical medical illustration.";
     }
 
-    const fullPrompt = `${stylePrompt}
+    const fullPrompt = `
+    ${stylePrompt}
+
     SUBJECT: Physiotherapy exercise "${exercise.titleTr || exercise.title}".
     
-    LEFT PANEL: Show the STARTING position of the movement.
-    RIGHT PANEL: Show the ENDING position (peak contraction).
+    CLINICAL CONTEXT:
+    - Equipment: ${equipment}
+    - Biomechanical Cue: ${biomechanics}
+    - Movement Plane: ${plane}
     
-    IMPORTANT: Ensure characters are aligned so they can be animated by switching frames. Do not add text labels inside the image.`;
+    LAYOUT INSTRUCTIONS:
+    - LEFT PANEL: Show the STARTING position of the movement.
+    - RIGHT PANEL: Show the ENDING position (peak contraction of ${primaryMuscles}).
+    
+    IMPORTANT: Ensure characters are aligned so they can be animated by switching frames. Do not add text labels inside the image.
+    `;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image', // Hızlı ve Görsel Odaklı
