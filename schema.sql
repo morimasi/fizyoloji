@@ -1,6 +1,6 @@
 
 -- =============================================================================
--- PHYSIOCORE AI - GENESIS v7.1 ULTIMATE MASTER SCHEMA (REPAIR & SYNC EDITION)
+-- PHYSIOCORE AI - GENESIS v7.4 ULTIMATE MASTER SCHEMA (COMPREHENSIVE MIGRATION)
 -- Architect: Fizyolojik (AI) & Clinical Systems Director
 -- =============================================================================
 
@@ -30,7 +30,7 @@ DO $$ BEGIN
     END IF;
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 
--- 3. USERS: MERKEZİ KİMLİK SİSTEMİ
+-- 3. USERS
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     role user_role NOT NULL DEFAULT 'Patient',
@@ -105,7 +105,7 @@ CREATE TABLE IF NOT EXISTS exercises (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 7. PRESCRIPTIONS (Fix: Column Repair logic included)
+-- 7. PRESCRIPTIONS
 CREATE TABLE IF NOT EXISTS prescriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     patient_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -122,19 +122,11 @@ CREATE TABLE IF NOT EXISTS prescriptions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- REPAIR: is_active sütunu eksikse ekle
-DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='prescriptions' AND column_name='is_active') THEN
-        ALTER TABLE prescriptions ADD COLUMN is_active BOOLEAN DEFAULT TRUE;
-    END IF;
-END $$;
-
 -- 8. PROGRESS_REPORTS
 CREATE TABLE IF NOT EXISTS progress_reports (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     patient_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     prescription_id UUID REFERENCES prescriptions(id) ON DELETE SET NULL,
-    session_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     pain_score_vas INTEGER CHECK (pain_score_vas BETWEEN 0 AND 10),
     completion_rate INTEGER DEFAULT 100,
     patient_feedback TEXT,
@@ -167,26 +159,7 @@ CREATE TABLE IF NOT EXISTS clinical_tasks (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 11. GAMIFICATION_REWARDS
-CREATE TABLE IF NOT EXISTS user_rewards (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    reward_type VARCHAR(50) NOT NULL,
-    title VARCHAR(100) NOT NULL,
-    description TEXT,
-    icon_tag VARCHAR(50),
-    unlocked_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- 12. SYSTEM_CONFIG
-CREATE TABLE IF NOT EXISTS system_config (
-    key VARCHAR(100) PRIMARY KEY,
-    value JSONB NOT NULL,
-    description TEXT,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- 13. AUDIT_LOGS
+-- 11. AUDIT_LOGS
 CREATE TABLE IF NOT EXISTS audit_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     actor_id UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -198,7 +171,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     logged_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 14. MESSAGING_SYSTEM
+-- 12. MESSAGING_SYSTEM
 CREATE TABLE IF NOT EXISTS messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -209,16 +182,76 @@ CREATE TABLE IF NOT EXISTS messages (
     sent_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 15. İNDEKSLER (Gelişmiş)
+-- =============================================================================
+-- CENTRALIZED COLUMN REPAIR (MIGRATION BLOCKS)
+-- =============================================================================
+
+DO $$ BEGIN
+    -- REPAIR: prescriptions -> is_active
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='prescriptions' AND column_name='is_active') THEN
+        ALTER TABLE prescriptions ADD COLUMN is_active BOOLEAN DEFAULT TRUE;
+    END IF;
+
+    -- REPAIR: progress_reports -> session_date
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='progress_reports' AND column_name='session_date') THEN
+        ALTER TABLE progress_reports ADD COLUMN session_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+    END IF;
+    
+    -- REPAIR: users -> is_active
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='is_active') THEN
+        ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT TRUE;
+    END IF;
+
+    -- REPAIR: audit_logs -> severity
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='audit_logs' AND column_name='severity') THEN
+        ALTER TABLE audit_logs ADD COLUMN severity VARCHAR(20) DEFAULT 'INFO';
+    END IF;
+
+    -- REPAIR: messages -> sent_at (Fixes SQLSTATE 42703)
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='messages' AND column_name='sent_at') THEN
+        ALTER TABLE messages ADD COLUMN sent_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+    END IF;
+
+    -- REPAIR: messages -> is_read
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='messages' AND column_name='is_read') THEN
+        ALTER TABLE messages ADD COLUMN is_read BOOLEAN DEFAULT FALSE;
+    END IF;
+
+    -- REPAIR: messages -> attachments
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='messages' AND column_name='attachments') THEN
+        ALTER TABLE messages ADD COLUMN attachments TEXT[] DEFAULT '{}';
+    END IF;
+END $$;
+
+-- 13. GAMIFICATION_REWARDS
+CREATE TABLE IF NOT EXISTS user_rewards (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    reward_type VARCHAR(50) NOT NULL,
+    title VARCHAR(100) NOT NULL,
+    description TEXT,
+    icon_tag VARCHAR(50),
+    unlocked_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 14. SYSTEM_CONFIG
+CREATE TABLE IF NOT EXISTS system_config (
+    key VARCHAR(100) PRIMARY KEY,
+    value JSONB NOT NULL,
+    description TEXT,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 15. İNDEKSLER (Onarılmış Sütunlar Üzerine)
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_patients_therapist ON patients(assigned_therapist_id);
--- Fix: is_active sütunu artık kesinlikle mevcut
 CREATE INDEX IF NOT EXISTS idx_prescriptions_active ON prescriptions(patient_id) WHERE is_active = TRUE;
 CREATE INDEX IF NOT EXISTS idx_exercises_category ON exercises(category);
 CREATE INDEX IF NOT EXISTS idx_reports_patient_date ON progress_reports(patient_id, session_date);
 CREATE INDEX IF NOT EXISTS idx_tasks_therapist_status ON clinical_tasks(therapist_id, status);
 CREATE INDEX IF NOT EXISTS idx_audit_severity ON audit_logs(severity);
+-- sent_at sütunu yukarıdaki REPAIR bloğu ile garanti altına alındı
 CREATE INDEX IF NOT EXISTS idx_messages_flow ON messages(sender_id, receiver_id, sent_at);
 
 -- 16. OTOMATİK ZAMAN GÜNCELLEME (TRIGGERS)
@@ -239,12 +272,12 @@ CREATE TRIGGER trg_patients_upd BEFORE UPDATE ON patients FOR EACH ROW EXECUTE P
 DROP TRIGGER IF EXISTS trg_exercises_upd ON exercises;
 CREATE TRIGGER trg_exercises_upd BEFORE UPDATE ON exercises FOR EACH ROW EXECUTE PROCEDURE update_timestamp();
 
--- 17. VARSAYILAN SİSTEM AYARLARI (SEED CONFIG)
+-- 17. VARSAYILAN SİSTEM AYARLARI
 INSERT INTO system_config (key, value, description) VALUES 
 ('GLOBAL_AI_TUNING', '{"reasoningDepth": 92, "conservativeThreshold": 65, "veoOptimization": 100}', 'Global AI Muhakeme ve Görsel Kalite Ayarları'),
 ('CLINICAL_RULES', '{"maxPainIncrease": 3, "minComplianceRate": 40, "autoPhaseShift": true}', 'Otomatik Klinik Karar Kuralları')
 ON CONFLICT (key) DO NOTHING;
 
 -- =============================================================================
--- MASTER SCHEMA v7.1 COMPLETED & REPAIRED
+-- MASTER SCHEMA v7.4 COMPLETED & REPAIRED
 -- =============================================================================
