@@ -103,11 +103,12 @@ export const ExerciseForm: React.FC<ExerciseFormProps> = ({ initialData, onSave,
         {activeTab === 'visual' && (
           <VisualStudio 
             exercise={activeDraft} 
-            onVisualGenerated={(url, style, isMotion, frameCount) => updateDraft({
+            onVisualGenerated={(url, style, isMotion, frameCount, layout) => updateDraft({
               videoUrl: isMotion ? url : undefined, 
               visualUrl: !isMotion ? url : undefined, 
               visualStyle: style as any, 
-              visualFrameCount: frameCount || 6, // Default fallback
+              visualFrameCount: frameCount || 24, 
+              visualLayout: layout,
               isMotion
             })} 
           />

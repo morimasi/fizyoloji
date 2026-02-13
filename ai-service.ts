@@ -4,8 +4,8 @@ import { PatientProfile, ProgressReport, Exercise, DetailedPainLog, TreatmentHis
 import { PhysioDB } from "./db-repository.ts";
 
 /**
- * PHYSIOCORE AI - GEMINI 3 FLASH ENGINE (v8.0 Motion Strip Edition)
- * High-Fluidity Vector Puppetry & Clinical Logic
+ * PHYSIOCORE AI - GEMINI 3 FLASH ENGINE (v9.0 Cinematic Grid Edition)
+ * 24FPS High-Density Vector Puppetry & Deep Clinical Injection
  */
 
 export const ensureApiKey = async (): Promise<string> => {
@@ -20,14 +20,13 @@ export const ensureApiKey = async (): Promise<string> => {
   throw new Error("MISSING_API_KEY");
 };
 
-// Vektörel Kukla Motoru (Video yerine 6-Kareli Sprite Üretir)
+// Vektörel Kukla Motoru (24 FPS Grid)
 export const generateExerciseVideo = async (exercise: Partial<Exercise>): Promise<string> => {
-  // Varsayılan olarak 6 kareli animasyon bandı üretir
   const result = await generateExerciseVisual(exercise, 'Medical-Vector-Art');
   return result.url;
 };
 
-// Klinik Muhakeme: Gemini 3 Flash
+// Klinik Muhakeme
 export const runClinicalConsultation = async (
   text: string, 
   imageBase64?: string,
@@ -68,7 +67,6 @@ export const runClinicalConsultation = async (
   }
 };
 
-// Adaptif Düzenleme: Gemini 3 Flash
 export const runAdaptiveAdjustment = async (currentProfile: PatientProfile, feedback: ProgressReport): Promise<PatientProfile> => {
   try {
     const apiKey = await ensureApiKey();
@@ -84,7 +82,6 @@ export const runAdaptiveAdjustment = async (currentProfile: PatientProfile, feed
   }
 };
 
-// Dozaj Optimizasyonu: Gemini 3 Flash
 export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: string): Promise<Partial<Exercise>> => {
   try {
     const apiKey = await ensureApiKey();
@@ -120,69 +117,79 @@ export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: st
   }
 };
 
-// GÖRSEL MOTOR: Gemini 2.5 Flash Image (Multi-Frame Sprite Edition)
-export const generateExerciseVisual = async (exercise: Partial<Exercise>, style: string): Promise<{ url: string, frameCount: number }> => {
+// GÖRSEL MOTOR: Gemini 2.5 Flash Image (24 FPS GRID MATRIX)
+export const generateExerciseVisual = async (exercise: Partial<Exercise>, style: string): Promise<{ url: string, frameCount: number, layout: 'grid-4x6' | 'strip' }> => {
   try {
     const apiKey = await ensureApiKey();
     const ai = new GoogleGenAI({ apiKey });
     
-    // 1. DATA EXTRACTION
-    const primaryMuscles = exercise.primaryMuscles?.join(', ') || 'Target Muscles';
-    const equipment = exercise.equipment?.join(', ') || 'Bodyweight';
-    const biomechanics = exercise.biomechanics || 'Movement flow';
-    const plane = exercise.movementPlane || 'Sagittal';
+    // --- 1. DEEP CLINICAL CONTEXT INJECTION ---
+    const primaryMuscles = exercise.primaryMuscles?.join(', ') || 'Global Body';
+    const equipment = exercise.equipment?.length ? `USING: ${exercise.equipment.join(', ')}` : 'BODYWEIGHT ONLY';
+    const rpe = exercise.targetRpe || 5;
     
-    // 2. DYNAMIC FRAME COUNT CALCULATION
-    // Kompleks veya çok aşamalı egzersizler için daha fazla kare
-    const isComplex = exercise.difficulty && exercise.difficulty > 6;
-    const frameCount = isComplex ? 8 : 6; 
+    // RPE (Zorluk) Seviyesine Göre Görsel Atmosfer
+    let strainLevel = "Relaxed face, effortless movement";
+    if (rpe > 5) strainLevel = "Focused face, engaged muscles";
+    if (rpe > 8) strainLevel = "Intense effort face, veins visible, maximum muscle contraction, sweat";
 
-    // 3. CONTEXT AWARE PROMPT CONSTRUCTION (FILMSTRIP MODE)
-    // We request a 16:9 image but divide it internally into N columns.
-    let stylePrompt = `Create a wide, panoramic sprite sheet containing exactly ${frameCount} sequential keyframes arranged horizontally in a single strip. `;
+    // --- 2. 24-FRAME GRID PROMPT ENGINEERING ---
+    // 24 kare (4 Satır, 6 Sütun) = Akışkan 1 Saniyelik Loop (veya yavaşlatılmış detay)
+    const gridRows = 4;
+    const gridCols = 6;
+    const totalFrames = gridRows * gridCols;
+
+    let stylePrompt = `Create a precise SPRITE SHEET containing exactly ${totalFrames} frames arranged in a ${gridRows}x${gridCols} GRID matrix. `;
     
     switch (style) {
         case 'Medical-Vector':
             stylePrompt += `
-            Style: High-end medical vector art. Dark blue background.
-            ANATOMY: ${primaryMuscles} should glow NEON CYAN. Bones are faint white lines.
+            Style: Premium Medical Vector Art. Dark Slate Background.
+            Anatomy: The ${primaryMuscles} must glow NEON CYAN to show activation.
+            Bones: Subtle semi-transparent white lines.
             `;
             break;
         case 'X-Ray-Lottie':
             stylePrompt += `
-            Style: Glowing holographic X-Ray. Blue skeleton, transparent muscles.
-            FOCUS: Highlight joint articulation in the ${plane} plane.
+            Style: Bioluminescent X-Ray. 
+            Skeleton: Blue glowing bones.
+            Muscles: ${primaryMuscles} highlighted in Red/Orange heat map style.
             `;
             break;
         case 'Cinematic-GIF':
             stylePrompt += `
-            Style: Photorealistic studio lighting. Professional athlete model.
-            ATMOSPHERE: Clinical and clean.
+            Style: Photorealistic 8K Studio.
+            Lighting: Rim lighting to highlight muscle definition.
+            Model: Professional athlete wearing minimal clinical attire.
             `;
             break;
         default:
-            stylePrompt += "Style: Clean professional medical illustration sequence.";
+            stylePrompt += "Style: Clean professional medical illustration.";
     }
 
     const fullPrompt = `
     ${stylePrompt}
 
-    SUBJECT: A frame-by-frame breakdown of the physiotherapy exercise "${exercise.titleTr || exercise.title}".
+    SUBJECT: The exercise is "${exercise.titleTr || exercise.title}".
     
-    LAYOUT INSTRUCTIONS (CRITICAL):
-    - The image must contain ${frameCount} distinct figures arranged side-by-side from Left to Right.
-    - Frame 1 (Leftmost): Starting position.
-    - Frame ${Math.ceil(frameCount / 2)} (Middle): Mid-range / Transition.
-    - Frame ${frameCount} (Rightmost): End position / Peak contraction.
-    - The transition between frames must be smooth and linear to create a fluid animation when played.
-    - Equipment (${equipment}) must be consistent across all frames.
-    - Do NOT include text, arrows, or labels. Pure visual sequence.
+    CLINICAL PARAMETERS:
+    - Equipment: ${equipment} (MUST be consistent in all frames).
+    - Intensity: ${strainLevel}.
+    - Key Movement: ${exercise.description || 'Standard form'}.
+    
+    LAYOUT INSTRUCTIONS (STRICT):
+    - The image must be a grid of ${gridRows} rows and ${gridCols} columns.
+    - Sequence starts Top-Left (Frame 1) and reads Left-to-Right, then down to next row.
+    - Ends at Bottom-Right (Frame ${totalFrames}).
+    - The sequence must show ONE complete, smooth repetition of the movement.
+    - NO text, NO arrows, NO UI elements. Just the character.
+    - Background must be solid and uniform color.
     `;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image', 
       contents: { parts: [{ text: fullPrompt }] },
-      config: { imageConfig: { aspectRatio: "16:9" } } // Wide aspect ratio to accommodate the strip
+      config: { imageConfig: { aspectRatio: "4:3" } } // 4:3 is better for a 6x4 grid layout
     });
     
     if (response.candidates?.[0]?.content?.parts) {
@@ -190,19 +197,19 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
         if (part.inlineData) {
             return {
                 url: `data:image/png;base64,${part.inlineData.data}`,
-                frameCount: frameCount
+                frameCount: totalFrames,
+                layout: 'grid-4x6'
             };
         }
       }
     }
-    return { url: '', frameCount: 0 };
+    return { url: '', frameCount: 0, layout: 'strip' };
   } catch (e) {
     console.error("Image Gen Error", e);
-    return { url: '', frameCount: 0 };
+    return { url: '', frameCount: 0, layout: 'strip' };
   }
 };
 
-// KLİNİK VERİ ÜRETİCİ: Gemini 3 Flash
 export const generateExerciseData = async (exerciseName: string): Promise<Partial<Exercise>> => {
   try {
     const apiKey = await ensureApiKey();
@@ -241,7 +248,6 @@ export const generateExerciseData = async (exerciseName: string): Promise<Partia
   }
 };
 
-// SESLİ REHBER: Gemini 3 Flash (Script) + Gemini 2.5 Flash TTS (Audio)
 export const generateExerciseTutorial = async (exerciseTitle: string): Promise<ExerciseTutorial | null> => {
   try {
     const apiKey = await ensureApiKey();

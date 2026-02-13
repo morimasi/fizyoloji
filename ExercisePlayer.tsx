@@ -16,10 +16,8 @@ interface PlayerProps {
 }
 
 /**
- * PHYSIOCORE ZERO-COST ANIMATOR (v2.5 Fluid Motion)
- * Uses "Multi-Frame Vector Puppetry" technique:
- * - Ping-Pong looping of 6+ sprite frames.
- * - CSS transform based interpolation.
+ * PHYSIOCORE 24FPS GRID PLAYER
+ * Handles CSS-based Sprite Grid Animation
  */
 export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -32,12 +30,14 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
   
   // Animation State
   const [currentFrame, setCurrentFrame] = useState(0);
-  const frameCount = exercise.visualFrameCount || (exercise.visualLayout === 'sprite-2' ? 2 : 6);
+  const frameCount = exercise.visualFrameCount || 24;
+  const layout = exercise.visualLayout || 'grid-4x6'; 
+  const cols = layout === 'grid-4x6' ? 6 : frameCount;
+  const rows = layout === 'grid-4x6' ? 4 : 1;
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const stepTimerRef = useRef<any>(null);
 
-  // Load Tutorial if not present
   useEffect(() => {
     if (!tutorial && (exercise.visualUrl || exercise.videoUrl)) {
       loadTutorial();
@@ -50,7 +50,6 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
     if (data) {
       setTutorial(data);
       exercise.tutorialData = data; 
-      
       if (data.audioBase64) {
         const audioSrc = `data:audio/mp3;base64,${data.audioBase64}`;
         audioRef.current = new Audio(audioSrc);
@@ -60,7 +59,6 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
     setIsLoadingTutorial(false);
   };
 
-  // Playback Logic (Steps & Audio)
   useEffect(() => {
     if (isPlaying) {
       if (audioRef.current && audioEnabled && currentRep === 0) {
@@ -74,45 +72,30 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
     return () => clearTimeout(stepTimerRef.current);
   }, [isPlaying]);
 
-  // Animation Loop (Fluid Motion)
+  // 24 FPS LOOP
   useEffect(() => {
     let interval: any;
-    let direction = 1;
+    // Tempo verisine göre hız ayarı (varsayılan: 24fps)
+    const baseFps = 24;
+    
     if (isPlaying && exercise.visualUrl) {
-        // Hızı BPM'e veya standart süreye göre ayarla
-        const speed = tutorial?.bpm ? (60 / tutorial.bpm) * 1000 / frameCount : 100;
-        
         interval = setInterval(() => {
-            setCurrentFrame(prev => {
-                let next = prev + direction;
-                if (next >= frameCount - 1) {
-                    direction = -1;
-                    next = frameCount - 1;
-                } else if (next <= 0) {
-                    direction = 1;
-                    next = 0;
-                }
-                return next;
-            });
-        }, speed);
+            setCurrentFrame(prev => (prev + 1) % frameCount);
+        }, 1000 / baseFps);
     } else {
         setCurrentFrame(0);
     }
     return () => clearInterval(interval);
-  }, [isPlaying, frameCount, tutorial?.bpm]);
+  }, [isPlaying, frameCount]);
 
   const runStepSequence = () => {
     if (!tutorial) return;
-    
     const step = tutorial.script[currentStepIndex];
-    
     stepTimerRef.current = setTimeout(() => {
-      // Step Finished
       if (currentStepIndex < tutorial.script.length - 1) {
         setCurrentStepIndex(prev => prev + 1);
-        runStepSequence(); // Next step
+        runStepSequence();
       } else {
-        // Rep Finished
         setCurrentStepIndex(0);
         handleRepComplete();
       }
@@ -142,6 +125,19 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
     }
   };
 
+  const getBackgroundPosition = () => {
+      if (layout === 'strip') {
+          const x = (currentFrame * 100) / (frameCount - 1);
+          return `${x}% 0%`;
+      } else {
+          const colIndex = currentFrame % cols;
+          const rowIndex = Math.floor(currentFrame / cols);
+          const x = cols > 1 ? (colIndex * 100) / (cols - 1) : 0;
+          const y = rows > 1 ? (rowIndex * 100) / (rows - 1) : 0;
+          return `${x}% ${y}%`;
+      }
+  };
+
   const currentAnimationState = tutorial?.script[currentStepIndex]?.animation || 'hold';
 
   return (
@@ -156,7 +152,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
           <h2 className="text-lg md:text-xl font-black italic uppercase text-white tracking-tighter">{exercise.titleTr || exercise.title}</h2>
           <div className="flex items-center justify-center gap-2">
             <span className="text-[9px] font-mono text-cyan-500 uppercase tracking-widest">
-                {exercise.visualFrameCount || 6}-Kare Vektör Motoru
+                {frameCount} Kare / {layout === 'grid-4x6' ? 'Grid' : 'Strip'}
             </span>
             {isLoadingTutorial && <Loader2 size={10} className="animate-spin text-cyan-500" />}
           </div>
@@ -169,35 +165,24 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
       <div className="flex-1 flex flex-col lg:flex-row relative overflow-hidden">
         <div className="flex-1 relative bg-slate-950 flex items-center justify-center">
           
-          {/* ANIMATION STAGE */}
           <div className="relative w-full h-full max-w-4xl max-h-[70vh] flex items-center justify-center p-4 md:p-12">
             <div className={`relative w-full h-full rounded-[3rem] overflow-hidden border border-white/5 shadow-2xl transition-all duration-1000 ${isPlaying ? 'scale-[1.02]' : 'scale-100'}`}>
               
               {exercise.visualUrl || exercise.videoUrl ? (
                 <div className="relative w-full h-full bg-slate-900 overflow-hidden">
                   
-                  {/* MULTI-FRAME SPRITE PLAYER */}
-                  <div className="absolute inset-0 w-full h-full">
-                       <img 
-                           src={exercise.visualUrl || exercise.videoUrl} 
-                           className="absolute h-full max-w-none object-cover transition-transform duration-200 linear"
-                           style={{ 
-                             width: `${frameCount * 100}%`, 
-                             transform: `translateX(-${(currentFrame * (100 / frameCount))}%)` 
-                           }}
-                        />
-                  </div>
+                   <div 
+                        className="w-full h-full bg-no-repeat bg-contain bg-center"
+                        style={{
+                            backgroundImage: `url(${exercise.visualUrl || exercise.videoUrl})`,
+                            backgroundSize: layout === 'grid-4x6' ? '600% 400%' : `${frameCount * 100}% 100%`,
+                            backgroundPosition: getBackgroundPosition(),
+                        }}
+                      />
                   
-                  {/* OVERLAYS */}
                   {isPlaying && (
                     <>
                        <div className={`absolute inset-0 pointer-events-none transition-opacity duration-1000 ${currentAnimationState === 'breathe' ? 'bg-cyan-500/10' : 'bg-transparent'}`} />
-                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className={`
-                             w-32 h-32 rounded-full blur-3xl transition-all duration-1000
-                             ${currentAnimationState === 'contract' ? 'bg-rose-500/40 scale-150' : 'bg-cyan-500/20 scale-100'}
-                          `} />
-                       </div>
                        <div className="absolute bottom-10 left-0 right-0 text-center px-6">
                           <p className="text-xl md:text-2xl font-black italic text-white uppercase tracking-tight drop-shadow-xl animate-in slide-in-from-bottom-2 fade-in">
                             {tutorial?.script[currentStepIndex]?.text}
@@ -233,7 +218,6 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
                 </div>
             </div>
 
-            {/* Audio Toggle */}
             <button 
               onClick={() => setAudioEnabled(!audioEnabled)}
               className="absolute top-6 right-6 md:top-10 md:right-10 p-3 bg-black/40 backdrop-blur-xl border border-white/10 rounded-full text-white hover:bg-white/10 transition-colors"
@@ -242,7 +226,6 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
             </button>
           </div>
 
-          {/* Controls Dock */}
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 md:gap-8 bg-slate-900/90 backdrop-blur-3xl border border-white/10 px-6 py-4 md:p-6 rounded-[2.5rem] shadow-2xl z-20">
                <button onClick={() => {setCurrentRep(0); setIsPlaying(false)}} className="text-slate-500 hover:text-white transition-all"><RotateCcw size={20} /></button>
                <button 
@@ -255,7 +238,6 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
           </div>
         </div>
 
-        {/* Info Sidebar */}
         <div className="w-full lg:w-[400px] bg-slate-950 border-t lg:border-t-0 lg:border-l border-white/5 p-8 space-y-8 overflow-y-auto max-h-[30vh] lg:max-h-full">
              {tutorial ? (
                <div className="space-y-4">
@@ -280,9 +262,6 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
                   <p className="text-[10px] uppercase">Senaryo Yükleniyor...</p>
                </div>
              )}
-             <div className="pt-4 border-t border-white/5">
-                <ExerciseActions exercise={exercise} variant="player" />
-             </div>
         </div>
       </div>
     </div>
