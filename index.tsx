@@ -18,8 +18,8 @@ import { UserManager } from './UserManager.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// Fix: Explicitly extending React.Component and declaring the state property to ensure proper type resolution for state and props
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fix: Inherit directly from Component to resolve property access issues for 'props' and 'state' in TypeScript environments
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false };
 
   constructor(props: ErrorBoundaryProps) {
@@ -35,7 +35,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   render() {
-    // Accessing state inherited from React.Component
+    // Accessing state inherited from Component
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-12 text-center">
@@ -47,7 +47,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
-    // Accessing children inherited from React.Component props
+    // Accessing children from props
     return this.props.children || null;
   }
 }
