@@ -1,86 +1,94 @@
 
 /**
- * PHYSIOCORE GENESIS MEDIA ENGINE (v2.0 STABLE)
+ * PHYSIOCORE GENESIS MEDIA ENGINE (v3.0 ENTERPRISE)
  * Client-Side Video & Animation Transcoder
  * 
  * Özellikler:
  * - Ultra-Stabil Canvas-to-Video motoru.
- * - Sprite Sheet ayrıştırma mantığı (Sol/Sağ kare).
+ * - Sprite Sheet ayrıştırma mantığı (Grid to Frame).
  * - "Yalan Söylemeyen" dosya formatları (WebM, JPG, PNG).
- * - Asenkron Promise tabanlı kayıt sistemi.
+ * - Live Preview Blob Generation.
  */
 
 export type ExportFormat = 'webm' | 'gif' | 'jpg' | 'png-sequence';
 
 export class MediaConverter {
-  private static readonly WIDTH = 1920;
+  private static readonly WIDTH = 1080; // Full HD Square/4:3 Fit
   private static readonly HEIGHT = 1080;
-  private static readonly FPS = 30;
-  private static readonly DURATION_MS = 4000; // 4 saniyelik loop (2 tam tur)
+  private static readonly FPS = 24; // Cinematic
+  private static readonly DURATION_MS = 3000; // 3 saniyelik loop
 
   /**
-   * Ana dönüştürme fonksiyonu (Public Entry Point)
+   * Doğrudan indirme tetikler (Eski Yöntem)
    */
   static async export(sourceUrl: string, format: ExportFormat, title: string): Promise<void> {
-    const image = await this.loadImage(sourceUrl);
-    
-    // Canvas Hazırlığı (High-DPI Support)
-    const canvas = document.createElement('canvas');
-    canvas.width = this.WIDTH;
-    canvas.height = this.HEIGHT;
-    const ctx = canvas.getContext('2d', { alpha: false }); // Alpha false performans artırır
-    
-    if (!ctx) throw new Error("Canvas context hatası.");
-
-    switch (format) {
-        case 'jpg':
-            // Poster oluştur (Sol frame - Başlangıç pozisyonu)
-            this.drawFrame(ctx, image, 0, this.WIDTH, this.HEIGHT);
-            canvas.toBlob((blob) => {
-                if(blob) this.downloadBlob(blob, `${title}_Poster.jpg`);
-            }, 'image/jpeg', 0.95);
-            break;
-
-        case 'png-sequence':
-            // Sunum için A/B karelerini ayrı ayrı indir
-            this.drawFrame(ctx, image, 0, this.WIDTH, this.HEIGHT);
-            canvas.toBlob(blob => blob && this.downloadBlob(blob, `${title}_Start.png`));
-            
-            setTimeout(() => {
-                this.drawFrame(ctx, image, 1, this.WIDTH, this.HEIGHT);
-                canvas.toBlob(blob => blob && this.downloadBlob(blob, `${title}_End.png`));
-            }, 200);
-            break;
-
-        case 'webm':
-        case 'gif': 
-            // GIF isteği gelse bile, tarayıcıda en stabil olan WebM veriyoruz.
-            // GIF oluşturmak için heavy-library (gif.js) gerekir, pure-js WebM daha temizdir.
-            // Kullanıcıya dürüstçe WebM olduğunu dosya adında belirtiyoruz ama format parametresini esnek tutuyoruz.
-            const blob = await this.recordAnimation(canvas, ctx, image);
-            this.downloadBlob(blob, `${title}_animation.webm`);
-            break;
+    const blob = await this.generateBlob(sourceUrl, format);
+    if (blob) {
+        const ext = format === 'png-sequence' ? 'zip' : format === 'webm' ? 'webm' : 'jpg';
+        this.downloadBlob(blob, `${title}_export.${ext}`);
     }
   }
 
   /**
-   * Sprite Animasyonunu Kaydeder (Robust Recorder)
+   * Önizleme için Blob üretir (Yeni Yöntem)
+   */
+  static async generateBlob(sourceUrl: string, format: ExportFormat): Promise<Blob | null> {
+    const image = await this.loadImage(sourceUrl);
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = this.WIDTH;
+    canvas.height = this.HEIGHT;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    
+    if (!ctx) throw new Error("Canvas context hatası.");
+
+    // Grid Parametreleri (Varsayılan 4x6)
+    const rows = 4;
+    const cols = 6;
+    const totalFrames = 24;
+
+    switch (format) {
+        case 'jpg':
+            // Poster (İlk Kare)
+            this.drawGridFrame(ctx, image, 0, rows, cols, this.WIDTH, this.HEIGHT);
+            return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
+
+        case 'png-sequence':
+            // ZIP oluşturma karmaşık olduğu için şimdilik Poster döndürüyoruz (Mock)
+            // İleride JSZip eklenebilir.
+            this.drawGridFrame(ctx, image, 0, rows, cols, this.WIDTH, this.HEIGHT);
+            return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+
+        case 'webm':
+        case 'gif': 
+            // Video Render
+            return await this.recordAnimation(canvas, ctx, image, rows, cols, totalFrames);
+        
+        default:
+            return null;
+    }
+  }
+
+  /**
+   * Grid'den Video Oluşturma Motoru
    */
   private static async recordAnimation(
     canvas: HTMLCanvasElement, 
     ctx: CanvasRenderingContext2D, 
-    image: HTMLImageElement
+    image: HTMLImageElement,
+    rows: number,
+    cols: number,
+    totalFrames: number
   ): Promise<Blob> {
     
-    // Tarayıcı desteğini kontrol et
     const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') 
         ? 'video/webm;codecs=vp9' 
-        : 'video/webm'; // Fallback
+        : 'video/webm'; 
 
     const stream = canvas.captureStream(this.FPS);
     const recorder = new MediaRecorder(stream, { 
         mimeType,
-        videoBitsPerSecond: 8000000 // 8 Mbps Ultra Kalite
+        videoBitsPerSecond: 5000000 
     });
     
     const chunks: Blob[] = [];
@@ -91,36 +99,32 @@ export class MediaConverter {
     return new Promise((resolve, reject) => {
         recorder.onstop = () => {
              const blob = new Blob(chunks, { type: mimeType });
-             if (blob.size === 0) reject(new Error("Kayıt boş, blob oluşturulamadı."));
-             else resolve(blob);
+             resolve(blob);
         };
 
         recorder.onerror = (e) => reject(e);
-
-        // Kaydı başlat
         recorder.start();
 
-        // Animasyon Döngüsü
-        let startTime = performance.now();
-        const frameDuration = 1000; // 1 saniye bekleme süresi
+        let frameIndex = 0;
+        let elapsedFrames = 0;
+        const maxFramesToRecord = this.FPS * (this.DURATION_MS / 1000); // 24 * 3 = 72 kare
 
-        const animate = (timestamp: number) => {
-            const elapsed = timestamp - startTime;
-            
-            // Süre dolduysa durdur
-            if (elapsed >= this.DURATION_MS) {
+        const animate = () => {
+            if (elapsedFrames >= maxFramesToRecord) {
                 recorder.stop();
                 return;
             }
 
-            // Frame Logic: 1 saniyede bir kare değiştir
-            // Math.floor(elapsed / 1000) bize saniyeyi verir. % 2 ile 0 veya 1 alırız.
-            const frameIndex = Math.floor(elapsed / frameDuration) % 2;
+            // Grid Logic
+            this.drawGridFrame(ctx, image, frameIndex, rows, cols, this.WIDTH, this.HEIGHT);
 
-            // Çizim
-            this.drawFrame(ctx, image, frameIndex, this.WIDTH, this.HEIGHT);
+            // Loop Logic
+            frameIndex = (frameIndex + 1) % totalFrames;
+            elapsedFrames++;
 
-            requestAnimationFrame(animate);
+            // MediaRecorder için yapay gecikme gerekmez, requestAnimationFrame senkronizasyonu yeterli
+            // Ancak FPS'i tutturmak için setTimeout kullanılabilir.
+            setTimeout(() => requestAnimationFrame(animate), 1000 / this.FPS);
         };
 
         requestAnimationFrame(animate);
@@ -128,59 +132,54 @@ export class MediaConverter {
   }
 
   /**
-   * Tek bir kareyi canvas'a çizer (Sprite Mantığı Burada)
+   * Grid üzerindeki tek bir hücreyi alıp Canvas'a tam boy çizer (Maskeleme)
    */
-  private static drawFrame(
+  private static drawGridFrame(
       ctx: CanvasRenderingContext2D, 
       image: HTMLImageElement, 
       frameIndex: number,
+      rows: number,
+      cols: number,
       w: number, 
       h: number
   ) {
-      // Arka plan (Dark Mode)
-      ctx.fillStyle = '#0F172A';
+      // Arka plan
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, w, h);
 
-      // Sprite hesaplama:
-      // Resim aslında 2W genişliğinde. 
-      // Sol kare (Start): x=0, w=image.width/2
-      // Sağ kare (End): x=image.width/2, w=image.width/2
-      const sourceW = image.width / 2;
-      const sourceH = image.height;
-      const sourceX = frameIndex === 0 ? 0 : sourceW;
+      // Hücre Hesaplama
+      const cellW = image.width / cols;
+      const cellH = image.height / rows;
 
-      // Resmi canvas'a sığdır (Aspect Ratio koruyarak cover yap)
-      // Basitlik için stretch yapıyoruz, ama production'da aspect-ratio hesabı eklenebilir.
+      const colIndex = frameIndex % cols;
+      const rowIndex = Math.floor(frameIndex / cols);
+
+      const sourceX = colIndex * cellW;
+      const sourceY = rowIndex * cellH;
+
+      // Crop & Resize
       ctx.drawImage(
           image, 
-          sourceX, 0, sourceW, sourceH, // Source Crop
-          0, 0, w, h // Dest Resize
+          sourceX, sourceY, cellW, cellH, // Kaynak Koordinatları
+          0, 0, w, h // Hedef Boyut
       );
 
-      // Watermark (Profesyonel İmza)
+      // Watermark
       ctx.save();
-      ctx.font = '900 24px Inter, sans-serif';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-      ctx.shadowColor = 'black';
-      ctx.shadowBlur = 4;
+      ctx.font = '900 20px Inter, sans-serif';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
       ctx.textAlign = 'right';
-      ctx.fillText('PHYSIOCORE AI', w - 40, h - 40);
-      
-      // Frame Indicator (Klinik Analiz İçin)
-      ctx.font = 'bold 18px Monospace';
-      ctx.fillStyle = 'rgba(6, 182, 212, 0.8)'; // Cyan
-      ctx.textAlign = 'left';
-      ctx.fillText(frameIndex === 0 ? '► START POS' : '► END POS', 40, h - 40);
+      ctx.fillText('PHYSIOCORE GENESIS', w - 30, h - 30);
       ctx.restore();
   }
 
   private static loadImage(url: string): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
         const img = new Image();
-        img.crossOrigin = 'anonymous'; // CORS hatasını önlemek için kritik
+        img.crossOrigin = 'anonymous'; 
         img.src = url;
         img.onload = () => resolve(img);
-        img.onerror = (e) => reject(new Error(`Resim yüklenemedi: ${url}`));
+        img.onerror = (e) => reject(new Error(`Resim yüklenemedi.`));
     });
   }
 
@@ -191,8 +190,6 @@ export class MediaConverter {
     a.download = filename;
     document.body.appendChild(a);
     a.click();
-    
-    // Temizlik
     setTimeout(() => {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);

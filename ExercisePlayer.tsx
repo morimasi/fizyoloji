@@ -16,7 +16,7 @@ interface PlayerProps {
 }
 
 /**
- * PHYSIOCORE 24FPS GRID PLAYER (THEATER MODE)
+ * PHYSIOCORE 24FPS GRID PLAYER (THEATER MODE v2)
  * Uses strict viewport masking to simulate video playback from sprite sheets.
  */
 export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
@@ -72,10 +72,10 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
     return () => clearTimeout(stepTimerRef.current);
   }, [isPlaying]);
 
-  // ANIMATION LOOP (PING-PONG)
+  // ANIMATION LOOP (PING-PONG FLUIDITY)
   useEffect(() => {
     let interval: any;
-    const baseFps = 12; // Slow-motion feel
+    const baseFps = 15; // Smooth cinematic look
     let direction = 1;
 
     if (isPlaying && exercise.visualUrl) {
@@ -135,15 +135,13 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
     }
   };
 
-  // --- THEATER MODE STYLES ---
+  // --- THEATER MODE STYLES (MATCHES VISUALSTUDIO) ---
   const getBackgroundStyles = () => {
-      // Image scaling factor: 
-      // If 6 cols, width is 600% of container.
-      // If 4 rows, height is 400% of container.
+      // Zoom Factor: Enlarge to isolate 1 frame
       const bgSizeX = cols * 100; 
       const bgSizeY = rows * 100;
 
-      // Position:
+      // Position Shift
       const colIndex = currentFrame % cols;
       const rowIndex = Math.floor(currentFrame / cols);
       

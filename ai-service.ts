@@ -4,8 +4,8 @@ import { PatientProfile, ProgressReport, Exercise, DetailedPainLog, TreatmentHis
 import { PhysioDB } from "./db-repository.ts";
 
 /**
- * PHYSIOCORE AI - GEMINI 3 FLASH ENGINE (v9.2 Cinematic Fluidity)
- * High-Density Slow Motion Vector Puppetry
+ * PHYSIOCORE AI - GEMINI 3 FLASH ENGINE (v9.8 Director Cut)
+ * High-Precision Sprite Generation with Custom Directives
  */
 
 export const ensureApiKey = async (): Promise<string> => {
@@ -117,8 +117,9 @@ export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: st
   }
 };
 
-// GÖRSEL MOTOR: Gemini 2.5 Flash Image (24 FPS GRID MATRIX - SLOW MOTION CAPTURE)
-export const generateExerciseVisual = async (exercise: Partial<Exercise>, style: string): Promise<{ url: string, frameCount: number, layout: 'grid-4x6' | 'strip' }> => {
+// GÖRSEL MOTOR: Gemini 2.5 Flash Image (CINEMATIC SPRITE STUDIO)
+// UPDATED: Now accepts 'customDirective' for granular control
+export const generateExerciseVisual = async (exercise: Partial<Exercise>, style: string, customDirective?: string): Promise<{ url: string, frameCount: number, layout: 'grid-4x6' | 'strip' }> => {
   try {
     const apiKey = await ensureApiKey();
     const ai = new GoogleGenAI({ apiKey });
@@ -126,64 +127,68 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
     const primaryMuscles = exercise.primaryMuscles?.join(', ') || 'Global Body';
     const equipment = exercise.equipment?.length ? `USING: ${exercise.equipment.join(', ')}` : 'BODYWEIGHT ONLY';
     
-    // 24 kare (4 Satır, 6 Sütun)
+    // 4x6 Grid (24 Kare) Standart
     const gridRows = 4;
     const gridCols = 6;
     const totalFrames = gridRows * gridCols;
 
-    let stylePrompt = `Create a HIGH-PRECISION SPRITE SHEET containing exactly ${totalFrames} frames arranged in a ${gridRows}x${gridCols} GRID matrix. `;
+    let stylePrompt = `Create a PERFECTLY ALIGNED SPRITE SHEET containing exactly ${totalFrames} frames arranged in a ${gridRows}x${gridCols} GRID matrix. `;
     
     switch (style) {
         case 'Medical-Vector':
             stylePrompt += `
-            Style: Premium Medical Vector Art. Dark Slate Background.
-            Anatomy: The ${primaryMuscles} must glow NEON CYAN to show activation.
-            Look: Clean lines, high contrast, flat shading (Kurzgesagt style but medical).
+            Style: Flat Medical Vector Art. Dark Slate Background (#0F172A).
+            Character: Gender-neutral 3D mannequin, semi-transparent skin.
+            Highlight: The ${primaryMuscles} must glow NEON CYAN.
+            Consistency: CAMERA MUST BE FIXED ON A TRIPOD. Only the body moves.
             `;
             break;
         case 'X-Ray-Lottie':
             stylePrompt += `
-            Style: Bioluminescent X-Ray. 
-            Skeleton: Blue glowing bones.
-            Muscles: ${primaryMuscles} highlighted in Red/Orange heat map style.
+            Style: Bioluminescent MRI Scan. 
+            Skeleton: Blue glowing bones on black background.
+            Muscles: ${primaryMuscles} highlighted in Orange heat map style.
             `;
             break;
         case 'Cinematic-GIF':
             stylePrompt += `
-            Style: Photorealistic 8K Studio Lighting.
-            Model: Professional athlete wearing minimal clinical attire.
-            Background: Dark infinite studio void.
+            Style: Photorealistic 8K Studio.
+            Lighting: Rim lighting, dramatic shadows.
+            Model: Professional athlete in dark compression gear.
+            Background: Solid Black (Important for masking).
             `;
             break;
         default:
             stylePrompt += "Style: Clean professional medical illustration.";
     }
 
+    // DIRECTOR'S OVERRIDE
+    const directiveBlock = customDirective 
+        ? `SPECIFIC DIRECTOR INSTRUCTIONS (MUST FOLLOW): ${customDirective}`
+        : `STANDARD INSTRUCTION: Show the exercise "${exercise.title}" being performed with perfect form.`;
+
     const fullPrompt = `
     ${stylePrompt}
 
     SUBJECT: The exercise is "${exercise.titleTr || exercise.title}".
+    ${directiveBlock}
+    Equipment: ${equipment}
+
+    SPRITE SHEET RULES (STRICT):
+    1. Grid: ${gridRows} Rows, ${gridCols} Columns. Total ${totalFrames} frames.
+    2. Sequence: Read Left-to-Right, Top-to-Bottom.
+    3. Loop: Frame 1 is Start, Frame ${totalFrames / 2} is Peak, Frame ${totalFrames} is End/Start (Seamless Loop).
+    4. ALIGNMENT: The character MUST be centered in each cell. No jitter.
+    5. PADDING: ZERO padding between cells.
+    6. CONTENT: Show one complete repetition of the movement clearly.
     
-    ANIMATION INSTRUCTIONS (CRITICAL FOR FLUIDITY):
-    - This must look like a HIGH-SPEED CAMERA SLOW MOTION capture.
-    - The difference between Frame 1 and Frame 2 must be TINY (Micro-movements).
-    - Do NOT make large jumps between frames. I need smooth interpolation.
-    - Equipment: ${equipment} (MUST be consistent in all frames).
-    
-    LAYOUT INSTRUCTIONS (STRICT):
-    - The image must be a grid of ${gridRows} rows and ${gridCols} columns.
-    - Sequence starts Top-Left (Frame 1) and reads Left-to-Right, then down to next row.
-    - Ends at Bottom-Right (Frame ${totalFrames}).
-    - The sequence must show ONE complete, VERY SMOOTH repetition.
-    - NO text, NO arrows, NO UI elements. Just the character.
-    - Background must be solid and uniform color (Dark Slate or Black).
-    - Ensure strict alignment so the character does not "jitter" when frames are played.
+    This image will be used in a CSS animation projector. Precision is key.
     `;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image', 
       contents: { parts: [{ text: fullPrompt }] },
-      config: { imageConfig: { aspectRatio: "4:3" } } // 4:3 ensures enough vertical space for 4 rows
+      config: { imageConfig: { aspectRatio: "4:3" } } 
     });
     
     if (response.candidates?.[0]?.content?.parts) {
