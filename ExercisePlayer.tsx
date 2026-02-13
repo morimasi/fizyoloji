@@ -16,8 +16,8 @@ interface PlayerProps {
 }
 
 /**
- * PHYSIOCORE 24FPS GRID PLAYER (PING-PONG LOOP)
- * Ensures smooth, continuous motion without jump cuts.
+ * PHYSIOCORE 24FPS GRID PLAYER (THEATER MODE)
+ * Uses strict viewport masking to simulate video playback from sprite sheets.
  */
 export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -72,17 +72,16 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
     return () => clearTimeout(stepTimerRef.current);
   }, [isPlaying]);
 
-  // 24 FPS PING-PONG LOOP
+  // ANIMATION LOOP (PING-PONG)
   useEffect(() => {
     let interval: any;
-    const baseFps = 18; // Smooth cinematic feel
+    const baseFps = 12; // Slow-motion feel
     let direction = 1;
 
     if (isPlaying && exercise.visualUrl) {
         interval = setInterval(() => {
             setCurrentFrame(prev => {
                 let next = prev + direction;
-                // Reverse direction at ends
                 if (next >= frameCount - 1) {
                     direction = -1;
                     next = frameCount - 1;
@@ -136,17 +135,28 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
     }
   };
 
-  const getBackgroundPosition = () => {
-      if (layout === 'strip') {
-          const x = (currentFrame * 100) / (frameCount - 1);
-          return `${x}% 0%`;
-      } else {
-          const colIndex = currentFrame % cols;
-          const rowIndex = Math.floor(currentFrame / cols);
-          const x = cols > 1 ? (colIndex * 100) / (cols - 1) : 0;
-          const y = rows > 1 ? (rowIndex * 100) / (rows - 1) : 0;
-          return `${x}% ${y}%`;
-      }
+  // --- THEATER MODE STYLES ---
+  const getBackgroundStyles = () => {
+      // Image scaling factor: 
+      // If 6 cols, width is 600% of container.
+      // If 4 rows, height is 400% of container.
+      const bgSizeX = cols * 100; 
+      const bgSizeY = rows * 100;
+
+      // Position:
+      const colIndex = currentFrame % cols;
+      const rowIndex = Math.floor(currentFrame / cols);
+      
+      const xPos = cols > 1 ? (colIndex / (cols - 1)) * 100 : 0;
+      const yPos = rows > 1 ? (rowIndex / (rows - 1)) * 100 : 0;
+
+      return {
+          backgroundImage: `url(${exercise.visualUrl || exercise.videoUrl})`,
+          backgroundSize: `${bgSizeX}% ${bgSizeY}%`,
+          backgroundPosition: `${xPos}% ${yPos}%`,
+          backgroundRepeat: 'no-repeat',
+          imageRendering: 'auto' as const
+      };
   };
 
   const currentAnimationState = tutorial?.script[currentStepIndex]?.animation || 'hold';
@@ -180,16 +190,12 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
             <div className={`relative w-full h-full rounded-[3rem] overflow-hidden border border-white/5 shadow-2xl transition-all duration-1000 ${isPlaying ? 'scale-[1.02]' : 'scale-100'}`}>
               
               {exercise.visualUrl || exercise.videoUrl ? (
-                <div className="relative w-full h-full bg-slate-900 overflow-hidden flex items-center justify-center">
+                // THEATER CONTAINER with Black Background
+                <div className="relative w-full h-full bg-black overflow-hidden flex items-center justify-center">
                   
                    <div 
-                        className="w-full h-full bg-no-repeat"
-                        style={{
-                            backgroundImage: `url(${exercise.visualUrl || exercise.videoUrl})`,
-                            backgroundSize: layout === 'grid-4x6' ? '600% 400%' : `${frameCount * 100}% 100%`,
-                            backgroundPosition: getBackgroundPosition(),
-                            imageRendering: 'auto'
-                        }}
+                        className="w-full h-full"
+                        style={getBackgroundStyles()}
                       />
                   
                   {isPlaying && (

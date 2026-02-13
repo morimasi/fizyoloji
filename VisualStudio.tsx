@@ -29,26 +29,23 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
   const frameCount = exercise.visualFrameCount || 24; 
   const layout = exercise.visualLayout || 'grid-4x6'; 
 
-  // GRID MATRIX ENGINE
+  // GRID MATRIX ENGINE (4x6 Standart)
   const cols = layout === 'grid-4x6' ? 6 : frameCount; 
   const rows = layout === 'grid-4x6' ? 4 : 1;
 
   // FLUID LOOP ENGINE (Ping-Pong)
   useEffect(() => {
     let interval: any;
-    // 24 FPS Standardı için ~41ms. Ancak daha "film" gibi olması için 
-    // Ping-Pong modunda biraz yavaşlatıyoruz (15-18 FPS)
-    const baseFps = 18; 
+    const baseFps = 12; // Daha sinematik ve ağır çekim hissi için 12-15 FPS idealdir
     const frameDuration = (1000 / baseFps) / playbackSpeed; 
     
-    let direction = 1; // 1: Forward, -1: Backward
+    let direction = 1;
 
     if (isMotionActive && previewUrl) {
       interval = setInterval(() => {
         setCurrentFrame(prev => {
           let next = prev + direction;
           
-          // Uç noktalarda yön değiştir (Süreyi 2 katına çıkarır ve kesintiyi önler)
           if (next >= frameCount - 1) {
             direction = -1;
             next = frameCount - 1;
@@ -98,36 +95,40 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
     }
   };
 
-  const handleSearchLibrary = async () => {
-    const library = await PhysioDB.getExercises();
-    const found = library.find(ex => ex.title?.toLowerCase().includes(exercise.title?.toLowerCase() || ''));
-    if (found?.visualUrl) {
-       setPreviewUrl(found.visualUrl);
-       const frames = found.visualFrameCount || 6;
-       const lay = found.visualLayout || 'strip';
-       onVisualGenerated(found.visualUrl, found.visualStyle || 'Library', found.isMotion, frames, lay);
-    } else {
-       alert("Kütüphanede görsel bulunamadı.");
-    }
-  };
-
   const isSpriteMode = styles.find(s => s.id === selectedStyle)?.isSprite;
 
-  // STRICT VIEWPORT MASKING CALCULATION
-  const getBackgroundPosition = () => {
-      if (layout === 'strip') {
-          const x = (currentFrame * 100) / (frameCount - 1);
-          return `${x}% 0%`;
-      } else {
-          // Grid 4x6 logic
-          const colIndex = currentFrame % cols;
-          const rowIndex = Math.floor(currentFrame / cols);
-          
-          const x = cols > 1 ? (colIndex * 100) / (cols - 1) : 0;
-          const y = rows > 1 ? (rowIndex * 100) / (rows - 1) : 0;
-          
-          return `${x}% ${y}%`;
+  // --- CINEMATIC VIEWPORT CALCULATION ---
+  const getBackgroundStyles = () => {
+      if (!isSpriteMode || layout !== 'grid-4x6') {
+          return {
+              backgroundImage: `url(${previewUrl})`,
+              backgroundSize: 'contain',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat'
+          };
       }
+
+      // Grid Logic: 
+      // Image is 600% width of the container (because 6 cols)
+      // Image is 400% height of the container (because 4 rows)
+      const bgSizeX = cols * 100; 
+      const bgSizeY = rows * 100;
+
+      // Position Calculation:
+      // X% = (currentCol / (TotalCols - 1)) * 100
+      const colIndex = currentFrame % cols;
+      const rowIndex = Math.floor(currentFrame / cols);
+      
+      const xPos = cols > 1 ? (colIndex / (cols - 1)) * 100 : 0;
+      const yPos = rows > 1 ? (rowIndex / (rows - 1)) * 100 : 0;
+
+      return {
+          backgroundImage: `url(${previewUrl})`,
+          backgroundSize: `${bgSizeX}% ${bgSizeY}%`, // Zoom in to show only 1 cell
+          backgroundPosition: `${xPos}% ${yPos}%`,   // Shift to correct cell
+          backgroundRepeat: 'no-repeat',
+          imageRendering: 'auto' as const
+      };
   };
 
   return (
@@ -160,7 +161,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                 >
                   <div className="flex justify-between w-full">
                      <style.icon size={20} className={`${selectedStyle === style.id ? 'animate-pulse' : ''}`} />
-                     {style.isSprite && <span className="text-[8px] font-black bg-slate-800 px-2 py-0.5 rounded text-emerald-400">24FPS</span>}
+                     {style.isSprite && <span className="text-[8px] font-black bg-slate-800 px-2 py-0.5 rounded text-emerald-400">VIDEO</span>}
                   </div>
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-widest">{style.label}</p>
@@ -186,7 +187,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
               ) : (
                 <>
                   <Zap size={20} fill="currentColor" />
-                  CANLI AKIŞKAN ÜRETİM
+                  CANLI FİLM ÜRET
                 </>
               )}
             </button>
@@ -194,30 +195,20 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
         </div>
       </div>
 
-      {/* PREVIEW PLAYER */}
+      {/* PREVIEW PLAYER (THEATER MODE) */}
       <div className="xl:col-span-7">
         <div className="relative w-full aspect-video bg-slate-950 rounded-[3rem] border border-slate-800 flex flex-col overflow-hidden shadow-2xl group">
           
-          <div className="flex-1 relative overflow-hidden bg-[url('https://assets.codepen.io/1462889/grid.png')] bg-[length:40px_40px] bg-slate-900 flex items-center justify-center">
+          <div className="flex-1 relative overflow-hidden bg-slate-900 flex items-center justify-center">
              {previewUrl ? (
-                // VIEWPORT CONTAINER: Must match the single frame aspect ratio to prevent bleeding.
-                // Assuming 4:3 generation -> Single frame in 6x4 grid is roughly 1:1.1 or landscape.
-                // To be safe, we use 'contain' and strict background sizing.
-                <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+                // THEATER CONTAINER
+                // aspect-ratio of single frame (roughly 1:1 or 4:3) must be preserved or handled.
+                // We use a fixed height container and 'contain' logic for the frame.
+                <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-black">
                    {isSpriteMode ? (
                       <div 
-                        className="w-full h-full bg-no-repeat"
-                        style={{
-                            backgroundImage: `url(${previewUrl})`,
-                            // CRITICAL: Size must be Cols * 100% and Rows * 100%
-                            backgroundSize: layout === 'grid-4x6' ? '600% 400%' : `${frameCount * 100}% 100%`,
-                            backgroundPosition: getBackgroundPosition(),
-                            imageRendering: 'auto', // Browser interpolation for smoothness
-                            // Centering the sprite within the container
-                            backgroundRepeat: 'no-repeat',
-                            // Optional: Add transition for even smoother flow (simulated motion blur)
-                            // transition: 'background-position 0.04s linear' 
-                        }}
+                        className="w-full h-full"
+                        style={getBackgroundStyles()}
                       />
                    ) : (
                       <img src={previewUrl} className="w-full h-full object-contain p-4" />
@@ -233,7 +224,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
              {isMotionActive && (
                <div className="absolute top-6 right-6 flex items-center gap-2 z-10">
                   <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse shadow-[0_0_15px_red]" />
-                  <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">LOOP REC</span>
+                  <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">CANLI AKIŞ</span>
                </div>
              )}
           </div>
@@ -249,7 +240,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
 
              <div className="flex-1 space-y-2">
                 <div className="flex justify-between text-[9px] font-black text-slate-500 uppercase tracking-widest">
-                   <span>Akıcılık Hızı</span>
+                   <span>Sinematik Hız</span>
                    <span>{playbackSpeed}x</span>
                 </div>
                 <div className="flex items-center gap-2 bg-slate-900 p-1 rounded-xl border border-slate-800">
