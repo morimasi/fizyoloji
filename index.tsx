@@ -1,5 +1,6 @@
 
-import React, { useState, useRef, useEffect, ErrorInfo, ReactNode, Component } from 'react';
+// @google/genai ve React yönergelerine uygun olarak ErrorBoundary sınıfı düzeltildi.
+import React, { useState, useRef, useEffect, ErrorInfo, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { 
   Activity, 
@@ -35,7 +36,10 @@ import { ManagementHub } from './ManagementHub.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// Fix: TypeScript'in 'state' ve 'props' özelliklerini tanıması için Component sınıfı doğrudan kullanıldı ve generic parametreler doğrulandı.
+/**
+ * Hata Yakalayıcı (Error Boundary) - TypeScript 'props' hatasını gidermek için 
+ * React.Component jenerik sınıfı açıkça kullanıldı.
+ */
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false };
 
@@ -48,8 +52,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   componentDidCatch(error: Error, errorInfo: ErrorInfo) { console.error("CRASH:", error, errorInfo); }
   
   render() {
-    // Fix: this.props üzerinden children erişimi sağlandı. 
-    // TypeScript 'props' üyesini bulamazsa React.Component mirasını açıkça belirtmek en sağlam yöntemdir.
+    // Fix: this.props artık React.Component üzerinden doğru şekilde miras alınıyor.
     const { children } = this.props;
     if (this.state.hasError) {
       return (
@@ -77,22 +80,24 @@ export default function PhysioCoreApp() {
   const [userComment, setUserComment] = useState('');
 
   useEffect(() => {
-    const profile = PhysioDB.getProfile();
-    if (profile) setPatientData(profile);
-    const check = async () => {
+    // DB Initialization: Seed verileri yükler
+    const init = async () => {
+      await PhysioDB.initializeDB();
+      const profile = PhysioDB.getProfile();
+      if (profile) setPatientData(profile);
+      
       const aistudio = (window as any).aistudio;
       if (aistudio?.hasSelectedApiKey) {
         setHasKey(await aistudio.hasSelectedApiKey());
       }
     };
-    check();
+    init();
   }, []);
 
   const handleOpenKeySelection = async () => {
     const aistudio = (window as any).aistudio;
     if (aistudio?.openSelectKey) {
       await aistudio.openSelectKey();
-      // Assume selection successful to mitigate race condition
       setHasKey(true);
     }
   };
@@ -129,14 +134,13 @@ export default function PhysioCoreApp() {
           </div>
           <div>
             <h1 className="font-inter font-black text-xl tracking-tighter italic uppercase">PHYSIOCORE <span className="text-cyan-400">AI</span></h1>
-            <p className="text-[8px] font-mono text-slate-500 uppercase tracking-widest">Genesis Expert v6.0 • CDSS Module</p>
+            <p className="text-[8px] font-mono text-slate-500 uppercase tracking-widest font-black">Genesis Expert v6.0 • CDSS Module</p>
           </div>
         </div>
         
         <nav className="hidden md:flex bg-slate-900/50 p-1 rounded-xl border border-slate-800">
           <NavBtn active={activeTab === 'consultation'} onClick={() => setActiveTab('consultation')} icon={Stethoscope} label="GÖRÜŞME" />
           <NavBtn active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={LayoutDashboard} label="PANEL" />
-          {/* Fix: Missing closing parenthesis on setActiveTab call resolved */}
           <NavBtn active={activeTab === 'progress'} onClick={() => setActiveTab('progress')} icon={TrendingUp} label="TAKİP" />
           <NavBtn active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={Users} label="KADRO" />
           <NavBtn active={activeTab === 'cms'} icon={Database} label="STUDIO" onClick={() => setActiveTab('cms')} />
@@ -179,7 +183,7 @@ export default function PhysioCoreApp() {
       
       {showFeedbackModal && (
         <div className="fixed inset-0 z-[110] bg-slate-950/90 backdrop-blur-3xl flex items-center justify-center p-6 animate-in fade-in duration-300">
-           <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-[3rem] p-12 space-y-10 shadow-2xl relative">
+           <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-[3rem] p-12 space-y-10 shadow-2xl relative overflow-hidden">
               <div className="text-center space-y-3">
                  <CheckCircle2 size={32} className="mx-auto text-emerald-400" />
                  <h2 className="font-inter text-2xl font-black italic tracking-tighter uppercase leading-tight text-white">Seans <span className="text-cyan-400">Tamamlandı</span></h2>

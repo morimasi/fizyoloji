@@ -1,5 +1,6 @@
 
 import { Exercise, PatientProfile, User } from './types.ts';
+import { SEED_EXERCISES } from './seed-data.ts';
 
 export class PhysioDB {
   private static EXERCISES_KEY = 'physiocore_exercises';
@@ -7,15 +8,20 @@ export class PhysioDB {
   private static USERS_KEY = 'physiocore_users';
 
   /**
-   * Remote status check
+   * APP INITIALIZATION: Veritabanını kontrol eder, boşsa tohum verileri (seed) yükler.
    */
+  static async initializeDB(): Promise<void> {
+    const exercises = await this.getExercises();
+    if (exercises.length === 0) {
+      console.log("[PhysioDB] Kütüphane boş, 70 klinik protokol otomatik yükleniyor...");
+      localStorage.setItem(this.EXERCISES_KEY, JSON.stringify(SEED_EXERCISES));
+    }
+  }
+
   static async checkRemoteStatus(): Promise<{connected: boolean, latency: number}> {
     return { connected: true, latency: 42 };
   }
 
-  /**
-   * RPM BRIDGE: Syncs a specific exercise to a patient's mobile device
-   */
   static async syncExerciseToMobile(patientId: string, exerciseId: string): Promise<boolean> {
     const profile = this.getProfile();
     if (!profile) return false;
@@ -23,7 +29,6 @@ export class PhysioDB {
     const exIndex = profile.suggestedPlan.findIndex(ex => ex.id === exerciseId);
     if (exIndex === -1) return false;
 
-    // Simulate Network & Encryption Overhead
     profile.suggestedPlan[exIndex].syncInfo = {
       isSynced: true,
       lastSyncDate: new Date().toISOString(),
@@ -32,9 +37,7 @@ export class PhysioDB {
     
     profile.syncStatus = 'Synced';
     await this.saveProfile(profile);
-    
-    // Cloud Notification Relay
-    return await this.pushToCloud('PROFILE', profile);
+    return true;
   }
 
   static async getUsers(): Promise<User[]> {
@@ -74,7 +77,11 @@ export class PhysioDB {
 
   static async getExercises(): Promise<Exercise[]> {
     const cached = localStorage.getItem(this.EXERCISES_KEY);
-    return cached ? JSON.parse(cached) : [];
+    // Auto-return seed if empty
+    if (!cached || JSON.parse(cached).length === 0) {
+        return SEED_EXERCISES;
+    }
+    return JSON.parse(cached);
   }
 
   static async addExercise(exercise: Exercise): Promise<void> {
@@ -96,10 +103,5 @@ export class PhysioDB {
       current[index] = exercise;
       localStorage.setItem(this.EXERCISES_KEY, JSON.stringify(current));
     }
-  }
-
-  private static async pushToCloud(type: string, data: any): Promise<boolean> {
-    console.log(`[Cloud Sync] Type: ${type}, Data:`, data);
-    return true;
   }
 }
