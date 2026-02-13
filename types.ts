@@ -76,6 +76,7 @@ export interface DetailedPainLog {
   quality: PainQuality;
   triggers: string[];
   duration: string;
+  note?: string;
 }
 
 export interface PatientUser extends User {
@@ -136,7 +137,8 @@ export interface Exercise {
   videoUrl?: string;
   isMotion?: boolean;
   visualStyle?: string;
-  visualLayout?: 'single' | 'sprite-2';
+  visualLayout?: string; // Legacy: 'sprite-2' etc.
+  visualFrameCount?: number; // Dinamik kare sayısı (Default: 6)
   isPersonalized?: boolean;
   tutorialData?: ExerciseTutorial; 
   muscleGroups?: string[]; // Legacy support

@@ -14,7 +14,7 @@ import { ExerciseActions } from './ExerciseActions.tsx';
 
 interface VisualStudioProps {
   exercise: Partial<Exercise>;
-  onVisualGenerated: (url: string, style: string, isMotion?: boolean) => void;
+  onVisualGenerated: (url: string, style: string, isMotion?: boolean, frameCount?: number) => void;
 }
 
 export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGenerated }) => {
@@ -23,21 +23,38 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
   const [previewUrl, setPreviewUrl] = useState(exercise.visualUrl || exercise.videoUrl || '');
   const [isMotionActive, setIsMotionActive] = useState(false); 
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
-  const [currentFrame, setCurrentFrame] = useState(0); // 0 = Sol (Start), 1 = Sağ (End)
+  const [currentFrame, setCurrentFrame] = useState(0); 
+  
+  // Varsayılan olarak 6 kare (AI dönmezse fallback)
+  const frameCount = exercise.visualFrameCount || 6; 
 
-  // VECTOR PUPPETRY ENGINE (CSS Animation Logic)
+  // FLUID MOTION ENGINE (Ping-Pong Loop)
   useEffect(() => {
     let interval: any;
+    let direction = 1; // 1: Forward, -1: Backward
+
     if (isMotionActive && previewUrl) {
       interval = setInterval(() => {
-        // Kareler arasında geçiş yap (0 -> 1 -> 0)
-        setCurrentFrame(prev => (prev === 0 ? 1 : 0));
-      }, 1000 / playbackSpeed); 
+        setCurrentFrame(prev => {
+          let next = prev + direction;
+          
+          // Uç noktalara gelince yön değiştir (Ping-Pong Effect)
+          if (next >= frameCount - 1) {
+            direction = -1;
+            next = frameCount - 1;
+          } else if (next <= 0) {
+            direction = 1;
+            next = 0;
+          }
+          
+          return next;
+        });
+      }, 500 / playbackSpeed); // Hız ayarı (Daha akıcı olması için süreyi kısalttık)
     } else {
-      setCurrentFrame(0); // Durdurunca başlangıç pozisyonuna dön
+      setCurrentFrame(0); 
     }
     return () => clearInterval(interval);
-  }, [isMotionActive, previewUrl, playbackSpeed]);
+  }, [isMotionActive, previewUrl, playbackSpeed, frameCount]);
 
   const styles = [
     { id: 'Medical-Vector', icon: PlayCircle, label: 'Vector Flow', desc: 'Anatomik Vektör', isSprite: true },
@@ -51,13 +68,19 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
     setIsGenerating(true);
     setIsMotionActive(false);
     try {
-      // Gemini 2.5 Flash Image Modelini Çağırır
-      const url = await generateExerciseVisual(exercise, selectedStyle);
-      if (url) {
-        setPreviewUrl(url);
+      // Gemini 2.5 Flash Image Modelini Çağırır (Multi-Frame)
+      const result = await generateExerciseVisual(exercise, selectedStyle);
+      if (result.url) {
+        setPreviewUrl(result.url);
         const styleObj = styles.find(s => s.id === selectedStyle);
-        // Sprite modundaysa Motion olarak işaretle
-        onVisualGenerated(url, selectedStyle, styleObj?.isSprite); 
+        
+        onVisualGenerated(
+            result.url, 
+            selectedStyle, 
+            styleObj?.isSprite, 
+            result.frameCount // Yeni kare sayısını kaydet
+        ); 
+        
         if (styleObj?.isSprite) setIsMotionActive(true); 
       }
     } finally {
@@ -70,7 +93,9 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
     const found = library.find(ex => ex.title?.toLowerCase().includes(exercise.title?.toLowerCase() || ''));
     if (found?.visualUrl) {
        setPreviewUrl(found.visualUrl);
-       onVisualGenerated(found.visualUrl, found.visualStyle || 'Library', found.isMotion);
+       // Kütüphanedeki eski veride frameCount yoksa 2 (eski sistem) varsay, varsa onu kullan
+       const frames = found.visualFrameCount || (found.visualLayout === 'sprite-2' ? 2 : 6);
+       onVisualGenerated(found.visualUrl, found.visualStyle || 'Library', found.isMotion, frames);
     } else {
        alert("Kütüphanede görsel bulunamadı.");
     }
@@ -91,7 +116,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
             </div>
             <div>
                <h4 className="font-black text-2xl uppercase italic text-white tracking-tighter">Genesis <span className="text-cyan-400">Studio</span></h4>
-               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Gemini 3 Flash Engine</p>
+               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Gemini Motion Engine v2</p>
             </div>
           </div>
 
@@ -108,7 +133,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                 >
                   <div className="flex justify-between w-full">
                      <style.icon size={20} className={`${selectedStyle === style.id ? 'animate-pulse' : ''}`} />
-                     {style.isSprite && <span className="text-[8px] font-black bg-slate-800 px-2 py-0.5 rounded text-emerald-400">SPRITE</span>}
+                     {style.isSprite && <span className="text-[8px] font-black bg-slate-800 px-2 py-0.5 rounded text-emerald-400">{frameCount}X SPRITE</span>}
                   </div>
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-widest">{style.label}</p>
@@ -129,12 +154,12 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
               {isGenerating ? (
                 <>
                   <Loader2 className="animate-spin" size={20} />
-                  <span className="animate-pulse">GEMINI 2.5 FLASH RENDER...</span>
+                  <span className="animate-pulse">AKIŞKAN KARELER ÇİZİLİYOR...</span>
                 </>
               ) : (
                 <>
                   <Zap size={20} fill="currentColor" />
-                  CANLI SPRITE ÜRET
+                  CANLI SPRITE ÜRET ({frameCount} Kare)
                 </>
               )}
             </button>
@@ -148,7 +173,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
         </div>
       </div>
 
-      {/* PREVIEW PLAYER (VECTOR PUPPETRY VIEW) */}
+      {/* PREVIEW PLAYER (MULTI-FRAME VECTOR PUPPETRY VIEW) */}
       <div className="xl:col-span-7">
         <div className="relative w-full aspect-video bg-slate-950 rounded-[3rem] border border-slate-800 flex flex-col overflow-hidden shadow-2xl group">
           
@@ -157,36 +182,42 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
              {previewUrl ? (
                 <div className="absolute inset-0 flex items-center justify-center">
                    {/* 
-                      SPRITE LOGIC (Vector Puppetry):
-                      Gemini 16:9 oranında yan yana iki kare üretti.
-                      Burada CSS ile viewport'u daraltıp (width: 200%), sadece tek kareyi gösteriyoruz.
-                      'left' pozisyonunu değiştirerek animasyon yapıyoruz.
+                      MULTI-FRAME SPRITE LOGIC:
+                      Resim "frameCount" (örn: 6) adet yan yana kareden oluşur.
+                      Genişlik = % (100 * frameCount)
+                      Sola Kaydırma = % (100 * currentFrame)
                    */}
                    {isSpriteMode ? (
                       <div className="relative w-full h-full overflow-hidden">
                          <img 
                            src={previewUrl} 
-                           className="absolute h-full max-w-none object-cover transition-transform duration-500 ease-in-out"
+                           className="absolute h-full max-w-none object-cover transition-transform duration-300 linear"
                            style={{ 
-                             width: '200%', // Resim 2 kare içerdiği için genişlik %200
-                             left: currentFrame === 0 ? '0%' : '-100%' // Kare kaydırma
+                             width: `${frameCount * 100}%`, 
+                             transform: `translateX(-${(currentFrame * (100 / frameCount))}%)` // Frame'e denk gelen % dilimine kaydır
                            }}
                          />
                          
-                         {/* Motion Blur / Ghosting Effect (Daha akıcı geçiş hissi için) */}
-                         <img 
-                           src={previewUrl} 
-                           className="absolute h-full max-w-none object-cover opacity-10 blur-lg pointer-events-none mix-blend-screen"
-                           style={{ 
-                             width: '200%',
-                             left: currentFrame === 0 ? '-100%' : '0%' // Zıt kareyi silik göster
-                           }}
-                         />
+                         {/* Motion Blur Overlay (Sadece hareketliyken) */}
+                         {isMotionActive && (
+                             <img 
+                               src={previewUrl} 
+                               className="absolute h-full max-w-none object-cover opacity-20 blur-sm pointer-events-none mix-blend-screen transition-transform duration-300 linear"
+                               style={{ 
+                                 width: `${frameCount * 100}%`,
+                                 transform: `translateX(-${((currentFrame - 1) * (100 / frameCount))}%)` // Bir önceki kareyi silik göster
+                               }}
+                             />
+                         )}
 
-                         {/* Frame Indicator */}
+                         {/* Frame Indicators (Dots) */}
                          <div className="absolute top-6 left-6 flex gap-1 z-10">
-                            <div className={`w-2 h-2 rounded-full ${currentFrame === 0 ? 'bg-cyan-500 shadow-[0_0_10px_cyan]' : 'bg-slate-700'}`} />
-                            <div className={`w-2 h-2 rounded-full ${currentFrame === 1 ? 'bg-cyan-500 shadow-[0_0_10px_cyan]' : 'bg-slate-700'}`} />
+                            {Array.from({ length: frameCount }).map((_, i) => (
+                                <div 
+                                    key={i}
+                                    className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentFrame ? 'bg-cyan-500 w-3' : 'bg-slate-700'}`} 
+                                />
+                            ))}
                          </div>
                       </div>
                    ) : (
@@ -204,7 +235,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
              {isMotionActive && (
                <div className="absolute top-6 right-6 flex items-center gap-2 z-10">
                   <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse shadow-[0_0_15px_red]" />
-                  <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">LIVE RENDER</span>
+                  <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">LIVE RENDER ({frameCount} FPS)</span>
                </div>
              )}
           </div>
@@ -221,7 +252,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
 
              <div className="flex-1 space-y-2">
                 <div className="flex justify-between text-[9px] font-black text-slate-500 uppercase tracking-widest">
-                   <span>Hız Kontrolü (CSS Interpolation)</span>
+                   <span>Akışkanlık Hızı</span>
                    <span>{playbackSpeed}x</span>
                 </div>
                 <div className="flex items-center gap-2 bg-slate-900 p-1 rounded-xl border border-slate-800">
@@ -242,13 +273,13 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
              <div className="flex gap-2">
                 <button 
                   onClick={() => setCurrentFrame(0)} 
-                  className="p-3 bg-slate-900 border border-slate-800 rounded-xl text-slate-500 hover:text-white" title="Başlangıç Pozisyonu"
+                  className="p-3 bg-slate-900 border border-slate-800 rounded-xl text-slate-500 hover:text-white" title="Başlangıç"
                 >
                   <Rewind size={18} />
                 </button>
                 <button 
-                  onClick={() => setCurrentFrame(1)}
-                  className="p-3 bg-slate-900 border border-slate-800 rounded-xl text-slate-500 hover:text-white" title="Bitiş Pozisyonu"
+                  onClick={() => setCurrentFrame(frameCount - 1)}
+                  className="p-3 bg-slate-900 border border-slate-800 rounded-xl text-slate-500 hover:text-white" title="Bitiş"
                 >
                   <FastForward size={18} />
                 </button>
@@ -262,6 +293,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                     exercise={{ 
                         ...exercise, 
                         visualUrl: previewUrl, 
+                        visualFrameCount: frameCount, // Önemli: Export için frame sayısı iletiliyor
                         id: 'draft', 
                         code: 'DRAFT',
                         title: exercise.title || 'Untitled',

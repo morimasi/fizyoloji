@@ -4,8 +4,8 @@ import { PatientProfile, ProgressReport, Exercise, DetailedPainLog, TreatmentHis
 import { PhysioDB } from "./db-repository.ts";
 
 /**
- * PHYSIOCORE AI - GEMINI 3 FLASH ENGINE (v7.2 Deep Context Edition)
- * Zero-Cost Vector Puppetry & Clinical Logic
+ * PHYSIOCORE AI - GEMINI 3 FLASH ENGINE (v8.0 Motion Strip Edition)
+ * High-Fluidity Vector Puppetry & Clinical Logic
  */
 
 export const ensureApiKey = async (): Promise<string> => {
@@ -20,9 +20,11 @@ export const ensureApiKey = async (): Promise<string> => {
   throw new Error("MISSING_API_KEY");
 };
 
-// Vektörel Kukla Motoru (Video yerine Sprite Üretir)
+// Vektörel Kukla Motoru (Video yerine 6-Kareli Sprite Üretir)
 export const generateExerciseVideo = async (exercise: Partial<Exercise>): Promise<string> => {
-  return await generateExerciseVisual(exercise, 'Medical-Vector-Art');
+  // Varsayılan olarak 6 kareli animasyon bandı üretir
+  const result = await generateExerciseVisual(exercise, 'Medical-Vector-Art');
+  return result.url;
 };
 
 // Klinik Muhakeme: Gemini 3 Flash
@@ -118,79 +120,85 @@ export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: st
   }
 };
 
-// GÖRSEL MOTOR: Gemini 2.5 Flash Image (Deep Context Injection Enabled)
-export const generateExerciseVisual = async (exercise: Partial<Exercise>, style: string): Promise<string> => {
+// GÖRSEL MOTOR: Gemini 2.5 Flash Image (Multi-Frame Sprite Edition)
+export const generateExerciseVisual = async (exercise: Partial<Exercise>, style: string): Promise<{ url: string, frameCount: number }> => {
   try {
     const apiKey = await ensureApiKey();
     const ai = new GoogleGenAI({ apiKey });
     
-    // 1. DATA EXTRACTION FROM CLINICAL MODULE
+    // 1. DATA EXTRACTION
     const primaryMuscles = exercise.primaryMuscles?.join(', ') || 'Target Muscles';
-    const equipment = exercise.equipment?.join(', ') || 'Bodyweight Only';
-    const biomechanics = exercise.biomechanics || 'Standard biomechanical alignment';
-    const intensity = exercise.targetRpe ? (exercise.targetRpe > 7 ? 'High Intensity, Muscle Strain Visible' : 'Low Intensity, Relaxed Form') : 'Moderate Intensity';
+    const equipment = exercise.equipment?.join(', ') || 'Bodyweight';
+    const biomechanics = exercise.biomechanics || 'Movement flow';
     const plane = exercise.movementPlane || 'Sagittal';
+    
+    // 2. DYNAMIC FRAME COUNT CALCULATION
+    // Kompleks veya çok aşamalı egzersizler için daha fazla kare
+    const isComplex = exercise.difficulty && exercise.difficulty > 6;
+    const frameCount = isComplex ? 8 : 6; 
 
-    // 2. CONTEXT AWARE PROMPT CONSTRUCTION
-    let stylePrompt = "Create a wide aspect ratio image (16:9) split into exactly two equal panels side-by-side. ";
+    // 3. CONTEXT AWARE PROMPT CONSTRUCTION (FILMSTRIP MODE)
+    // We request a 16:9 image but divide it internally into N columns.
+    let stylePrompt = `Create a wide, panoramic sprite sheet containing exactly ${frameCount} sequential keyframes arranged horizontally in a single strip. `;
     
     switch (style) {
         case 'Medical-Vector':
             stylePrompt += `
-            Style: Minimalist Medical Vector Art on dark slate background. 
-            ANATOMY HIGHLIGHT: The ${primaryMuscles} must be glowing NEON CYAN. Other muscles are faint gray lines.
+            Style: High-end medical vector art. Dark blue background.
+            ANATOMY: ${primaryMuscles} should glow NEON CYAN. Bones are faint white lines.
             `;
             break;
         case 'X-Ray-Lottie':
             stylePrompt += `
-            Style: Glowing X-Ray skeleton visualization. 
-            SKELETAL FOCUS: Highlight the joints involved in the ${plane} plane.
-            MUSCLE FOCUS: Show ${primaryMuscles} as semi-transparent blue holograms contracting.
+            Style: Glowing holographic X-Ray. Blue skeleton, transparent muscles.
+            FOCUS: Highlight joint articulation in the ${plane} plane.
             `;
             break;
         case 'Cinematic-GIF':
             stylePrompt += `
-            Style: Photorealistic 8k, dramatic studio lighting.
-            ATMOSPHERE: ${intensity}. The model should look focused.
-            EQUIPMENT: Clearly show the ${equipment} being used correctly.
+            Style: Photorealistic studio lighting. Professional athlete model.
+            ATMOSPHERE: Clinical and clean.
             `;
             break;
         default:
-            stylePrompt += "Style: Professional clinical medical illustration.";
+            stylePrompt += "Style: Clean professional medical illustration sequence.";
     }
 
     const fullPrompt = `
     ${stylePrompt}
 
-    SUBJECT: Physiotherapy exercise "${exercise.titleTr || exercise.title}".
+    SUBJECT: A frame-by-frame breakdown of the physiotherapy exercise "${exercise.titleTr || exercise.title}".
     
-    CLINICAL CONTEXT:
-    - Equipment: ${equipment}
-    - Biomechanical Cue: ${biomechanics}
-    - Movement Plane: ${plane}
-    
-    LAYOUT INSTRUCTIONS:
-    - LEFT PANEL: Show the STARTING position of the movement.
-    - RIGHT PANEL: Show the ENDING position (peak contraction of ${primaryMuscles}).
-    
-    IMPORTANT: Ensure characters are aligned so they can be animated by switching frames. Do not add text labels inside the image.
+    LAYOUT INSTRUCTIONS (CRITICAL):
+    - The image must contain ${frameCount} distinct figures arranged side-by-side from Left to Right.
+    - Frame 1 (Leftmost): Starting position.
+    - Frame ${Math.ceil(frameCount / 2)} (Middle): Mid-range / Transition.
+    - Frame ${frameCount} (Rightmost): End position / Peak contraction.
+    - The transition between frames must be smooth and linear to create a fluid animation when played.
+    - Equipment (${equipment}) must be consistent across all frames.
+    - Do NOT include text, arrows, or labels. Pure visual sequence.
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image', // Hızlı ve Görsel Odaklı
+      model: 'gemini-2.5-flash-image', 
       contents: { parts: [{ text: fullPrompt }] },
-      config: { imageConfig: { aspectRatio: "16:9" } }
+      config: { imageConfig: { aspectRatio: "16:9" } } // Wide aspect ratio to accommodate the strip
     });
     
     if (response.candidates?.[0]?.content?.parts) {
       for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
+        if (part.inlineData) {
+            return {
+                url: `data:image/png;base64,${part.inlineData.data}`,
+                frameCount: frameCount
+            };
+        }
       }
     }
-    return '';
+    return { url: '', frameCount: 0 };
   } catch (e) {
     console.error("Image Gen Error", e);
-    return '';
+    return { url: '', frameCount: 0 };
   }
 };
 

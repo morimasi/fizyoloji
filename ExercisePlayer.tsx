@@ -16,12 +16,10 @@ interface PlayerProps {
 }
 
 /**
- * PHYSIOCORE ZERO-COST ANIMATOR (v2.0)
- * Uses "Vector Puppetry" technique:
- * 1. Static Image (Background)
- * 2. CSS Animation Overlay (The Pulse)
- * 3. AI TTS Audio (The Voice)
- * 4. JSON Script (The Director)
+ * PHYSIOCORE ZERO-COST ANIMATOR (v2.5 Fluid Motion)
+ * Uses "Multi-Frame Vector Puppetry" technique:
+ * - Ping-Pong looping of 6+ sprite frames.
+ * - CSS transform based interpolation.
  */
 export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -32,6 +30,10 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [audioEnabled, setAudioEnabled] = useState(true);
   
+  // Animation State
+  const [currentFrame, setCurrentFrame] = useState(0);
+  const frameCount = exercise.visualFrameCount || (exercise.visualLayout === 'sprite-2' ? 2 : 6);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const stepTimerRef = useRef<any>(null);
 
@@ -47,7 +49,6 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
     const data = await generateExerciseTutorial(exercise.title);
     if (data) {
       setTutorial(data);
-      // Egzersiz nesnesine kaydetmek için (gerçek app'te state update veya DB save gerekir)
       exercise.tutorialData = data; 
       
       if (data.audioBase64) {
@@ -59,7 +60,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
     setIsLoadingTutorial(false);
   };
 
-  // Playback Logic
+  // Playback Logic (Steps & Audio)
   useEffect(() => {
     if (isPlaying) {
       if (audioRef.current && audioEnabled && currentRep === 0) {
@@ -72,6 +73,33 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
     }
     return () => clearTimeout(stepTimerRef.current);
   }, [isPlaying]);
+
+  // Animation Loop (Fluid Motion)
+  useEffect(() => {
+    let interval: any;
+    let direction = 1;
+    if (isPlaying && exercise.visualUrl) {
+        // Hızı BPM'e veya standart süreye göre ayarla
+        const speed = tutorial?.bpm ? (60 / tutorial.bpm) * 1000 / frameCount : 100;
+        
+        interval = setInterval(() => {
+            setCurrentFrame(prev => {
+                let next = prev + direction;
+                if (next >= frameCount - 1) {
+                    direction = -1;
+                    next = frameCount - 1;
+                } else if (next <= 0) {
+                    direction = 1;
+                    next = 0;
+                }
+                return next;
+            });
+        }, speed);
+    } else {
+        setCurrentFrame(0);
+    }
+    return () => clearInterval(interval);
+  }, [isPlaying, frameCount, tutorial?.bpm]);
 
   const runStepSequence = () => {
     if (!tutorial) return;
@@ -96,10 +124,8 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
       const nextRep = prev + 1;
       if (nextRep >= exercise.reps) {
         setIsPlaying(false);
-        // Set logic handled in parent or here
         return exercise.reps;
       }
-      // Loop back to start step
       runStepSequence(); 
       return nextRep;
     });
@@ -129,7 +155,9 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
         <div className="text-center">
           <h2 className="text-lg md:text-xl font-black italic uppercase text-white tracking-tighter">{exercise.titleTr || exercise.title}</h2>
           <div className="flex items-center justify-center gap-2">
-            <span className="text-[9px] font-mono text-cyan-500 uppercase tracking-widest">Canlı Vektör Motoru</span>
+            <span className="text-[9px] font-mono text-cyan-500 uppercase tracking-widest">
+                {exercise.visualFrameCount || 6}-Kare Vektör Motoru
+            </span>
             {isLoadingTutorial && <Loader2 size={10} className="animate-spin text-cyan-500" />}
           </div>
         </div>
@@ -146,27 +174,30 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
             <div className={`relative w-full h-full rounded-[3rem] overflow-hidden border border-white/5 shadow-2xl transition-all duration-1000 ${isPlaying ? 'scale-[1.02]' : 'scale-100'}`}>
               
               {exercise.visualUrl || exercise.videoUrl ? (
-                <div className="relative w-full h-full bg-slate-900">
-                  <img 
-                    src={exercise.visualUrl || exercise.videoUrl} 
-                    className={`w-full h-full object-contain transition-all duration-700 opacity-80`} 
-                  />
+                <div className="relative w-full h-full bg-slate-900 overflow-hidden">
                   
-                  {/* ZERO-COST ANIMATION OVERLAYS (CSS PUPPETRY) */}
+                  {/* MULTI-FRAME SPRITE PLAYER */}
+                  <div className="absolute inset-0 w-full h-full">
+                       <img 
+                           src={exercise.visualUrl || exercise.videoUrl} 
+                           className="absolute h-full max-w-none object-cover transition-transform duration-200 linear"
+                           style={{ 
+                             width: `${frameCount * 100}%`, 
+                             transform: `translateX(-${(currentFrame * (100 / frameCount))}%)` 
+                           }}
+                        />
+                  </div>
+                  
+                  {/* OVERLAYS */}
                   {isPlaying && (
                     <>
-                       {/* 1. Breathing Overlay */}
                        <div className={`absolute inset-0 pointer-events-none transition-opacity duration-1000 ${currentAnimationState === 'breathe' ? 'bg-cyan-500/10' : 'bg-transparent'}`} />
-                       
-                       {/* 2. Muscle Activation Pulse */}
                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                           <div className={`
                              w-32 h-32 rounded-full blur-3xl transition-all duration-1000
                              ${currentAnimationState === 'contract' ? 'bg-rose-500/40 scale-150' : 'bg-cyan-500/20 scale-100'}
                           `} />
                        </div>
-
-                       {/* 3. Dynamic Text Overlay */}
                        <div className="absolute bottom-10 left-0 right-0 text-center px-6">
                           <p className="text-xl md:text-2xl font-black italic text-white uppercase tracking-tight drop-shadow-xl animate-in slide-in-from-bottom-2 fade-in">
                             {tutorial?.script[currentStepIndex]?.text}
@@ -175,9 +206,8 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
                     </>
                   )}
 
-                  {/* Idle State */}
                   {!isPlaying && !isLoadingTutorial && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-10">
                        <PlayCirclePulse onClick={() => setIsPlaying(true)} />
                     </div>
                   )}
@@ -227,7 +257,6 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
 
         {/* Info Sidebar */}
         <div className="w-full lg:w-[400px] bg-slate-950 border-t lg:border-t-0 lg:border-l border-white/5 p-8 space-y-8 overflow-y-auto max-h-[30vh] lg:max-h-full">
-             {/* AI Script View */}
              {tutorial ? (
                <div className="space-y-4">
                   <h3 className="text-[10px] font-black uppercase text-cyan-500 tracking-widest flex items-center gap-2">
@@ -251,16 +280,6 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
                   <p className="text-[10px] uppercase">Senaryo Yükleniyor...</p>
                </div>
              )}
-
-             <div className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2">
-                  <div className="w-2 h-2 bg-emerald-500 rounded-full" /> BİYOMEKANİK
-                </h3>
-                <div className="p-6 bg-slate-900/50 rounded-2xl border border-white/5 italic text-sm text-slate-400 leading-relaxed">
-                  "{exercise.biomechanics}"
-                </div>
-             </div>
-             
              <div className="pt-4 border-t border-white/5">
                 <ExerciseActions exercise={exercise} variant="player" />
              </div>
