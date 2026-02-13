@@ -89,20 +89,29 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
 
   const loadTutorial = async () => {
     setIsLoadingTutorial(true);
-    const data = await generateExerciseTutorial(exercise.title);
-    if (data) {
-      setTutorial(data);
-      if (data.audioBase64) {
-        // Handle raw PCM data from Gemini TTS using AudioContext as per guidelines
-        if (!audioContextRef.current) {
-          audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+    try {
+        const data = await generateExerciseTutorial(exercise.title);
+        if (data) {
+          setTutorial(data);
+          if (data.audioBase64) {
+            // Handle raw PCM data from Gemini TTS using AudioContext as per guidelines
+            if (!audioContextRef.current) {
+              audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+            }
+            const bytes = decodeBase64(data.audioBase64);
+            const buffer = await decodeAudioData(bytes, audioContextRef.current, 24000, 1);
+            audioBufferRef.current = buffer;
+          }
         }
-        const bytes = decodeBase64(data.audioBase64);
-        const buffer = await decodeAudioData(bytes, audioContextRef.current, 24000, 1);
-        audioBufferRef.current = buffer;
-      }
+    } catch (err: any) {
+        console.error("Tutorial Gen Failed", err);
+        if (err.message === "API_KEY_MISSING") {
+             const aistudio = (window as any).aistudio;
+             if (aistudio) await aistudio.openSelectKey();
+        }
+    } finally {
+        setIsLoadingTutorial(false);
     }
-    setIsLoadingTutorial(false);
   };
 
   const playAudio = () => {

@@ -41,6 +41,14 @@ export const DosageEngineModule: React.FC<DosageEngineModuleProps> = ({ data, on
     try {
       const optimized = await optimizeExerciseData(data, optimizationGoal);
       onUpdate({ ...data, ...optimized, isPersonalized: true });
+    } catch (err: any) {
+      console.error("Optimization Failed", err);
+      if (err.message === "API_KEY_MISSING" || err.message?.includes("Requested entity was not found")) {
+         const aistudio = (window as any).aistudio;
+         if (aistudio) await aistudio.openSelectKey();
+      } else {
+         alert("Optimizasyon başarısız: " + (err.message || "Bilinmeyen hata"));
+      }
     } finally {
       setIsOptimizing(false);
     }

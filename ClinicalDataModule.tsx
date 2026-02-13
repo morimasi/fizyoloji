@@ -31,6 +31,14 @@ export const ClinicalDataModule: React.FC<ClinicalDataModuleProps> = ({ data, on
         biomechanics: result.biomechanics || data.biomechanics,
         description: result.description || data.description
       });
+    } catch (err: any) {
+      console.error("AI Analysis Failed", err);
+      if (err.message === "API_KEY_MISSING" || err.message?.includes("Requested entity was not found")) {
+         const aistudio = (window as any).aistudio;
+         if (aistudio) await aistudio.openSelectKey();
+      } else {
+         alert("AI Analizi yapılamadı: " + (err.message || "Bilinmeyen hata"));
+      }
     } finally {
       setIsAiProcessing(false);
     }
