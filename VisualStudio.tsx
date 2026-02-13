@@ -41,9 +41,9 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
     setIsGenerating(true);
     setIsMotionActive(false);
 
+    const aistudio = (window as any).aistudio;
+
     try {
-      const aistudio = (window as any).aistudio;
-      
       // Güvenlik: Eğer anahtar seçilmemişse diyaloğu aç
       if (aistudio && !(await aistudio.hasSelectedApiKey())) {
         await aistudio.openSelectKey();
@@ -69,13 +69,12 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
       setIsMotionActive(true);
     } catch (err: any) {
       console.error("Generation failed:", err);
-      const aistudio = (window as any).aistudio;
       
-      // Önemli: "Requested entity was not found" hatası anahtarın geçersiz olduğunu gösterir
+      // Önemli: "Requested entity was not found" hatası anahtarın geçersiz olduğunu veya proje seçilmediğini gösterir
       if (
         err.message?.includes("API key must be set") || 
         err.message?.includes("Requested entity was not found") ||
-        err.message?.includes("API_KEY_INVALID")
+        err.message === "API_KEY_MISSING"
       ) {
         if (aistudio) await aistudio.openSelectKey();
         setError("API Anahtarı bulunamadı veya geçersiz. Lütfen tekrar bir anahtar seçin.");

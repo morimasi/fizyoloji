@@ -3,14 +3,18 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { PatientProfile, ProgressReport, Exercise, DetailedPainLog, TreatmentHistory, ExerciseTutorial } from "./types.ts";
 
 /**
- * PHYSIOCORE AI - GENESIS ENGINE v3.5
- * Tüm servisler Gemini API anahtarı gerektirir. 
+ * PHYSIOCORE AI - GENESIS ENGINE v3.6
+ * Kritik: Gemini API anahtarı 'process.env.API_KEY' üzerinden alınır.
+ * SDK gereği GoogleGenAI örneği her çağrıda taze parametrelerle oluşturulmalıdır.
  */
 
 const getAI = () => {
   const apiKey = process.env.API_KEY;
-  // Initialize with named parameter as required
-  return new GoogleGenAI({ apiKey: apiKey || "" });
+  if (!apiKey) {
+    // UI katmanının yakalaması için spesifik bir hata fırlatıyoruz.
+    throw new Error("API_KEY_MISSING");
+  }
+  return new GoogleGenAI({ apiKey });
 };
 
 export const generateExerciseVisual = async (exercise: Partial<Exercise>, style: string, customDirective?: string): Promise<{ url: string, frameCount: number, layout: 'grid-4x4' }> => {
@@ -33,7 +37,6 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
 
   if (response.candidates?.[0]?.content?.parts) {
     for (const part of response.candidates[0].content.parts) {
-      // Find the image part as per guidelines
       if (part.inlineData) {
           return { url: `data:image/png;base64,${part.inlineData.data}`, frameCount: totalFrames, layout: 'grid-4x4' };
       }
@@ -61,9 +64,9 @@ export const generateExerciseRealVideo = async (exercise: Partial<Exercise>, cus
     operation = await ai.operations.getVideosOperation({ operation }); 
   }
   
-  const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
-  // Append API key when fetching from download link as per guidelines
-  return videoUri ? `${videoUri}&key=${process.env.API_KEY}` : "";
+  const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+  // SDK kuralı: İndirme linkine anahtar eklenmelidir.
+  return downloadLink ? `${downloadLink}&key=${process.env.API_KEY}` : "";
 };
 
 export const generateExerciseVectorData = async (exercise: Partial<Exercise>): Promise<string> => {
@@ -73,7 +76,6 @@ export const generateExerciseVectorData = async (exercise: Partial<Exercise>): P
     contents: `Generate a clinical medical SVG vector for: "${exercise.titleTr || exercise.title}". Return ONLY valid XML SVG code.`,
   });
   
-  // Use property access .text instead of method call .text()
   let cleanSvg = response.text || "";
   cleanSvg = cleanSvg.replace(/```svg|```/gi, '').trim();
   if (!cleanSvg.startsWith('<svg')) throw new Error("Invalid SVG received");
@@ -87,7 +89,6 @@ export const generateExerciseTutorial = async (t: string) => {
       contents: `Tutorial script for: ${t}. JSON return.`, 
       config: { responseMimeType: "application/json" } 
     });
-    // Use property access .text
     const sd = JSON.parse(sr.text || "{}");
     const ar = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
@@ -106,7 +107,6 @@ export const generateExerciseTutorial = async (t: string) => {
 
 export const runClinicalConsultation = async (t:string, i?:string, h?:TreatmentHistory[], p?:DetailedPainLog[]) => {
     const ai = getAI();
-    // Use gemini-3-pro-preview for complex reasoning task as per guidelines
     const r = await ai.models.generateContent({
         model: 'gemini-3-pro-preview',
         contents: `Clinical Analysis: ${t}. Return JSON PatientProfile.`,
@@ -117,7 +117,6 @@ export const runClinicalConsultation = async (t:string, i?:string, h?:TreatmentH
 
 export const runAdaptiveAdjustment = async (p: PatientProfile, f: ProgressReport) => {
     const ai = getAI();
-    // Use gemini-3-pro-preview for complex reasoning task as per guidelines
     const r = await ai.models.generateContent({
         model: 'gemini-3-pro-preview',
         contents: `Profile: ${JSON.stringify(p)}. Feedback: ${JSON.stringify(f)}. Update JSON.`,

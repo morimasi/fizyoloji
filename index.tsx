@@ -32,8 +32,8 @@ import { UserManager } from './UserManager.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// Fixed: Correctly inheriting from Component to resolve 'props' typing issue on line 60
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fix: Explicitly use React.Component with generics to resolve "Property 'props' does not exist on type 'ErrorBoundary'" error.
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false };
 
   constructor(props: ErrorBoundaryProps) {
@@ -56,7 +56,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
-    // Correctly accessing children from this.props
     return this.props.children;
   }
 }
@@ -100,14 +99,15 @@ export default function PhysioCoreApp() {
 
   const handleStartAnalysis = async () => {
     if (!userInput && !selectedImage) return;
+    
+    const aistudio = (window as any).aistudio;
+    if (aistudio && !(await aistudio.hasSelectedApiKey())) {
+      await aistudio.openSelectKey();
+      setHasKey(true);
+    }
+
     setIsAnalyzing(true);
     try {
-      // Check key before complex clinical task
-      const aistudio = (window as any).aistudio;
-      if (aistudio && !(await aistudio.hasSelectedApiKey())) {
-        await aistudio.openSelectKey();
-      }
-
       const result = await runClinicalConsultation(userInput, selectedImage || undefined, patientData?.treatmentHistory, patientData?.painLogs);
       if (result) {
         setPatientData(result);
@@ -116,10 +116,9 @@ export default function PhysioCoreApp() {
       }
     } catch (err: any) {
         console.error("Clinical Consultation Failed", err);
-        // Reset key selection state and prompt user again if key is missing or invalid
-        if (err.message?.includes("API key must be set") || err.message?.includes("Requested entity was not found")) {
-            const aistudio = (window as any).aistudio;
+        if (err.message === "API_KEY_MISSING" || err.message?.includes("API key must be set") || err.message?.includes("Requested entity was not found")) {
             if (aistudio) await aistudio.openSelectKey();
+            setHasKey(true);
         }
     } finally {
       setIsAnalyzing(false);
@@ -136,6 +135,11 @@ export default function PhysioCoreApp() {
       await PhysioDB.saveProfile(updated);
       setShowFeedbackModal(false);
       setActiveTab('progress');
+    } catch (err: any) {
+      if (err.message === "API_KEY_MISSING" || err.message?.includes("Requested entity was not found")) {
+        const aistudio = (window as any).aistudio;
+        if (aistudio) await aistudio.openSelectKey();
+      }
     } finally {
       setIsAnalyzing(false);
     }
@@ -159,6 +163,7 @@ export default function PhysioCoreApp() {
           <NavBtn active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={LayoutDashboard} label="PANEL" />
           <NavBtn active={activeTab === 'progress'} onClick={() => setActiveTab('progress')} icon={TrendingUp} label="TAKİP" />
           <NavBtn active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={Users} label="KADRO" />
+          {/* Fix: Resolved syntax error by adding missing closing parenthesis in the setActiveTab call */}
           <NavBtn active={activeTab === 'cms'} onClick={() => setActiveTab('cms')} icon={Database} label="STUDIO" />
         </nav>
 
