@@ -17,7 +17,8 @@ import {
   RefreshCw,
   X,
   ShieldCheck,
-  Info
+  Info,
+  Key
 } from 'lucide-react';
 import { AppTab, PatientProfile, Exercise, ProgressReport } from './types.ts';
 import { runClinicalConsultation, runAdaptiveAdjustment } from './ai-service.ts';
@@ -31,9 +32,8 @@ import { UserManager } from './UserManager.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// Fixed ErrorBoundary class by using React.Component explicit extension and ensuring state/props are correctly recognized
+// Fixed: Inheriting from React.Component with proper typing to resolve property 'props' access issues
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Explicitly defining state to resolve property 'state' does not exist error
   public state: ErrorBoundaryState = { hasError: false };
 
   constructor(props: ErrorBoundaryProps) {
@@ -56,6 +56,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
+    // Correctly accessing props.children from React.Component base class
     return this.props.children;
   }
 }
@@ -68,6 +69,7 @@ export default function PhysioCoreApp() {
   const [patientData, setPatientData] = useState<PatientProfile | null>(null);
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
   const [dbStatus, setDbStatus] = useState({connected: false, latency: 0});
+  const [hasKey, setHasKey] = useState(true);
   
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [painScore, setPainScore] = useState(5);
@@ -78,9 +80,25 @@ export default function PhysioCoreApp() {
   useEffect(() => {
     const profile = PhysioDB.getProfile();
     if (profile) setPatientData(profile);
-    const check = async () => setDbStatus(await PhysioDB.checkRemoteStatus());
+    const check = async () => {
+      setDbStatus(await PhysioDB.checkRemoteStatus());
+      // Check if user has selected a key for paid services like Veo
+      const aistudio = (window as any).aistudio;
+      if (aistudio?.hasSelectedApiKey) {
+        setHasKey(await aistudio.hasSelectedApiKey());
+      }
+    };
     check();
   }, []);
+
+  const handleOpenKeySelection = async () => {
+    const aistudio = (window as any).aistudio;
+    if (aistudio?.openSelectKey) {
+      await aistudio.openSelectKey();
+      // Assume selection successful to mitigate race conditions
+      setHasKey(true);
+    }
+  };
 
   const handleStartAnalysis = async () => {
     if (!userInput && !selectedImage) return;
@@ -134,6 +152,15 @@ export default function PhysioCoreApp() {
         </nav>
 
         <div className="flex items-center gap-4">
+           {!hasKey && (
+             <button 
+               onClick={handleOpenKeySelection}
+               className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 transition-colors"
+             >
+                <Key size={14} className="text-amber-500" />
+                <span className="text-[9px] font-black uppercase text-amber-500 tracking-widest">API KEY SEÇİN</span>
+             </button>
+           )}
            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-[9px] font-black uppercase text-white tracking-widest">SİSTEM AKTİF</span>
