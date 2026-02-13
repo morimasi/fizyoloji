@@ -18,6 +18,14 @@ export const ClinicalDataModule: React.FC<ClinicalDataModuleProps> = ({ data, on
 
   const handleAiAnalysis = async () => {
     if (!data.title) return;
+
+    // PRE-FLIGHT CHECK: Prevent throwing error if key is missing
+    if (!process.env.API_KEY) {
+        const aistudio = (window as any).aistudio;
+        if (aistudio) await aistudio.openSelectKey();
+        return;
+    }
+
     setIsAiProcessing(true);
     try {
       const result = await generateExerciseData(data.title);
@@ -33,7 +41,7 @@ export const ClinicalDataModule: React.FC<ClinicalDataModuleProps> = ({ data, on
       });
     } catch (err: any) {
       console.error("AI Analysis Failed", err);
-      if (err.message === "API_KEY_MISSING" || err.message?.includes("Requested entity was not found")) {
+      if (err.message?.includes("Requested entity was not found")) {
          const aistudio = (window as any).aistudio;
          if (aistudio) await aistudio.openSelectKey();
       } else {

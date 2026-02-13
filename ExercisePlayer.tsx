@@ -88,6 +88,13 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
   }, [exercise.visualUrl, exercise.videoUrl]);
 
   const loadTutorial = async () => {
+    // PRE-FLIGHT CHECK: Prevent throwing error if key is missing
+    if (!process.env.API_KEY) {
+        const aistudio = (window as any).aistudio;
+        if (aistudio) await aistudio.openSelectKey();
+        return;
+    }
+
     setIsLoadingTutorial(true);
     try {
         const data = await generateExerciseTutorial(exercise.title);
@@ -105,10 +112,6 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
         }
     } catch (err: any) {
         console.error("Tutorial Gen Failed", err);
-        if (err.message === "API_KEY_MISSING") {
-             const aistudio = (window as any).aistudio;
-             if (aistudio) await aistudio.openSelectKey();
-        }
     } finally {
         setIsLoadingTutorial(false);
     }

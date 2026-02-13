@@ -25,6 +25,13 @@ export const TherapistManagement = ({ isAdminOverride = false }: { isAdminOverri
   const [aiIntensity, setAiIntensity] = useState(75);
 
   const generateAiTasks = async () => {
+    // PRE-FLIGHT CHECK: Prevent throwing error if key is missing
+    if (!process.env.API_KEY) {
+        const aistudio = (window as any).aistudio;
+        if (aistudio) await aistudio.openSelectKey();
+        return;
+    }
+
     setIsGenerating(true);
     try {
       const ai = getAI();
@@ -37,8 +44,7 @@ export const TherapistManagement = ({ isAdminOverride = false }: { isAdminOverri
       setTasks(prev => [...prev, ...newTasks.map((t: any) => ({ ...t, id: Date.now().toString() + Math.random(), status: 'Pending' }))]);
     } catch (err: any) {
       console.error("AI Task Gen Error", err);
-      // Hata Yönetimi: API Anahtarı eksikse diyaloğu aç
-      if (err.message === "API_KEY_MISSING" || err.message?.includes("Requested entity was not found")) {
+      if (err.message?.includes("Requested entity was not found")) {
          const aistudio = (window as any).aistudio;
          if (aistudio) await aistudio.openSelectKey();
       } else {

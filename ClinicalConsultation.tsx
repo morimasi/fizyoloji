@@ -39,6 +39,13 @@ export const ClinicalConsultation: React.FC<ConsultationProps> = ({ onAnalysisCo
   ];
 
   const handleStartAnalysis = async () => {
+    // PRE-FLIGHT CHECK: Prevent throwing error if key is missing
+    if (!process.env.API_KEY) {
+        const aistudio = (window as any).aistudio;
+        if (aistudio) await aistudio.openSelectKey();
+        return;
+    }
+
     setIsAnalyzing(true);
     setStep(2);
 
@@ -58,7 +65,7 @@ export const ClinicalConsultation: React.FC<ConsultationProps> = ({ onAnalysisCo
     } catch (err: any) {
       console.error("Analysis Failed", err);
       // Hata Yönetimi: API Anahtarı eksikse diyaloğu aç
-      if (err.message === "API_KEY_MISSING" || err.message?.includes("Requested entity was not found")) {
+      if (err.message?.includes("Requested entity was not found")) {
          const aistudio = (window as any).aistudio;
          if (aistudio) await aistudio.openSelectKey();
       } else {
