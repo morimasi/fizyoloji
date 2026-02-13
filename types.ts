@@ -41,7 +41,6 @@ export interface User {
   createdAt: string;
   assignedTherapistId?: string;
   therapistProfile?: TherapistProfile;
-  // Patient fields merged optionally for polymorphic usage
   patientStatus?: PatientStatus;
   clinicalProfile?: {
     diagnosis: string;
@@ -72,7 +71,7 @@ export interface TreatmentHistory {
 export interface DetailedPainLog {
   id: string;
   date: string;
-  score: number; // 0-10
+  score: number;
   location: string;
   quality: PainQuality;
   triggers: string[];
@@ -80,7 +79,7 @@ export interface DetailedPainLog {
 }
 
 export interface PatientUser extends User {
-  patientStatus: PatientStatus; // Made required for PatientUser
+  patientStatus: PatientStatus;
   lastVisit: string;
   recoveryProgress: number;
   riskScore: number; 
@@ -109,13 +108,28 @@ export interface Exercise {
   code: string;
   title: string;
   titleTr?: string;
+  // Enhanced Clinical Data
+  icdCode?: string; // e.g., M51.1
   category: string;
+  rehabPhase?: 'Akut' | 'Sub-Akut' | 'Kronik' | 'Performans';
   difficulty: number;
-  sets: number;
-  reps: number;
   description: string;
   biomechanics: string;
   safetyFlags: string[];
+  // Enhanced Anatomy
+  primaryMuscles?: string[]; // Agonists
+  secondaryMuscles?: string[]; // Synergists/Stabilizers
+  equipment?: string[];
+  movementPlane?: string;
+  // Enhanced Dosage
+  sets: number;
+  reps: number;
+  tempo?: string; // 3-1-3
+  restPeriod?: number; // seconds
+  targetRpe?: number; // 1-10 Borg Scale
+  estimatedTut?: number; // Time Under Tension (seconds)
+  frequency?: string; // e.g., "2x/Day"
+  // Media & Meta
   isFavorite?: boolean;
   isArchived?: boolean;
   visualUrl?: string;
@@ -124,13 +138,8 @@ export interface Exercise {
   visualStyle?: string;
   visualLayout?: 'single' | 'sprite-2';
   isPersonalized?: boolean;
-  tempo?: string;
-  restPeriod?: number;
-  muscleGroups?: string[];
-  equipment?: string[];
-  rehabPhase?: 'Akut' | 'Sub-Akut' | 'Kronik' | 'Performans';
-  movementPlane?: string;
   tutorialData?: ExerciseTutorial; 
+  muscleGroups?: string[]; // Legacy support
 }
 
 export interface ProgressReport {

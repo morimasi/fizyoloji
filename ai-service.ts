@@ -4,19 +4,14 @@ import { PatientProfile, ProgressReport, Exercise, DetailedPainLog, TreatmentHis
 import { PhysioDB } from "./db-repository.ts";
 
 /**
- * PHYSIOCORE AI - ZERO-COST ANIMATION ENGINE (v6.0)
+ * PHYSIOCORE AI - ZERO-COST ANIMATION ENGINE (v6.1 Enhanced)
  * Uses Vector Puppetry & Browser Rendering instead of MP4 Generation.
  */
 
 export const ensureApiKey = async (): Promise<string> => {
-  // 1. Check Vite Environment Variable (Preferred)
   if (import.meta.env.VITE_API_KEY) return import.meta.env.VITE_API_KEY;
-
-  // 2. Check Process Env (Fallback)
   const key = process.env.API_KEY;
   if (key && key !== "undefined" && key !== "") return key;
-  
-  // 3. Check AI Studio Shim
   const aistudio = (window as any).aistudio;
   if (aistudio) {
     await aistudio.openSelectKey();
@@ -83,14 +78,39 @@ export const runAdaptiveAdjustment = async (currentProfile: PatientProfile, feed
   }
 };
 
+// ENHANCED OPTIMIZATION ENGINE
 export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: string): Promise<Partial<Exercise>> => {
   try {
     const apiKey = await ensureApiKey();
     const ai = new GoogleGenAI({ apiKey });
+    
+    // Periyodizasyon mantığı için prompt güçlendirildi
+    const prompt = `
+      Sen Kıdemli bir Spor Fizyoterapistisin.
+      GÖREV: Aşağıdaki egzersizi "${goal}" klinik hedefine göre optimize et.
+      
+      MEVCUT VERİ: ${JSON.stringify(exercise)}
+      
+      ÇIKTI FORMATI (JSON):
+      {
+        "sets": number,
+        "reps": number,
+        "tempo": string (Format: "E-P-C", örn "3-1-3" veya "4-0-1"),
+        "restPeriod": number (saniye),
+        "targetRpe": number (1-10 arası Borg skalası),
+        "frequency": string (örn: "Günde 2 kez" veya "Haftada 3 gün"),
+        "biomechanics": string (Bu hedef için neden bu parametrelerin seçildiğini anlatan kısa klinik not)
+      }
+      
+      KURALLAR:
+      - Hipertrofi için: 3-4 set, 8-12 tekrar, 3-0-1 tempo, RPE 8.
+      - Güç için: 3-5 set, 3-5 tekrar, Patlayıcı tempo (X-0-X), RPE 9.
+      - Mobilite için: Yavaş tempo, tam ROM.
+    `;
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: `Optimize et (JSON): Hedef: "${goal}". Mevcut Egzersiz Verisi: ${JSON.stringify(exercise)}. 
-      Görevin: Biyomekanik parametreleri, set, tekrar ve dinlenme sürelerini belirtilen klinik hedefe göre güncelle. Sadece JSON döndür.`,
+      contents: prompt,
       config: { responseMimeType: "application/json" }
     });
     return JSON.parse(response.text || "{}");
@@ -106,24 +126,19 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
     const ai = new GoogleGenAI({ apiKey });
     
     let stylePrompt = "";
-    // Hareketli modlar için özel prompt stratejisi: "Sprite Sheet"
-    let isSpriteRequest = false;
     let aspectRatio = "1:1";
 
     switch (style) {
         case 'Medical-Vector':
             stylePrompt = "TWO PANEL SPRITE SHEET (Side by Side). LEFT PANEL: Start Position. RIGHT PANEL: End Position. Style: Medical Vector Art, clean neon blue lines on dark background. Show muscle contraction clearly.";
-            isSpriteRequest = true;
             aspectRatio = "16:9";
             break;
         case 'X-Ray-Lottie':
             stylePrompt = "TWO PANEL SPRITE SHEET (Side by Side). LEFT PANEL: Start Position. RIGHT PANEL: End Position. Style: X-Ray Skeleton, glowing bones, transparent body. Highlight active joints.";
-            isSpriteRequest = true;
             aspectRatio = "16:9";
             break;
         case 'Cinematic-GIF':
             stylePrompt = "TWO PANEL SPRITE SHEET (Side by Side). LEFT PANEL: Start Pose. RIGHT PANEL: Peak Action Pose. Style: Photorealistic 8k, dramatic lighting, professional physiotherapy studio environment.";
-            isSpriteRequest = true;
             aspectRatio = "16:9";
             break;
         case 'Clinical-Slide':
@@ -157,13 +172,37 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
   }
 };
 
+// ENHANCED DATA GENERATOR
 export const generateExerciseData = async (exerciseName: string): Promise<Partial<Exercise>> => {
   try {
     const apiKey = await ensureApiKey();
     const ai = new GoogleGenAI({ apiKey });
+    
+    const prompt = `
+      Sen bir Tıbbi Veri Uzmanısın.
+      EGZERSİZ: "${exerciseName}"
+      
+      GÖREV: Aşağıdaki alanları doldurarak detaylı bir klinik JSON oluştur.
+      
+      ÇIKTI (JSON):
+      {
+        "title": "${exerciseName}",
+        "titleTr": "Türkçe Tıbbi Karşılığı",
+        "description": "Hastanın anlayacağı dilde adım adım, net talimatlar.",
+        "biomechanics": "Kinesiyolojik analiz (Eklem hareketleri, kas aktivasyon paternleri).",
+        "primaryMuscles": ["Major Agonist 1", "Major Agonist 2"],
+        "secondaryMuscles": ["Stabilizörler", "Sinerjistler"],
+        "icdCode": "En uygun ICD-10 Kodu (örn M54.5)",
+        "safetyFlags": ["Kontrendikasyon 1", "Risk Faktörü 2"],
+        "rehabPhase": "Sub-Akut",
+        "movementPlane": "Sagittal/Frontal/Transverse",
+        "equipment": ["Gerekli ekipmanlar"]
+      }
+    `;
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: `Biyomekanik veriler oluştur (JSON): "${exerciseName}".`,
+      contents: prompt,
       config: { responseMimeType: "application/json" }
     });
     return JSON.parse(response.text || "{}");
@@ -177,20 +216,9 @@ export const generateExerciseTutorial = async (exerciseTitle: string): Promise<E
     const apiKey = await ensureApiKey();
     const ai = new GoogleGenAI({ apiKey });
 
-    // 1. Generate Script (JSON)
     const scriptPrompt = `
-      Create a rhythmic breathing and movement script for the exercise: "${exerciseTitle}".
-      Format: JSON.
-      Structure:
-      {
-        "bpm": 60,
-        "script": [
-           { "step": 1, "text": "Start position...", "duration": 3000, "animation": "hold" },
-           { "step": 2, "text": "Exhale and contract...", "duration": 2000, "animation": "contract" },
-           { "step": 3, "text": "Inhale and return...", "duration": 2000, "animation": "breathe" }
-        ]
-      }
-      Keep it short (max 3 steps).
+      Create a rhythmic breathing and movement script for: "${exerciseTitle}".
+      Format: JSON { "bpm": 60, "script": [{ "step": 1, "text": "...", "duration": 3000, "animation": "hold" }] }
     `;
 
     const scriptResponse = await ai.models.generateContent({
@@ -201,23 +229,19 @@ export const generateExerciseTutorial = async (exerciseTitle: string): Promise<E
 
     const scriptData = JSON.parse(scriptResponse.text || "{}");
 
-    // 2. Generate Audio (TTS)
     const ttsText = `Guide for ${exerciseTitle}. ${scriptData.script.map((s: any) => s.text).join(' ')}`;
     const audioResponse = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
       contents: [{ parts: [{ text: ttsText }] }],
       config: {
         responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
-        },
+        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
       },
     });
 
     let audioBase64 = null;
-    const candidates = audioResponse.candidates;
-    if (candidates && candidates[0] && candidates[0].content && candidates[0].content.parts && candidates[0].content.parts[0].inlineData) {
-        audioBase64 = candidates[0].content.parts[0].inlineData.data;
+    if (audioResponse.candidates?.[0]?.content?.parts?.[0]?.inlineData) {
+        audioBase64 = audioResponse.candidates[0].content.parts[0].inlineData.data;
     }
 
     return {
