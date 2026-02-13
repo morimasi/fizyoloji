@@ -44,11 +44,12 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
     setIsMotionActive(false);
 
     try {
-      // MANDATORY API KEY CHECK BEFORE ANY GENERATION
       const aistudio = (window as any).aistudio;
+      
+      // Mandatory check before generation
       if (aistudio && !(await aistudio.hasSelectedApiKey())) {
         await aistudio.openSelectKey();
-        // Proceeding as per instructions that key is assumed successful after call
+        // Proceed as per instructions: assume key selection was successful
       }
 
       if (renderMode === 'video') {
@@ -72,11 +73,16 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
       setIsMotionActive(true);
     } catch (err: any) {
       console.error("Generation failed:", err);
-      // Handling "Requested entity was not found" error by prompting for key again
-      if (err.message?.includes("Requested entity was not found") || err.message?.includes("API key must be set")) {
-        const aistudio = (window as any).aistudio;
+      const aistudio = (window as any).aistudio;
+      
+      // Handle missing/invalid key errors by resetting and prompting
+      if (
+        err.message === "API_KEY_MISSING" || 
+        err.message?.includes("API key must be set") || 
+        err.message?.includes("Requested entity was not found")
+      ) {
         if (aistudio) await aistudio.openSelectKey();
-        setError("API Anahtarı bulunamadı veya geçersiz. Lütfen anahtarınızı seçin.");
+        setError("API Anahtarı gerekli veya geçersiz. Lütfen bir anahtar seçin.");
       } else {
         setError("Üretim sırasında bir hata oluştu. Lütfen tekrar deneyin.");
       }
@@ -170,28 +176,12 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
             )}
           </button>
         </div>
-
-        <div className="bg-slate-950/50 rounded-2xl border border-slate-800 p-6 flex justify-between items-center">
-            <div className="flex items-center gap-4">
-               <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center text-emerald-500 border border-emerald-500/20">
-                  <ShieldCheck size={20} />
-               </div>
-               <div>
-                  <h5 className="text-xs font-bold text-white uppercase italic">Klinik Standart</h5>
-                  <p className="text-[9px] text-slate-500 font-mono">AVM Engine • Titan v3.5</p>
-               </div>
-            </div>
-            <div className="flex flex-col items-end">
-               <span className="text-[8px] font-black text-emerald-400 uppercase bg-emerald-500/5 px-2 py-1 rounded border border-emerald-500/20">READY</span>
-            </div>
-        </div>
       </div>
 
       {/* RIGHT: MONITOR & PRODUCTION STUDIO */}
       <div className="xl:col-span-8 space-y-6">
         <div className="relative w-full aspect-video bg-black rounded-[3rem] border-4 border-slate-800 flex flex-col overflow-hidden shadow-2xl group ring-1 ring-slate-700/50">
           
-          {/* TOP BAR HUD */}
           <div className="absolute top-0 left-0 w-full h-16 bg-gradient-to-b from-black/80 to-transparent z-40 px-8 flex items-center justify-between pointer-events-none">
              <div className="flex items-center gap-4">
                 <div className="px-3 py-1 bg-rose-500 text-white text-[9px] font-black rounded flex items-center gap-2">
@@ -205,7 +195,6 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
              </div>
           </div>
 
-          {/* MAIN MONITOR */}
           <div className="flex-1 relative overflow-hidden flex items-center justify-center bg-slate-950">
              <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #334155 1px, transparent 0)', backgroundSize: '40px 40px' }} />
              
@@ -227,7 +216,6 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                       />
                    )}
 
-                   {/* CLINICAL HUD OVERLAY */}
                    {activeLayers.HUD && (
                       <div className="absolute inset-0 pointer-events-none p-12 flex flex-col justify-between">
                          <div className="flex justify-between">
@@ -256,7 +244,6 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
              )}
           </div>
 
-          {/* MASTER SCRUBBER & TIMELINE CONTROL */}
           <div className="h-24 bg-slate-900 border-t border-slate-800 flex flex-col z-50">
              <div className="h-8 bg-slate-950/50 flex items-center relative group/scrub">
                 <input 

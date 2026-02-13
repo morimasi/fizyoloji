@@ -32,7 +32,7 @@ import { UserManager } from './UserManager.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// Fixed: Using the directly imported 'Component' and extending it properly to ensure 'this.props' is available in TypeScript
+// Fixed: Explicitly extend Component from named imports to ensure proper generic typing of 'props'
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false };
 
@@ -56,7 +56,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
-    // Correctly returning children from props with proper type inheritance through Component
+    // Fixed: Properly accessing 'this.props' which is now correctly inherited from Component
     return this.props.children;
   }
 }
@@ -82,7 +82,6 @@ export default function PhysioCoreApp() {
     if (profile) setPatientData(profile);
     const check = async () => {
       setDbStatus(await PhysioDB.checkRemoteStatus());
-      // Check if user has selected a key for paid services like Veo
       const aistudio = (window as any).aistudio;
       if (aistudio?.hasSelectedApiKey) {
         setHasKey(await aistudio.hasSelectedApiKey());
@@ -95,7 +94,6 @@ export default function PhysioCoreApp() {
     const aistudio = (window as any).aistudio;
     if (aistudio?.openSelectKey) {
       await aistudio.openSelectKey();
-      // Assume selection successful to mitigate race conditions
       setHasKey(true);
     }
   };
@@ -104,12 +102,24 @@ export default function PhysioCoreApp() {
     if (!userInput && !selectedImage) return;
     setIsAnalyzing(true);
     try {
+      // Check key before complex clinical task
+      const aistudio = (window as any).aistudio;
+      if (aistudio && !(await aistudio.hasSelectedApiKey())) {
+        await aistudio.openSelectKey();
+      }
+
       const result = await runClinicalConsultation(userInput, selectedImage || undefined, patientData?.treatmentHistory, patientData?.painLogs);
       if (result) {
         setPatientData(result);
         await PhysioDB.saveProfile(result);
         setActiveTab('dashboard');
       }
+    } catch (err: any) {
+        console.error("Clinical Consultation Failed", err);
+        if (err.message?.includes("API key must be set")) {
+            const aistudio = (window as any).aistudio;
+            if (aistudio) await aistudio.openSelectKey();
+        }
     } finally {
       setIsAnalyzing(false);
     }

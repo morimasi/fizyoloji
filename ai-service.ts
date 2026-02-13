@@ -6,6 +6,8 @@ import { PatientProfile, ProgressReport, Exercise, DetailedPainLog, TreatmentHis
  * GENESIS AVM v3.5 - TITAN MTS (MYOELECTRIC TENSION SIMULATION) ENGINE
  */
 export const generateExerciseVisual = async (exercise: Partial<Exercise>, style: string, customDirective?: string): Promise<{ url: string, frameCount: number, layout: 'grid-4x4' }> => {
+  if (!process.env.API_KEY) throw new Error("API_KEY_MISSING");
+  
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const totalFrames = 16;
   
@@ -41,6 +43,8 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
 };
 
 export const generateExerciseRealVideo = async (exercise: Partial<Exercise>, customPrompt?: string): Promise<string> => {
+  if (!process.env.API_KEY) throw new Error("API_KEY_MISSING");
+  
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `Cinematic medical 3D film, 4K, slow motion anatomical tension: ${exercise.titleTr || exercise.title}. Real muscle textures, glowing biomechanic nodes, studio lighting, black background.`;
   
@@ -67,6 +71,8 @@ export const generateExerciseRealVideo = async (exercise: Partial<Exercise>, cus
  * AVM GENESIS - VECTOR DATA ENGINE (SVG GENERATOR)
  */
 export const generateExerciseVectorData = async (exercise: Partial<Exercise>): Promise<string> => {
+  if (!process.env.API_KEY) throw new Error("API_KEY_MISSING");
+  
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
@@ -83,6 +89,8 @@ export const generateExerciseVectorData = async (exercise: Partial<Exercise>): P
 };
 
 export const generateExerciseTutorial = async (t: string) => {
+    if (!process.env.API_KEY) return null;
+    
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const sr = await ai.models.generateContent({ 
       model: 'gemini-3-flash-preview', 
@@ -106,6 +114,7 @@ export const generateExerciseTutorial = async (t: string) => {
 };
 
 export const runClinicalConsultation = async (t:string, i?:string, h?:TreatmentHistory[], p?:DetailedPainLog[]) => {
+    if (!process.env.API_KEY) throw new Error("API_KEY_MISSING");
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const r = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
@@ -116,6 +125,7 @@ export const runClinicalConsultation = async (t:string, i?:string, h?:TreatmentH
 };
 
 export const runAdaptiveAdjustment = async (p: PatientProfile, f: ProgressReport) => {
+    if (!process.env.API_KEY) throw new Error("API_KEY_MISSING");
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const r = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
@@ -126,6 +136,7 @@ export const runAdaptiveAdjustment = async (p: PatientProfile, f: ProgressReport
 };
 
 export const generateExerciseData = async (title: string): Promise<Partial<Exercise>> => {
+  if (!process.env.API_KEY) throw new Error("API_KEY_MISSING");
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
@@ -136,6 +147,7 @@ export const generateExerciseData = async (title: string): Promise<Partial<Exerc
 };
 
 export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: string): Promise<Partial<Exercise>> => {
+    if (!process.env.API_KEY) throw new Error("API_KEY_MISSING");
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
