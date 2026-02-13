@@ -6,7 +6,7 @@ export type RiskLevel = 'Düşük' | 'Orta' | 'Yüksek';
 export type PainQuality = 'Keskin' | 'Künt' | 'Yanıcı' | 'Batıcı' | 'Elektriklenme' | 'Sızlama';
 export type RehabPhase = 'Akut' | 'Sub-Akut' | 'Kronik' | 'Performans';
 export type VisualStyle = 'AVM-Genesis' | 'VEO-Premium' | 'AVM-Sprite' | 'Cinematic-Grid' | 'X-Ray' | 'Schematic' | '4K-Render' | 'Cinematic-Motion';
-export type AppTab = 'consultation' | 'dashboard' | 'progress' | 'users' | 'cms';
+export type AppTab = 'consultation' | 'dashboard' | 'progress' | 'users' | 'cms' | 'management';
 export type TherapistTab = 'dashboard' | 'patients' | 'intelligence' | 'settings';
 
 export interface ExerciseTutorial {
@@ -15,17 +15,10 @@ export interface ExerciseTutorial {
   bpm: number;
 }
 
-// Added SyncInfo to track mobile synchronization state
 export interface SyncInfo {
   isSynced: boolean;
   lastSyncDate: string;
   downloadProgress: number;
-}
-
-// Added SyncMetadata for database repository
-export interface SyncMetadata {
-  lastSync?: string;
-  version?: string;
 }
 
 export interface Exercise {
@@ -59,7 +52,6 @@ export interface Exercise {
   isArchived?: boolean;
   movementPlane?: string;
   tutorialData?: ExerciseTutorial;
-  // Added missing properties to match ExerciseStudio and sync requirements
   syncInfo?: SyncInfo;
   visualFrameCount?: number;
   visualLayout?: string;
@@ -105,12 +97,14 @@ export interface PatientProfile {
     rom: Record<string, number>;
     strength: Record<string, number>;
     posture: string;
+    recoveryTrajectory?: number; // 0-100 percentage of recovery path
   };
   latestInsight?: {
     summary?: string;
     nextStep?: string;
     recommendation?: string;
     painTrendAnalysis?: string;
+    targetRecoveryDate?: string;
   };
   syncStatus: 'Synced' | 'Syncing' | 'Error';
 }
@@ -141,7 +135,6 @@ export interface User {
   assignedTherapistId?: string;
   patientProfile?: PatientProfile;
   therapistProfile?: TherapistProfile;
-  // Added missing clinicalProfile used in User Manager
   patientStatus?: PatientStatus;
   clinicalProfile?: {
     diagnosis: string;

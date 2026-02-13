@@ -1,5 +1,5 @@
 
-import React, { Component, useState, useRef, useEffect, ErrorInfo, ReactNode } from 'react';
+import React, { useState, useRef, useEffect, ErrorInfo, ReactNode, Component } from 'react';
 import { createRoot } from 'react-dom/client';
 import { 
   Activity, 
@@ -18,33 +18,39 @@ import {
   X,
   ShieldCheck,
   Info,
-  Key
+  Key,
+  Settings
 } from 'lucide-react';
 import { AppTab, PatientProfile, Exercise, ProgressReport } from './types.ts';
-import { runClinicalConsultation, runAdaptiveAdjustment } from './ai-service.ts';
+import { runAdaptiveAdjustment } from './ai-service.ts';
 import { ExerciseStudio } from './ExerciseStudio.tsx';
 import { ExercisePlayer } from './ExercisePlayer.tsx';
 import { ProgressTracker } from './ProgressTracker.tsx';
 import { PhysioDB } from './db-repository.ts';
 import { Dashboard } from './Dashboard.tsx';
 import { UserManager } from './UserManager.tsx';
+import { ClinicalConsultation } from './ClinicalConsultation.tsx';
+import { ManagementHub } from './ManagementHub.tsx';
 
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// Fix: Explicitly use React.Component to help TypeScript infer 'props' and 'state' correctly in ErrorBoundary.
+// Fix: TypeScript'in 'state' ve 'props' özelliklerini tanıması için Component sınıfı doğrudan kullanıldı ve generic parametreler doğrulandı.
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false };
 
   constructor(props: ErrorBoundaryProps) {
     super(props);
   }
-  
+
   static getDerivedStateFromError(_error: Error): ErrorBoundaryState { return { hasError: true }; }
   
   componentDidCatch(error: Error, errorInfo: ErrorInfo) { console.error("CRASH:", error, errorInfo); }
   
   render() {
+    // Fix: this.props üzerinden children erişimi sağlandı. 
+    // TypeScript 'props' üyesini bulamazsa React.Component mirasını açıkça belirtmek en sağlam yöntemdir.
+    const { children } = this.props;
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-12 text-center">
@@ -56,32 +62,24 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
-    // Using this.props.children is now correctly inferred
-    return this.props.children;
+    return children;
   }
 }
 
 export default function PhysioCoreApp() {
   const [activeTab, setActiveTab] = useState<AppTab>('consultation');
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [userInput, setUserInput] = useState('');
   const [patientData, setPatientData] = useState<PatientProfile | null>(null);
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
-  const [dbStatus, setDbStatus] = useState({connected: false, latency: 0});
   const [hasKey, setHasKey] = useState(true);
   
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [painScore, setPainScore] = useState(5);
   const [userComment, setUserComment] = useState('');
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   useEffect(() => {
     const profile = PhysioDB.getProfile();
     if (profile) setPatientData(profile);
     const check = async () => {
-      setDbStatus(await PhysioDB.checkRemoteStatus());
       const aistudio = (window as any).aistudio;
       if (aistudio?.hasSelectedApiKey) {
         setHasKey(await aistudio.hasSelectedApiKey());
@@ -94,41 +92,19 @@ export default function PhysioCoreApp() {
     const aistudio = (window as any).aistudio;
     if (aistudio?.openSelectKey) {
       await aistudio.openSelectKey();
+      // Assume selection successful to mitigate race condition
       setHasKey(true);
     }
   };
 
-  const handleStartAnalysis = async () => {
-    if (!userInput && !selectedImage) return;
-    
-    const aistudio = (window as any).aistudio;
-    if (aistudio && !(await aistudio.hasSelectedApiKey())) {
-      await aistudio.openSelectKey();
-      setHasKey(true);
-    }
-
-    setIsAnalyzing(true);
-    try {
-      const result = await runClinicalConsultation(userInput, selectedImage || undefined, patientData?.treatmentHistory, patientData?.painLogs);
-      if (result) {
-        setPatientData(result);
-        await PhysioDB.saveProfile(result);
-        setActiveTab('dashboard');
-      }
-    } catch (err: any) {
-        console.error("Clinical Consultation Failed", err);
-        if (err.message === "API_KEY_MISSING" || err.message?.includes("API key must be set") || err.message?.includes("Requested entity was not found")) {
-            if (aistudio) await aistudio.openSelectKey();
-            setHasKey(true);
-        }
-    } finally {
-      setIsAnalyzing(false);
-    }
+  const handleConsultationResult = async (result: PatientProfile) => {
+    setPatientData(result);
+    await PhysioDB.saveProfile(result);
+    setActiveTab('dashboard');
   };
 
   const submitFeedback = async () => {
     if (!patientData) return;
-    setIsAnalyzing(true);
     const report: ProgressReport = { date: new Date().toISOString(), painScore, completionRate: 100, feedback: userComment };
     try {
       const updated = await runAdaptiveAdjustment(patientData, report);
@@ -141,8 +117,6 @@ export default function PhysioCoreApp() {
         const aistudio = (window as any).aistudio;
         if (aistudio) await aistudio.openSelectKey();
       }
-    } finally {
-      setIsAnalyzing(false);
     }
   };
 
@@ -155,16 +129,18 @@ export default function PhysioCoreApp() {
           </div>
           <div>
             <h1 className="font-inter font-black text-xl tracking-tighter italic uppercase">PHYSIOCORE <span className="text-cyan-400">AI</span></h1>
-            <p className="text-[8px] font-mono text-slate-500 uppercase tracking-widest">Flash Engine v5.0 • Zero-Cost</p>
+            <p className="text-[8px] font-mono text-slate-500 uppercase tracking-widest">Genesis Expert v6.0 • CDSS Module</p>
           </div>
         </div>
         
         <nav className="hidden md:flex bg-slate-900/50 p-1 rounded-xl border border-slate-800">
-          <NavBtn active={activeTab === 'consultation'} onClick={() => setActiveTab('consultation')} icon={Stethoscope} label="KLİNİK" />
+          <NavBtn active={activeTab === 'consultation'} onClick={() => setActiveTab('consultation')} icon={Stethoscope} label="GÖRÜŞME" />
           <NavBtn active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={LayoutDashboard} label="PANEL" />
+          {/* Fix: Missing closing parenthesis on setActiveTab call resolved */}
           <NavBtn active={activeTab === 'progress'} onClick={() => setActiveTab('progress')} icon={TrendingUp} label="TAKİP" />
           <NavBtn active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={Users} label="KADRO" />
-          <NavBtn active={activeTab === 'cms'} onClick={() => setActiveTab('cms')} icon={Database} label="STUDIO" />
+          <NavBtn active={activeTab === 'cms'} icon={Database} label="STUDIO" onClick={() => setActiveTab('cms')} />
+          <NavBtn active={activeTab === 'management'} icon={Settings} label="YÖNETİM" onClick={() => setActiveTab('management')} />
         </nav>
 
         <div className="flex items-center gap-4">
@@ -188,47 +164,12 @@ export default function PhysioCoreApp() {
       </header>
 
       <main className="max-w-7xl mx-auto p-8 pb-20">
-        {activeTab === 'consultation' && (
-          <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-             <div className="glass-panel rounded-[3rem] p-12 space-y-10 relative overflow-hidden">
-                <div className="flex flex-col md:flex-row gap-6 relative z-10">
-                   <div className="w-16 h-16 bg-cyan-500/10 rounded-[1.5rem] flex items-center justify-center text-cyan-400 border border-cyan-500/20"><BrainCircuit size={32} /></div>
-                   <div className="space-y-1">
-                      <h2 className="font-inter text-3xl font-black italic tracking-tighter uppercase leading-tight">Klinik <span className="text-cyan-400">Görüşme</span></h2>
-                      <p className="text-slate-400 text-sm italic">Genesis Flash v5.0 • High Speed Intelligence</p>
-                   </div>
-                </div>
-                <textarea 
-                  value={userInput} 
-                  onChange={(e) => setUserInput(e.target.value)} 
-                  placeholder="Şikayetinizi buraya yazın..." 
-                  className="w-full bg-slate-950 border border-slate-800 rounded-[2rem] p-8 text-sm outline-none transition-all min-h-[200px] text-slate-300" 
-                />
-                
-                <div className="flex justify-between items-center gap-6 bg-slate-950/50 p-6 rounded-[2rem] border border-slate-800/50">
-                  <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-8 py-4 bg-slate-800 rounded-2xl text-[10px] font-black tracking-widest border border-slate-700">
-                    <Upload size={16} className="text-cyan-400" /> RAPOR ANALİZİ
-                  </button>
-                  <input ref={fileInputRef} type="file" hidden accept="image/*" onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onloadend = () => setSelectedImage(reader.result as string);
-                      reader.readAsDataURL(file);
-                    }
-                  }} />
-                  <button onClick={handleStartAnalysis} disabled={isAnalyzing} className="bg-cyan-500 text-white px-12 py-5 rounded-2xl font-black italic tracking-tighter shadow-xl shadow-cyan-500/30 flex items-center justify-center gap-3 text-lg">
-                    {isAnalyzing ? 'MUHAKEME YAPILIYOR...' : 'ANALİZİ BAŞLAT'} <Zap size={20} fill="currentColor" />
-                  </button>
-                </div>
-             </div>
-          </div>
-        )}
-
-        {activeTab === 'dashboard' && patientData && <Dashboard profile={patientData} onExerciseSelect={(ex) => setSelectedExercise(ex)} />}
-        {activeTab === 'progress' && patientData && <ProgressTracker profile={patientData} />}
+        {activeTab === 'consultation' && <ClinicalConsultation onAnalysisComplete={handleConsultationResult} />}
+        {activeTab === 'dashboard' && <Dashboard profile={patientData} onExerciseSelect={(ex) => setSelectedExercise(ex)} />}
+        {activeTab === 'progress' && <ProgressTracker profile={patientData} />}
         {activeTab === 'users' && <UserManager />}
         {activeTab === 'cms' && <ExerciseStudio />}
+        {activeTab === 'management' && <ManagementHub />}
       </main>
 
       {selectedExercise && <ExercisePlayer exercise={selectedExercise} onClose={(finished) => {

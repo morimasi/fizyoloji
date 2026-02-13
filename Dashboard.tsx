@@ -2,161 +2,225 @@
 import React from 'react';
 import { 
   Activity, Zap, TrendingUp, Calendar, 
-  ChevronRight, Play, 
-  Thermometer, Heart, Flame, Shield, 
-  MessageSquare, Clock, Trophy, CloudSync
+  ChevronRight, Play, Thermometer, Heart, 
+  Flame, Shield, MessageSquare, Clock, 
+  Trophy, CloudSync, BrainCircuit, AlertTriangle, 
+  Target, BarChart3, Settings2, Sparkles,
+  ArrowUpRight, Gauge, Layers, Info, History,
+  TrendingDown, Repeat, Timer, HeartPulse, User
 } from 'lucide-react';
 import { PatientProfile, Exercise } from './types.ts';
 import { RPMBridge } from './RPMBridge.tsx';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
-// Fixed GlassCard by making children optional in the prop type definition to satisfy JSX parser and resolve 'missing children' errors
-const GlassCard = ({ children, className = "", onClick }: { children?: React.ReactNode; className?: string; onClick?: () => void }) => (
-  <div 
-    onClick={onClick}
-    className={`bg-slate-900/40 backdrop-blur-xl border border-slate-800 rounded-[2rem] p-6 relative overflow-hidden group transition-all duration-300 hover:border-slate-700/80 ${onClick ? 'cursor-pointer active:scale-[0.98]' : ''} ${className}`}
-  >
-    {children}
-  </div>
-);
+/**
+ * PHYSIOCORE CLINICAL DASHBOARD v6.0
+ * Recharts & Biometric Visualization Hub
+ */
 
-const ProgressBar = ({ value, color = "bg-cyan-500", height = "h-2" }: { value: number, color?: string, height?: string }) => (
-  <div className={`w-full ${height} bg-slate-950 rounded-full overflow-hidden shadow-inner`}>
-    <div 
-      className={`h-full ${color} rounded-full transition-all duration-1000 ease-out relative`} 
-      style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
-    >
-        <div className="absolute top-0 right-0 bottom-0 w-2 bg-white/20 animate-pulse" />
-    </div>
-  </div>
-);
+const DEMO_RECOVERY_DATA = [
+  { name: 'Hafta 1', score: 30, target: 40 },
+  { name: 'Hafta 2', score: 45, target: 50 },
+  { name: 'Hafta 3', score: 42, target: 60 },
+  { name: 'Hafta 4', score: 68, target: 70 },
+  { name: 'Hafta 5', score: 85, target: 80 },
+];
 
-const WelcomeHero: React.FC<{ profile: PatientProfile }> = ({ profile }) => {
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Günaydın" : hour < 18 ? "İyi Günler" : "İyi Akşamlar";
+export const Dashboard: React.FC<{ profile: PatientProfile | null, onExerciseSelect: (ex: Exercise) => void }> = ({ profile, onExerciseSelect }) => {
+  
+  // Vaka yoksa gösterilecek Demo verisi
+  const isDemo = !profile;
+  const displayProfile = profile || {
+    diagnosisSummary: "Demo: Lomber Disk Hernisi (L5-S1)",
+    riskLevel: "Düşük",
+    status: "Stabil",
+    rehabPhase: "Sub-Akut",
+    suggestedPlan: [],
+    physicalAssessment: { recoveryTrajectory: 72 },
+    latestInsight: { summary: "Hasta iyileşme trendinde. Hareket açıklığı %15 arttı.", nextStep: "Faz 2 Egzersizlerine Geçiş" }
+  };
 
   return (
-    <GlassCard className="col-span-12 lg:col-span-8 flex flex-col justify-between min-h-[220px]">
-      <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/10 rounded-full blur-[80px] -mr-20 -mt-20 pointer-events-none" />
+    <div className="grid grid-cols-12 gap-8 animate-in fade-in slide-in-from-bottom-6 duration-1000 pb-20 font-roboto">
       
-      <div className="relative z-10 flex justify-between items-start">
-        <div className="space-y-2">
-            <h1 className="text-3xl md:text-4xl font-black italic tracking-tighter text-white uppercase">
-              {greeting}, <span className="text-cyan-400">Şampiyon</span>
-            </h1>
-            <p className="text-xs md:text-sm font-medium text-slate-400 max-w-md leading-relaxed">
-              Bugünkü seansın hazır. İyileşme hedefine sadece %12 kaldı. Disiplini koru, sağlığına kavuş.
-            </p>
-        </div>
-        <div className="flex items-center gap-3 bg-slate-950/50 border border-slate-800 px-4 py-2 rounded-2xl h-fit">
-            <div className={`w-2 h-2 rounded-full ${profile.syncStatus === 'Synced' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest">MOBİL SENKRON: {profile.syncStatus || 'YOK'}</span>
-        </div>
-      </div>
-
-      <div className="relative z-10 mt-6 flex items-center gap-4">
-        <div className="flex-1">
-            <div className="flex justify-between text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2">
-                <span>Haftalık Hedef</span>
-                <span className="text-white">4/5 Seans</span>
-            </div>
-            <ProgressBar value={80} color="bg-gradient-to-r from-cyan-500 to-blue-600" height="h-3" />
-        </div>
-      </div>
-    </GlassCard>
-  );
-};
-
-const VitalsPanel: React.FC<{ profile: PatientProfile }> = ({ profile }) => {
-  return (
-    <div className="col-span-12 lg:col-span-4 grid grid-cols-2 gap-4">
-      <GlassCard className="col-span-1 flex flex-col justify-between aspect-square">
-        <div className="flex justify-between items-start">
-            <div className="p-3 bg-rose-500/10 rounded-xl text-rose-500"><Thermometer size={20} /></div>
-            <span className="text-[10px] font-black text-rose-500 bg-rose-500/10 px-2 py-1 rounded">VAS</span>
-        </div>
-        <div>
-            <div className="text-3xl font-black text-white italic">4<span className="text-base text-slate-500 not-italic">/10</span></div>
-            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">Ağrı Seviyesi</p>
-        </div>
-        <ProgressBar value={40} color="bg-rose-500" height="h-1.5" />
-      </GlassCard>
-
-      <GlassCard className="col-span-1 flex flex-col justify-between aspect-square">
-         <div className="flex justify-between items-start">
-            <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-500"><Activity size={20} /></div>
-            <span className="text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded">ROM</span>
-        </div>
-        <div>
-            <div className="text-3xl font-black text-white italic">%92</div>
-            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">Hareket Açıklığı</p>
-        </div>
-        <ProgressBar value={92} color="bg-emerald-500" height="h-1.5" />
-      </GlassCard>
-    </div>
-  );
-};
-
-export const Dashboard: React.FC<{ profile: PatientProfile, onExerciseSelect: (ex: Exercise) => void }> = ({ profile, onExerciseSelect }) => {
-  return (
-    <div className="grid grid-cols-12 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
-      <WelcomeHero profile={profile} />
-      <VitalsPanel profile={profile} />
-
-      {/* NEW: RPM BRIDGE COMPONENT */}
+      {/* 1. AI STRATEGIC COMMAND HUB */}
       <div className="col-span-12">
-         <RPMBridge profile={profile} />
+        <div className="bg-slate-900/60 backdrop-blur-3xl border-l-4 border-cyan-500 border border-slate-800 rounded-[2.5rem] p-8 relative overflow-hidden group">
+           <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/5 rounded-full blur-[100px] -mr-48 -mt-48" />
+           <div className="flex flex-col lg:flex-row gap-10 items-start lg:items-center relative z-10">
+              <div className="flex items-center gap-6">
+                 <div className="w-20 h-20 bg-cyan-500/10 rounded-[2rem] flex items-center justify-center text-cyan-400 border border-cyan-500/20 shadow-inner group-hover:scale-105 transition-transform duration-500">
+                    <BrainCircuit size={44} className="animate-pulse" />
+                 </div>
+                 <div>
+                    <p className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.4em] mb-1">Genesis Strategic Intelligence</p>
+                    <h2 className="text-2xl font-black italic text-white uppercase tracking-tighter">Klinik <span className="text-cyan-400">Öngörü Paneli</span></h2>
+                    {isDemo && <span className="text-[8px] bg-amber-500 text-black px-2 py-0.5 rounded font-black mt-2 inline-block">DEMO MODU</span>}
+                 </div>
+              </div>
+
+              <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-8">
+                 <Metric label="İyileşme Yörüngesi" value={`%${displayProfile.physicalAssessment.recoveryTrajectory || 0}`} icon={Target} sub="Tahmini Hedef: 14 Gün" />
+                 <Metric label="Nöromusküler Uyum" value="%88" icon={Activity} sub="Optimal Seviye" />
+                 <Metric label="Risk İndeksi" value={displayProfile.riskLevel} icon={Shield} sub="Kırmızı Bayrak Yok" color="text-emerald-400" />
+              </div>
+
+              <div className="p-6 bg-slate-950/50 rounded-3xl border border-slate-800 lg:max-w-xs">
+                 <p className="text-[9px] font-black text-slate-500 uppercase mb-2">AI Direktifi</p>
+                 <p className="text-xs text-slate-300 italic leading-relaxed">"{displayProfile.latestInsight?.summary || "Analiz bekleniyor..."}"</p>
+              </div>
+           </div>
+        </div>
       </div>
 
-      <div className="col-span-12 lg:col-span-8 space-y-4">
-        <div className="flex justify-between items-end px-2">
+      {/* 2. BIOMETRIC HUD & RECOVERY CHART */}
+      <div className="col-span-12 lg:col-span-4 space-y-6">
+         <div className="bg-slate-900/60 border border-slate-800 rounded-[2.5rem] p-8 h-48 flex flex-col justify-between group hover:border-rose-500/30 transition-all">
+            <div className="flex justify-between items-start">
+               <div className="p-4 bg-rose-500/10 rounded-2xl text-rose-500 border border-rose-500/20 shadow-lg group-hover:scale-110 transition-transform"><Thermometer size={24} /></div>
+               <div className="text-right">
+                  <span className="text-[10px] font-black text-rose-500 bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/20 uppercase tracking-widest">Pain Score</span>
+                  <p className="text-[8px] text-slate-600 mt-1 uppercase font-bold italic">VAS Sensity v2.1</p>
+               </div>
+            </div>
             <div>
-                <h2 className="text-xl font-black italic tracking-tighter text-white uppercase">Egzersiz <span className="text-cyan-400">Programı</span></h2>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Klinik Protokol: Faz 2</p>
+               <div className="text-5xl font-black text-white italic tracking-tighter">4.2<span className="text-lg text-slate-600 not-italic ml-2">/10</span></div>
+               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-2 flex items-center gap-2">
+                  <TrendingDown size={14} className="text-emerald-500" /> Son seansa göre %12 azalma
+               </p>
             </div>
-        </div>
-        
-        <div className="grid grid-cols-1 gap-3">
-            {profile.suggestedPlan.map((ex, idx) => (
-                <div 
-                    key={ex.id || idx}
-                    onClick={() => onExerciseSelect(ex)}
-                    className="group bg-slate-900/40 border border-slate-800 hover:border-cyan-500/40 p-4 rounded-2xl flex items-center gap-5 cursor-pointer transition-all"
-                >
-                    <div className="w-12 h-12 bg-slate-950 rounded-xl flex items-center justify-center text-slate-600 font-black italic text-lg border border-slate-800 group-hover:text-cyan-400 transition-colors">
-                        {idx + 1}
-                    </div>
-                    <div className="flex-1">
-                        <h4 className="font-bold text-sm text-slate-200 group-hover:text-white uppercase italic tracking-tight">{ex.titleTr || ex.title}</h4>
-                        <div className="flex items-center gap-3 mt-1.5">
-                            <span className="px-2 py-0.5 bg-slate-950 rounded text-[9px] font-bold text-slate-500 uppercase tracking-widest border border-slate-800">
-                                {ex.sets} SET x {ex.reps} TEKRAR
-                            </span>
-                            {ex.syncInfo?.isSynced && (
-                               <span className="flex items-center gap-1 text-[9px] font-bold text-emerald-500 uppercase tracking-widest">
-                                  <CloudSync size={10} /> MOBİLDE HAZIR
-                               </span>
-                            )}
-                        </div>
-                    </div>
-                    <div className="bg-slate-950 p-3 rounded-full text-slate-500 group-hover:text-cyan-400 transition-all border border-slate-800">
-                        <Play size={18} fill="currentColor" className="ml-0.5" />
-                    </div>
-                </div>
-            ))}
-        </div>
+         </div>
+
+         <div className="bg-slate-900/60 border border-slate-800 rounded-[2.5rem] p-8 h-48 flex flex-col justify-between group hover:border-emerald-500/30 transition-all">
+            <div className="flex justify-between items-start">
+               <div className="p-4 bg-emerald-500/10 rounded-2xl text-emerald-500 border border-emerald-500/20 shadow-lg group-hover:scale-110 transition-transform"><Gauge size={24} /></div>
+               <div className="text-right">
+                  <span className="text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 uppercase tracking-widest">Mobility ROM</span>
+                  <p className="text-[8px] text-slate-600 mt-1 uppercase font-bold italic">Joint Flex Index</p>
+               </div>
+            </div>
+            <div>
+               <div className="text-5xl font-black text-white italic tracking-tighter">%92</div>
+               <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden mt-2">
+                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: '92%' }} />
+               </div>
+               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-2 text-right">Hedef: %95</p>
+            </div>
+         </div>
       </div>
 
-      <div className="col-span-12 lg:col-span-4 flex flex-col gap-4">
-         <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">Hızlı Erişim</h3>
-         <GlassCard className="flex items-center gap-4 hover:border-cyan-500/30 cursor-pointer">
-            <div className="w-10 h-10 bg-cyan-500/10 rounded-full flex items-center justify-center text-cyan-400"><MessageSquare size={18} /></div>
-            <div className="flex-1">
-                <h4 className="text-xs font-bold text-white uppercase">Terapiste Danış</h4>
-                <p className="text-[9px] text-slate-500 mt-0.5">Mesaj gönder veya randevu al</p>
+      <div className="col-span-12 lg:col-span-8 bg-slate-900/60 border border-slate-800 rounded-[2.5rem] p-8">
+         <div className="flex justify-between items-center mb-8">
+            <div>
+               <h3 className="text-xl font-black italic text-white uppercase flex items-center gap-3">
+                  <BarChart3 size={20} className="text-cyan-400" /> İyileşme <span className="text-cyan-400">Yörüngesi</span>
+               </h3>
+               <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mt-1">Haftalık Biyomekanik Performans Verisi</p>
             </div>
-            <ChevronRight size={16} className="text-slate-600" />
-        </GlassCard>
+         </div>
+
+         <div className="h-[280px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+               <AreaChart data={DEMO_RECOVERY_DATA}>
+                  <defs>
+                     <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#06B6D4" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#06B6D4" stopOpacity={0}/>
+                     </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                  <XAxis dataKey="name" stroke="#475569" fontSize={10} axisLine={false} tickLine={false} />
+                  <YAxis stroke="#475569" fontSize={10} axisLine={false} tickLine={false} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '16px' }}
+                    itemStyle={{ fontSize: '11px', fontWeight: 'bold' }}
+                  />
+                  <Area type="monotone" dataKey="target" stroke="#334155" strokeWidth={2} strokeDasharray="5 5" fill="transparent" />
+                  <Area type="monotone" dataKey="score" stroke="#06B6D4" strokeWidth={4} fillOpacity={1} fill="url(#colorScore)" />
+               </AreaChart>
+            </ResponsiveContainer>
+         </div>
+      </div>
+
+      {/* 3. EXERCISE ATELIER */}
+      <div className="col-span-12 lg:col-span-8 space-y-6">
+         <div className="flex justify-between items-center px-4">
+             <div>
+                 <h2 className="text-2xl font-black italic tracking-tighter text-white uppercase">Egzersiz <span className="text-cyan-400">Atölyesi</span></h2>
+                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">GÜNLÜK REHABİLİTASYON PROGRAMI</p>
+             </div>
+         </div>
+         
+         <div className="grid grid-cols-1 gap-4">
+            {displayProfile.suggestedPlan.length > 0 ? (
+               displayProfile.suggestedPlan.map((ex, idx) => (
+                  <div key={idx} onClick={() => onExerciseSelect(ex)} className="bg-slate-900/40 border border-slate-800 hover:border-cyan-500/50 p-6 rounded-[2rem] flex items-center gap-8 cursor-pointer transition-all">
+                     <div className="w-14 h-14 bg-slate-950 rounded-2xl flex items-center justify-center text-slate-700 font-black italic border border-slate-800 text-lg">0{idx+1}</div>
+                     <div className="flex-1">
+                        <h4 className="font-black text-lg text-slate-200 uppercase italic tracking-tight">{ex.titleTr || ex.title}</h4>
+                        <div className="flex gap-4 mt-1">
+                           <span className="text-[10px] font-black text-slate-600 uppercase">{ex.sets}x{ex.reps} Dozaj</span>
+                           <span className="text-[10px] font-black text-cyan-500 uppercase">{ex.rehabPhase} Faz</span>
+                        </div>
+                     </div>
+                     <div className="w-12 h-12 bg-slate-950 rounded-full flex items-center justify-center text-slate-600 hover:text-cyan-400 border border-slate-800 shadow-xl transition-all">
+                        <Play size={20} fill="currentColor" className="ml-1" />
+                     </div>
+                  </div>
+               ))
+            ) : (
+               <div className="py-12 text-center border-2 border-dashed border-slate-800 rounded-[3rem] opacity-30">
+                  <Flame size={48} className="mx-auto mb-4" />
+                  <p className="font-black text-[10px] uppercase tracking-widest">Aktif Program Yok</p>
+                  <p className="text-[10px] italic mt-2">Lütfen Klinik modülünden analiz başlatın.</p>
+               </div>
+            )}
+         </div>
+      </div>
+
+      {/* 4. CLINICAL SIDEBAR */}
+      <div className="col-span-12 lg:col-span-4 space-y-6">
+         <div className="bg-gradient-to-br from-cyan-600 to-blue-700 rounded-[3rem] p-8 text-white shadow-2xl relative overflow-hidden group cursor-pointer">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-16 -mt-16" />
+            <Trophy size={48} className="text-white/20 mb-6 group-hover:scale-110 transition-transform" />
+            <h4 className="text-2xl font-black italic uppercase leading-none mb-2">Haftalık <br/> Başarı</h4>
+            <p className="text-xs text-white/70 font-medium leading-relaxed italic">"7 gün üst üste program uyumu sağladınız. Biyolojik doku iyileşmesi %14 hızlandı."</p>
+         </div>
+
+         <div className="bg-slate-900/60 border border-slate-800 rounded-[2.5rem] p-8 space-y-6">
+            <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><History size={16} /> Son Aktivite</h3>
+            <div className="space-y-4">
+               <ActivityLogItem date="Bugün" text="Program Revize Edildi" status="info" />
+               <ActivityLogItem date="Dün" text="Diz Stabilizasyonu Tamamlandı" status="success" />
+            </div>
+         </div>
+      </div>
+
+      {/* RPM Bridge Integration */}
+      <div className="col-span-12">
+         {profile && <RPMBridge profile={profile} />}
       </div>
     </div>
   );
 };
+
+const Metric = ({ label, value, icon: Icon, sub, color = "text-white" }: any) => (
+  <div className="space-y-1">
+     <div className="flex items-center gap-2 text-slate-500">
+        <Icon size={14} />
+        <span className="text-[9px] font-black uppercase tracking-widest">{label}</span>
+     </div>
+     <div className={`text-2xl font-black italic ${color}`}>{value}</div>
+     <p className="text-[8px] font-bold text-slate-600 uppercase tracking-tighter">{sub}</p>
+  </div>
+);
+
+const ActivityLogItem = ({ date, text, status }: any) => (
+  <div className="flex items-center gap-4">
+     <div className={`w-2 h-2 rounded-full ${status === 'success' ? 'bg-emerald-500' : 'bg-cyan-500'}`} />
+     <div>
+        <p className="text-[10px] font-bold text-white uppercase italic">{text}</p>
+        <p className="text-[8px] font-black text-slate-600 uppercase">{date}</p>
+     </div>
+  </div>
+);

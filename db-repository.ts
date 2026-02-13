@@ -1,5 +1,5 @@
 
-import { Exercise, PatientProfile, User, SyncMetadata } from './types.ts';
+import { Exercise, PatientProfile, User } from './types.ts';
 
 export class PhysioDB {
   private static EXERCISES_KEY = 'physiocore_exercises';

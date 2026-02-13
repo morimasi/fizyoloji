@@ -9,16 +9,12 @@ import {
   History, Thermometer, MapPin, 
   PlusCircle, BookOpen, X, Save,
   Briefcase, GraduationCap, Phone, Mail,
-  Stethoscope, LayoutGrid, List, Trash2, Edit
+  Stethoscope, LayoutGrid, List, Trash2, Edit,
+  Zap, Bell, Brain, Info, Plus
 } from 'lucide-react';
-import { User, UserRole, TherapistProfile } from './types.ts';
-import { MessagingSystem } from './MessagingSystem.tsx';
+import { User, UserRole, TherapistProfile, DetailedPainLog, TreatmentHistory, RiskLevel, PatientStatus, PatientProfile } from './types.ts';
 import { PhysioDB } from './db-repository.ts';
 
-/**
- * GENESIS STAFF & PATIENT MANAGER (v4.0)
- * Institutional HR Module with PhysioDB Integration
- */
 export const UserManager = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [activeRole, setActiveRole] = useState<UserRole | 'All'>('All');
@@ -27,7 +23,6 @@ export const UserManager = () => {
   const [showForm, setShowForm] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
-  // Stats
   const stats = {
     total: users.length,
     therapists: users.filter(u => u.role === 'Therapist').length,
@@ -45,7 +40,8 @@ export const UserManager = () => {
   };
 
   const handleSaveUser = async (user: User) => {
-    if (users.find(u => u.id === user.id)) {
+    const existing = users.find(u => u.id === user.id);
+    if (existing) {
       await PhysioDB.updateUser(user);
     } else {
       await PhysioDB.addUser(user);
@@ -71,7 +67,6 @@ export const UserManager = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
-      {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl flex items-center justify-center border border-slate-700 text-cyan-500 shadow-2xl relative">
@@ -92,7 +87,6 @@ export const UserManager = () => {
         </button>
       </div>
 
-      {/* Stats Bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatBadge icon={Users} label="Toplam Kadro" value={stats.total} color="text-white" />
         <StatBadge icon={Stethoscope} label="Terapistler" value={stats.therapists} color="text-cyan-400" />
@@ -100,7 +94,6 @@ export const UserManager = () => {
         <StatBadge icon={UserCheck} label="Doluluk" value={`%${Math.min(100, (stats.patients / (stats.therapists * 10 || 1)) * 100).toFixed(0)}`} color="text-amber-400" />
       </div>
 
-      {/* Filter & Toolbar */}
       <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-[2rem] flex flex-col lg:flex-row items-center justify-between gap-4">
          <div className="flex bg-slate-950 p-1.5 rounded-xl border border-slate-800 w-full lg:w-auto">
             <FilterBtn active={activeRole === 'All'} onClick={() => setActiveRole('All')} label="Tümü" />
@@ -126,7 +119,6 @@ export const UserManager = () => {
          </div>
       </div>
 
-      {/* Content Grid */}
       <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3' : 'grid-cols-1'}`}>
          {filteredUsers.map(user => (
            <UserCard 
@@ -151,8 +143,6 @@ export const UserManager = () => {
   );
 };
 
-// --- SUB COMPONENTS ---
-
 const StatBadge = ({ icon: Icon, label, value, color }: any) => (
   <div className="bg-slate-900/50 border border-slate-800 p-5 rounded-2xl flex items-center gap-4 hover:border-slate-700 transition-all">
      <div className={`w-10 h-10 rounded-xl bg-slate-950 flex items-center justify-center border border-slate-800 shadow-inner ${color}`}>
@@ -174,7 +164,6 @@ const FilterBtn = ({ active, onClick, label }: any) => (
   </button>
 );
 
-// Fixed UserCard by typing it as React.FC and updating onDelete type to handle async functions
 const UserCard: React.FC<{ user: User, onEdit: () => void, onDelete: () => void | Promise<void>, therapists: User[] }> = ({ user, onEdit, onDelete, therapists }) => {
   const isTherapist = user.role === 'Therapist';
   const assignedTherapist = therapists.find(t => t.id === user.assignedTherapistId);
@@ -198,27 +187,28 @@ const UserCard: React.FC<{ user: User, onEdit: () => void, onDelete: () => void 
           <div>
              <h4 className="font-bold text-white text-lg tracking-tight italic">{user.fullName}</h4>
              <p className="text-[10px] font-mono text-slate-500 flex items-center gap-1"><Mail size={10} /> {user.email}</p>
-             {user.phone && <p className="text-[10px] font-mono text-slate-500 flex items-center gap-1"><Phone size={10} /> {user.phone}</p>}
           </div>
        </div>
 
        <div className="space-y-3 bg-slate-950/50 p-4 rounded-2xl border border-slate-800/50">
           {isTherapist && user.therapistProfile ? (
              <>
-               <InfoRow label="Uzmanlık" value={user.therapistProfile.specialization[0]} icon={GraduationCap} />
+               <InfoRow label="Uzmanlık" value={user.therapistProfile.specialization[0] || 'Genel'} icon={GraduationCap} />
                <InfoRow label="Deneyim" value={`${user.therapistProfile.yearsOfExperience} Yıl`} icon={Star} color="text-amber-400" />
                <InfoRow label="Aktif Hasta" value={user.therapistProfile.totalPatientsActive} icon={Users} />
                <div className="flex gap-1 mt-2 flex-wrap">
                   {user.therapistProfile.specialization.slice(1).map(s => <span key={s} className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-[8px] text-slate-400 font-bold">{s}</span>)}
                </div>
              </>
-          ) : user.clinicalProfile ? (
+          ) : user.patientProfile || user.clinicalProfile ? (
              <>
-               <InfoRow label="Klinik Tanı" value={user.clinicalProfile.diagnosis} icon={Activity} color="text-white" />
-               <InfoRow label="Risk Seviyesi" value={user.clinicalProfile.riskLevel} icon={AlertCircle} color={user.clinicalProfile.riskLevel === 'Yüksek' ? 'text-rose-500' : 'text-emerald-500'} />
+               <InfoRow label="Klinik Tanı" value={user.patientProfile?.diagnosisSummary || user.clinicalProfile?.diagnosis || 'Belirtilmedi'} icon={Activity} color="text-white" />
+               <InfoRow label="Risk Seviyesi" value={user.patientProfile?.riskLevel || user.clinicalProfile?.riskLevel || 'Düşük'} icon={AlertCircle} color={(user.patientProfile?.riskLevel === 'Yüksek' || user.clinicalProfile?.riskLevel === 'Yüksek') ? 'text-rose-500' : 'text-emerald-500'} />
                <InfoRow label="Atanan Uzman" value={assignedTherapist?.fullName || 'Atanmadı'} icon={UserCheck} />
              </>
-          ) : null}
+          ) : (
+            <p className="text-[9px] text-slate-600 uppercase text-center py-2 italic tracking-widest">Klinik profil verisi yok</p>
+          )}
        </div>
     </div>
   );
@@ -234,75 +224,131 @@ const InfoRow = ({ label, value, icon: Icon, color = 'text-slate-300' }: any) =>
   </div>
 );
 
-// --- FORM MODAL ---
-
 const UserFormModal = ({ user, onClose, onSave, therapists }: { user: User | null, onClose: () => void, onSave: (u: User) => void, therapists: User[] }) => {
-  const [formData, setFormData] = useState<User>(user || {
-    id: Date.now().toString(),
-    role: 'Patient',
-    fullName: '',
-    email: '',
-    phone: '',
-    createdAt: new Date().toISOString(),
-    patientStatus: 'Stabil',
-    clinicalProfile: { diagnosis: '', riskLevel: 'Düşük', notes: [], treatmentHistory: [], painLogs: [] }
-  } as User);
+  const [formData, setFormData] = useState<User>(() => {
+    if (user) return JSON.parse(JSON.stringify(user));
+    return {
+      id: Date.now().toString(),
+      role: 'Patient',
+      fullName: '',
+      email: '',
+      phone: '',
+      createdAt: new Date().toISOString(),
+      patientStatus: 'Stabil',
+      patientProfile: {
+        user_id: '',
+        diagnosisSummary: '',
+        riskLevel: 'Düşük',
+        status: 'Stabil',
+        rehabPhase: 'Akut',
+        suggestedPlan: [],
+        progressHistory: [],
+        treatmentHistory: [],
+        painLogs: [],
+        physicalAssessment: { rom: {}, strength: {}, posture: '' },
+        syncStatus: 'Synced'
+      },
+      therapistProfile: {
+        specialization: [],
+        bio: '',
+        yearsOfExperience: 0,
+        successRate: 0,
+        totalPatientsActive: 0,
+        averageRecoveryTime: '0 Hafta',
+        status: 'Aktif',
+        aiAssistantSettings: { autoSuggestProtocols: true, notifyHighRisk: true, weeklyReports: true }
+      }
+    } as User;
+  });
 
-  const [activeTab, setActiveTab] = useState<'basic' | 'clinical' | 'professional'>('basic');
+  const [activeTab, setActiveTab] = useState<'basic' | 'clinical' | 'professional' | 'ai'>('basic');
 
-  const handleSubmit = () => {
-    if (!formData.fullName || !formData.email) return alert("İsim ve E-posta zorunludur.");
-    onSave(formData);
+  const updateTherapistProfile = (fields: Partial<TherapistProfile>) => {
+    setFormData(prev => ({
+      ...prev,
+      therapistProfile: { ...prev.therapistProfile!, ...fields }
+    }));
+  };
+
+  const updateAiSettings = (settings: any) => {
+    setFormData(prev => ({
+      ...prev,
+      therapistProfile: {
+        ...prev.therapistProfile!,
+        aiAssistantSettings: { ...prev.therapistProfile!.aiAssistantSettings, ...settings }
+      }
+    }));
+  };
+
+  const updatePatientProfile = (fields: Partial<PatientProfile>) => {
+    setFormData(prev => ({
+      ...prev,
+      patientProfile: { ...prev.patientProfile!, ...fields }
+    }));
+  };
+
+  const addSpecialty = (val: string) => {
+    if (!val || formData.therapistProfile?.specialization.includes(val)) return;
+    updateTherapistProfile({ specialization: [...formData.therapistProfile!.specialization, val] });
+  };
+
+  const removeSpecialty = (val: string) => {
+    updateTherapistProfile({ specialization: formData.therapistProfile!.specialization.filter(s => s !== val) });
   };
 
   return (
     <div className="fixed inset-0 z-[200] bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-6 animate-in zoom-in-95 duration-300">
-       <div className="bg-slate-900 border border-slate-800 w-full max-w-2xl rounded-[3rem] p-10 relative overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+       <div className="bg-slate-900 border border-slate-800 w-full max-w-3xl rounded-[3.5rem] p-10 relative overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
           
           <div className="flex justify-between items-center mb-8">
              <div>
-                <h3 className="text-2xl font-black italic text-white uppercase">{user ? 'Profili' : 'Yeni Kayıt'} <span className="text-cyan-400">Düzenle</span></h3>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Sistem Veritabanı Girişi</p>
+                <h3 className="text-2xl font-black italic text-white uppercase">{user ? 'Profili' : 'Yeni Kayıt'} <span className="text-cyan-400">Yönet</span></h3>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1 italic">Genesis Veri Yönetim Sistemi</p>
              </div>
              <button onClick={onClose} className="p-3 bg-slate-950 rounded-xl text-slate-500 hover:text-white border border-slate-800"><X size={20}/></button>
           </div>
 
-          <div className="flex gap-2 mb-6 bg-slate-950 p-1.5 rounded-xl border border-slate-800 shrink-0">
-             <FilterBtn active={activeTab === 'basic'} onClick={() => setActiveTab('basic')} label="Temel Bilgiler" />
-             {formData.role === 'Patient' && <FilterBtn active={activeTab === 'clinical'} onClick={() => setActiveTab('clinical')} label="Klinik Profil" />}
-             {formData.role === 'Therapist' && <FilterBtn active={activeTab === 'professional'} onClick={() => setActiveTab('professional')} label="Uzmanlık" />}
+          <div className="flex flex-wrap gap-2 mb-8 bg-slate-950 p-2 rounded-2xl border border-slate-800 shrink-0">
+             <FilterBtn active={activeTab === 'basic'} onClick={() => setActiveTab('basic')} label="Kimlik" />
+             {formData.role === 'Patient' && <FilterBtn active={activeTab === 'clinical'} onClick={() => setActiveTab('clinical')} label="Klinik Dosya" />}
+             {formData.role === 'Therapist' && (
+                <>
+                  <FilterBtn active={activeTab === 'professional'} onClick={() => setActiveTab('professional')} label="Kariyer" />
+                  <FilterBtn active={activeTab === 'ai'} onClick={() => setActiveTab('ai')} label="AI Ayarları" />
+                </>
+             )}
           </div>
 
-          <div className="flex-1 overflow-y-auto pr-2 space-y-6">
+          <div className="flex-1 overflow-y-auto pr-4 space-y-8 custom-scrollbar">
              {activeTab === 'basic' && (
-                <div className="space-y-4">
-                   <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-300">
+                   <div className="space-y-6">
                       <div className="space-y-2">
-                         <label className="text-[9px] font-black text-slate-500 uppercase">Hesap Türü</label>
+                         <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Sistem Rolü</label>
                          <select 
                            value={formData.role} 
                            onChange={(e) => setFormData({...formData, role: e.target.value as UserRole})}
-                           className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-xs font-bold outline-none"
-                           disabled={!!user} // Rol değişimi yeni kayıtta sadece
+                           className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white text-xs font-bold outline-none"
+                           disabled={!!user}
                          >
                             <option value="Patient">Hasta</option>
-                            <option value="Therapist">Terapist</option>
+                            <option value="Therapist">Terapist / Uzman</option>
                             <option value="Admin">Yönetici</option>
                          </select>
                       </div>
-                      <Input label="Ad Soyad" value={formData.fullName} onChange={v => setFormData({...formData, fullName: v})} />
+                      <Input label="Tam Ad Soyad" value={formData.fullName} onChange={(v:string) => setFormData({...formData, fullName: v})} />
                    </div>
-                   <div className="grid grid-cols-2 gap-4">
-                      <Input label="E-Posta" value={formData.email} onChange={v => setFormData({...formData, email: v})} />
-                      <Input label="Telefon" value={formData.phone || ''} onChange={v => setFormData({...formData, phone: v})} />
+                   <div className="space-y-6">
+                      <Input label="E-Posta Adresi" value={formData.email} onChange={(v:string) => setFormData({...formData, email: v})} />
+                      <Input label="İletişim Numarası" value={formData.phone || ''} onChange={(v:string) => setFormData({...formData, phone: v})} />
                    </div>
                    {formData.role === 'Patient' && (
-                     <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-500 uppercase">Atanan Uzman</label>
+                     <div className="col-span-full space-y-2">
+                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Sorumlu Terapist</label>
                         <select 
                            value={formData.assignedTherapistId || ''} 
                            onChange={(e) => setFormData({...formData, assignedTherapistId: e.target.value})}
-                           className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-xs font-bold outline-none"
+                           className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white text-xs font-bold outline-none"
                         >
                            <option value="">Seçiniz...</option>
                            {therapists.map(t => <option key={t.id} value={t.id}>{t.fullName}</option>)}
@@ -313,54 +359,122 @@ const UserFormModal = ({ user, onClose, onSave, therapists }: { user: User | nul
              )}
 
              {activeTab === 'clinical' && formData.role === 'Patient' && (
-                <div className="space-y-4">
-                   <Input label="Klinik Tanı (Diagnosis)" value={formData.clinicalProfile?.diagnosis || ''} onChange={v => setFormData({...formData, clinicalProfile: { ...formData.clinicalProfile!, diagnosis: v }})} />
-                   <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                         <label className="text-[9px] font-black text-slate-500 uppercase">Risk Seviyesi</label>
-                         <select 
-                           value={formData.clinicalProfile?.riskLevel || 'Düşük'} 
-                           onChange={(e) => setFormData({...formData, clinicalProfile: { ...formData.clinicalProfile!, riskLevel: e.target.value as any }})}
-                           className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-xs font-bold outline-none"
-                        >
-                           <option>Düşük</option><option>Orta</option><option>Yüksek</option>
-                        </select>
+                <div className="space-y-8 animate-in slide-in-from-right-4 duration-300">
+                   <div className="bg-slate-950 border border-slate-800 p-8 rounded-3xl space-y-6">
+                      <div className="flex items-center gap-3 text-emerald-400">
+                         <Activity size={20} />
+                         <h4 className="text-xs font-black uppercase tracking-widest">Aktif Tanı ve Durum</h4>
                       </div>
-                      <div className="space-y-2">
-                         <label className="text-[9px] font-black text-slate-500 uppercase">Hasta Durumu</label>
-                         <select 
-                           value={formData.patientStatus || 'Stabil'} 
-                           onChange={(e) => setFormData({...formData, patientStatus: e.target.value as any})}
-                           className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-xs font-bold outline-none"
-                        >
-                           <option>Stabil</option><option>Kritik</option><option>İyileşiyor</option><option>Taburcu</option>
-                        </select>
+                      <div className="space-y-4">
+                         <Input label="Birincil Klinik Tanı" value={formData.patientProfile?.diagnosisSummary || ''} onChange={(v:string) => updatePatientProfile({ diagnosisSummary: v })} />
+                         <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                               <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Risk Seviyesi</label>
+                               <select 
+                                 value={formData.patientProfile?.riskLevel || 'Düşük'} 
+                                 onChange={(e) => updatePatientProfile({ riskLevel: e.target.value as RiskLevel })}
+                                 className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4 text-white text-xs font-bold outline-none"
+                               >
+                                  <option>Düşük</option><option>Orta</option><option>Yüksek</option>
+                               </select>
+                            </div>
+                            <div className="space-y-2">
+                               <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Rehabilitasyon Durumu</label>
+                               <select 
+                                 value={formData.patientProfile?.status || 'Stabil'} 
+                                 onChange={(e) => updatePatientProfile({ status: e.target.value as PatientStatus })}
+                                 className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4 text-white text-xs font-bold outline-none"
+                               >
+                                  <option>Stabil</option><option>Kritik</option><option>İyileşiyor</option><option>Taburcu</option>
+                               </select>
+                            </div>
+                         </div>
                       </div>
+                   </div>
+                   
+                   <div className="bg-slate-950 border border-slate-800 p-8 rounded-3xl space-y-4">
+                      <div className="flex items-center gap-3 text-cyan-400">
+                         <History size={20} />
+                         <h4 className="text-xs font-black uppercase tracking-widest">Klinik Notlar</h4>
+                      </div>
+                      <textarea 
+                        placeholder="Vaka geçmişi, cerrahi notları ve seans dışı gözlemler..."
+                        className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-xs font-medium text-slate-300 h-32 outline-none italic leading-relaxed"
+                      />
                    </div>
                 </div>
              )}
 
              {activeTab === 'professional' && formData.role === 'Therapist' && (
-                <div className="space-y-4">
-                   <div className="grid grid-cols-2 gap-4">
-                      <Input label="Deneyim (Yıl)" type="number" value={formData.therapistProfile?.yearsOfExperience || 0} onChange={v => setFormData({...formData, therapistProfile: { ...formData.therapistProfile!, yearsOfExperience: parseInt(v) }})} />
-                      <Input label="Başarı Oranı (%)" type="number" value={formData.therapistProfile?.successRate || 0} onChange={v => setFormData({...formData, therapistProfile: { ...formData.therapistProfile!, successRate: parseFloat(v) }})} />
+                <div className="space-y-8 animate-in slide-in-from-right-4 duration-300">
+                   <div className="grid grid-cols-2 gap-6">
+                      <Input label="Klinik Deneyim (Yıl)" type="number" value={formData.therapistProfile?.yearsOfExperience || 0} onChange={(v:string) => updateTherapistProfile({ yearsOfExperience: parseInt(v) })} />
+                      <Input label="Başarı Katsayısı (%)" type="number" value={formData.therapistProfile?.successRate || 0} onChange={(v:string) => updateTherapistProfile({ successRate: parseFloat(v) })} />
                    </div>
+
+                   <div className="space-y-4">
+                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><GraduationCap size={12}/> Uzmanlık Alanları</label>
+                      <div className="flex flex-wrap gap-2">
+                         {formData.therapistProfile?.specialization.map(s => (
+                           <span key={s} className="px-3 py-2 bg-cyan-500/10 border border-cyan-500/20 rounded-xl text-[10px] font-black text-cyan-400 uppercase flex items-center gap-2">
+                              {s} <X size={12} className="cursor-pointer hover:text-white" onClick={() => removeSpecialty(s)} />
+                           </span>
+                         ))}
+                         <SpecialtyInput onAdd={addSpecialty} />
+                      </div>
+                   </div>
+
                    <div className="space-y-2">
-                     <label className="text-[9px] font-black text-slate-500 uppercase">Biyografi</label>
+                     <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><BookOpen size={12}/> Profesyonel Biyografi</label>
                      <textarea 
                        value={formData.therapistProfile?.bio || ''} 
-                       onChange={e => setFormData({...formData, therapistProfile: { ...formData.therapistProfile!, bio: e.target.value }})}
-                       className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-xs outline-none h-24"
+                       onChange={e => updateTherapistProfile({ bio: e.target.value })}
+                       className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-medium text-slate-300 outline-none h-32 italic leading-relaxed"
+                       placeholder="Eğitim geçmişi ve uzmanlık derinliği hakkında kısa bilgi..."
                      />
+                   </div>
+                </div>
+             )}
+
+             {activeTab === 'ai' && formData.role === 'Therapist' && (
+                <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
+                   <div className="p-8 bg-slate-950 border border-slate-800 rounded-[2.5rem] space-y-8">
+                      <div className="flex items-center gap-4 text-cyan-400">
+                         <div className="w-12 h-12 bg-cyan-500/10 rounded-2xl flex items-center justify-center border border-cyan-500/20"><Brain size={24}/></div>
+                         <div>
+                            <h4 className="text-sm font-black uppercase tracking-widest">Genesis AI Konfigürasyonu</h4>
+                            <p className="text-[10px] text-slate-500 font-bold uppercase mt-1 italic tracking-tighter">AI Karar Destek Sistemi Entegrasyonu</p>
+                         </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-4">
+                         <ToggleOption 
+                           label="Protokol Otomatik Öner" 
+                           desc="AI, hastanın semptomlarına göre otomatik egzersiz planı hazırlar."
+                           active={formData.therapistProfile?.aiAssistantSettings.autoSuggestProtocols || false} 
+                           onToggle={() => updateAiSettings({ autoSuggestProtocols: !formData.therapistProfile?.aiAssistantSettings.autoSuggestProtocols })}
+                         />
+                         <ToggleOption 
+                           label="Kritik Vaka Bildirimleri" 
+                           desc="Ağrı skorunda ani artış olan hastalar için anlık AI uyarısı al."
+                           active={formData.therapistProfile?.aiAssistantSettings.notifyHighRisk || false} 
+                           onToggle={() => updateAiSettings({ notifyHighRisk: !formData.therapistProfile?.aiAssistantSettings.notifyHighRisk })}
+                         />
+                         <ToggleOption 
+                           label="Haftalık Klinik Rapor" 
+                           desc="E-posta ile sistem performans ve başarı analizi özeti al."
+                           active={formData.therapistProfile?.aiAssistantSettings.weeklyReports || false} 
+                           onToggle={() => updateAiSettings({ weeklyReports: !formData.therapistProfile?.aiAssistantSettings.weeklyReports })}
+                         />
+                      </div>
                    </div>
                 </div>
              )}
           </div>
 
-          <div className="pt-6 border-t border-slate-800 mt-6">
-             <button onClick={handleSubmit} className="w-full bg-cyan-500 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-cyan-500/20 flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
-               <Save size={18} /> Kaydı Tamamla
+          <div className="pt-8 border-t border-slate-800 mt-8 shrink-0">
+             <button onClick={() => onSave(formData)} className="w-full bg-cyan-500 text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-2xl shadow-cyan-500/30 flex items-center justify-center gap-3 hover:scale-[1.01] active:scale-95 transition-all">
+               <Save size={20} /> Kaydı Sisteme İşle
              </button>
           </div>
 
@@ -369,9 +483,38 @@ const UserFormModal = ({ user, onClose, onSave, therapists }: { user: User | nul
   );
 };
 
+const SpecialtyInput = ({ onAdd }: { onAdd: (s: string) => void }) => {
+  const [val, setVal] = useState('');
+  return (
+    <div className="relative">
+       <input 
+          type="text" 
+          value={val}
+          onChange={e => setVal(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { onAdd(val); setVal(''); } }}
+          className="bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-[10px] font-bold text-white outline-none w-32 focus:w-48 transition-all"
+          placeholder="Yeni Ekle..."
+       />
+       <button onClick={() => { onAdd(val); setVal(''); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-cyan-500"><Plus size={14}/></button>
+    </div>
+  );
+}
+
+const ToggleOption = ({ label, desc, active, onToggle }: any) => (
+  <div className="flex items-center justify-between p-6 bg-slate-900 border border-slate-800 rounded-2xl group hover:border-cyan-500/30 transition-all">
+     <div className="space-y-1">
+        <h5 className="text-[11px] font-black text-white uppercase tracking-wider">{label}</h5>
+        <p className="text-[9px] text-slate-500 font-medium italic">{desc}</p>
+     </div>
+     <button onClick={onToggle} className={`w-12 h-6 rounded-full p-1 transition-all ${active ? 'bg-cyan-500' : 'bg-slate-800'}`}>
+        <div className={`w-4 h-4 bg-white rounded-full transition-all ${active ? 'translate-x-6' : 'translate-x-0'} shadow-lg`} />
+     </button>
+  </div>
+);
+
 const Input = ({ label, type = "text", value, onChange }: any) => (
   <div className="space-y-2">
-    <label className="text-[9px] font-black text-slate-500 uppercase">{label}</label>
-    <input type={type} value={value} onChange={e => onChange(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-xs font-bold outline-none focus:border-cyan-500/50" />
+    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{label}</label>
+    <input type={type} value={value} onChange={e => onChange(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white text-xs font-bold outline-none focus:border-cyan-500/50 shadow-inner" />
   </div>
 );
