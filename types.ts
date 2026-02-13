@@ -79,6 +79,17 @@ export interface PatientUser extends User {
   };
 }
 
+export interface ExerciseTutorial {
+  script: {
+    step: number;
+    text: string;
+    duration: number;
+    animation: 'breathe' | 'hold' | 'contract';
+  }[];
+  audioBase64: string | null;
+  bpm: number;
+}
+
 export interface Exercise {
   id: string;
   code: string;
@@ -104,6 +115,7 @@ export interface Exercise {
   equipment?: string[];
   rehabPhase?: 'Akut' | 'Sub-Akut' | 'Kronik' | 'Performans';
   movementPlane?: string;
+  tutorialData?: ExerciseTutorial; // New field for Zero-Cost Animation
 }
 
 export interface ProgressReport {

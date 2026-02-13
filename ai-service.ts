@@ -1,18 +1,22 @@
 
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { PatientProfile, ProgressReport, Exercise, DetailedPainLog, TreatmentHistory } from "./types.ts";
+import { PatientProfile, ProgressReport, Exercise, DetailedPainLog, TreatmentHistory, ExerciseTutorial } from "./types.ts";
 import { PhysioDB } from "./db-repository.ts";
 
 /**
- * PHYSIOCORE AI - FREE-TIER OPTIMIZED (v5.0)
- * Replaced Veo (Paid Video) with Flash-Core Vector Dynamics.
+ * PHYSIOCORE AI - ZERO-COST ANIMATION ENGINE (v6.0)
+ * Uses Vector Puppetry & Browser Rendering instead of MP4 Generation.
  */
 
 export const ensureApiKey = async (): Promise<string> => {
-  // Free tier modelleri için varsayılan anahtar kontrolü
+  // 1. Check Vite Environment Variable (Preferred)
+  if (import.meta.env.VITE_API_KEY) return import.meta.env.VITE_API_KEY;
+
+  // 2. Check Process Env (Fallback)
   const key = process.env.API_KEY;
   if (key && key !== "undefined" && key !== "") return key;
   
+  // 3. Check AI Studio Shim
   const aistudio = (window as any).aistudio;
   if (aistudio) {
     await aistudio.openSelectKey();
@@ -21,12 +25,7 @@ export const ensureApiKey = async (): Promise<string> => {
   throw new Error("MISSING_API_KEY");
 };
 
-/**
- * Ücretli Video Üretimi Yerine Ücretsiz Vektörel/Görsel Üretimi
- */
 export const generateExerciseVideo = async (exercise: Partial<Exercise>): Promise<string> => {
-  // VE-O (Ücretli) servis devredışı bırakıldı. 
-  // Bunun yerine Flash Image modelinden yüksek kaliteli bir ana görsel alıp CSS ile canlandırıyoruz.
   return await generateExerciseVisual(exercise, 'Medical-Vector-Art');
 };
 
@@ -48,7 +47,7 @@ export const runClinicalConsultation = async (
     Analiz et ve PatientProfile JSON döndür.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', // Pro'dan Flash'a düşürüldü (Hızlı ve Ücretsiz)
+      model: 'gemini-2.5-flash', 
       contents: {
         parts: [
           { text: prompt },
@@ -74,7 +73,7 @@ export const runAdaptiveAdjustment = async (currentProfile: PatientProfile, feed
     const apiKey = await ensureApiKey();
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', // Ücretsiz katman modeli
+      model: 'gemini-2.5-flash', 
       contents: `Feedback: ${JSON.stringify(feedback)}. Profil: ${JSON.stringify(currentProfile)}. JSON döndür.`,
       config: { responseMimeType: "application/json" }
     });
@@ -84,13 +83,12 @@ export const runAdaptiveAdjustment = async (currentProfile: PatientProfile, feed
   }
 };
 
-// Added missing exercise optimization function to satisfy requirements in ExerciseForm.tsx
 export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: string): Promise<Partial<Exercise>> => {
   try {
     const apiKey = await ensureApiKey();
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.5-flash',
       contents: `Optimize et (JSON): Hedef: "${goal}". Mevcut Egzersiz Verisi: ${JSON.stringify(exercise)}. 
       Görevin: Biyomekanik parametreleri, set, tekrar ve dinlenme sürelerini belirtilen klinik hedefe göre güncelle. Sadece JSON döndür.`,
       config: { responseMimeType: "application/json" }
@@ -107,8 +105,8 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
     const apiKey = await ensureApiKey();
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image', // Yüksek hızlı ücretsiz/ucuz görsel modeli
-      contents: { parts: [{ text: `High-fidelity Medical Vector Illustration: ${exercise.titleTr || exercise.title}. Style: ${style}. White background, neon accents.` }] },
+      model: 'gemini-2.5-flash-image',
+      contents: { parts: [{ text: `High-fidelity Medical Vector Illustration: ${exercise.titleTr || exercise.title}. Style: ${style}. Minimalist, clean lines, neon blue accents on dark background. Focus on the main muscle group.` }] },
       config: { imageConfig: { aspectRatio: "1:1" } }
     });
     
@@ -128,12 +126,76 @@ export const generateExerciseData = async (exerciseName: string): Promise<Partia
     const apiKey = await ensureApiKey();
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', // Ücretsiz katman
+      model: 'gemini-2.5-flash',
       contents: `Biyomekanik veriler oluştur (JSON): "${exerciseName}".`,
       config: { responseMimeType: "application/json" }
     });
     return JSON.parse(response.text || "{}");
   } catch (err) {
     return {};
+  }
+};
+
+/**
+ * THE PUPPET MASTER: Generates Animation Script & Audio
+ * This creates a "Live Animation" without video files.
+ */
+export const generateExerciseTutorial = async (exerciseTitle: string): Promise<ExerciseTutorial | null> => {
+  try {
+    const apiKey = await ensureApiKey();
+    const ai = new GoogleGenAI({ apiKey });
+
+    // 1. Generate Script (JSON)
+    const scriptPrompt = `
+      Create a rhythmic breathing and movement script for the exercise: "${exerciseTitle}".
+      Format: JSON.
+      Structure:
+      {
+        "bpm": 60,
+        "script": [
+           { "step": 1, "text": "Start position...", "duration": 3000, "animation": "hold" },
+           { "step": 2, "text": "Exhale and contract...", "duration": 2000, "animation": "contract" },
+           { "step": 3, "text": "Inhale and return...", "duration": 2000, "animation": "breathe" }
+        ]
+      }
+      Keep it short (max 3 steps).
+    `;
+
+    const scriptResponse = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: scriptPrompt,
+      config: { responseMimeType: "application/json" }
+    });
+
+    const scriptData = JSON.parse(scriptResponse.text || "{}");
+
+    // 2. Generate Audio (TTS)
+    const ttsText = `Guide for ${exerciseTitle}. ${scriptData.script.map((s: any) => s.text).join(' ')}`;
+    const audioResponse = await ai.models.generateContent({
+      model: "gemini-2.5-flash-preview-tts",
+      contents: [{ parts: [{ text: ttsText }] }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
+        },
+      },
+    });
+
+    let audioBase64 = null;
+    const candidates = audioResponse.candidates;
+    if (candidates && candidates[0] && candidates[0].content && candidates[0].content.parts && candidates[0].content.parts[0].inlineData) {
+        audioBase64 = candidates[0].content.parts[0].inlineData.data;
+    }
+
+    return {
+      script: scriptData.script,
+      audioBase64: audioBase64,
+      bpm: scriptData.bpm || 60
+    };
+
+  } catch (err) {
+    console.error("Tutorial Gen Error:", err);
+    return null;
   }
 };
