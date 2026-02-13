@@ -73,25 +73,29 @@
     <script type="module" src="index.tsx"></script>
     <script>
       /**
-       * PHYSIOCORE AI - GENESIS SW MANAGER (v5.0 Production)
-       * Sadece üretim ortamında (Non-Localhost) devreye girer.
-       * Localhost üzerindeki cache problemlerini önler.
+       * PHYSIOCORE AI - GENESIS SW MANAGER (v5.1 Production Patch)
+       * Service Worker sadece güvenli üretim ortamlarında çalışır.
+       * Localhost ve Cloud Preview ortamları (usercontent.goog) hariç tutulur.
        */
       (function() {
         if (!('serviceWorker' in navigator)) return;
 
-        const isLocalhost = Boolean(
-          window.location.hostname === 'localhost' ||
-          window.location.hostname === '[::1]' ||
-          window.location.hostname.match(
-            /^127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$/
-          )
+        const hostname = window.location.hostname;
+        
+        // Geliştirme ve Önizleme ortamlarını tespit et
+        const isDevEnvironment = Boolean(
+          hostname === 'localhost' ||
+          hostname === '[::1]' ||
+          hostname.match(/^127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$/) ||
+          hostname.includes('usercontent.goog') || // Google Cloud Shell / IDX Preview
+          hostname.includes('web.app') || // Firebase Preview channels
+          hostname.includes('ngrok-free.app') // Tunnels
         );
 
-        if (isLocalhost) {
-          console.groupCollapsed('%c[PhysioCore] SW: Dev Mode', 'color: #f59e0b; font-weight: bold;');
-          console.info('Service Worker localhost üzerinde devre dışı bırakıldı.');
-          console.debug('Amaç: Anlık kod değişimlerini (HMR) cache engeli olmadan görebilmek.');
+        if (isDevEnvironment) {
+          console.groupCollapsed('%c[PhysioCore] SW: Dev/Preview Mode', 'color: #f59e0b; font-weight: bold;');
+          console.info('Service Worker geliştirme ortamında (%s) devre dışı bırakıldı.', hostname);
+          console.debug('Origin Mismatch hatalarını önlemek için SW pasif.');
           console.groupEnd();
           return;
         }
@@ -103,10 +107,12 @@
               return;
             }
 
-            const registration = await navigator.serviceWorker.register('/sw.js');
+            // Origin güvenliği için tam URL oluştur
+            const swUrl = new URL('/sw.js', window.location.origin).href;
+            const registration = await navigator.serviceWorker.register(swUrl);
             console.log('%c[PhysioCore] Genesis SW Online', 'color: #06B6D4; font-weight: bold;', registration.scope);
           } catch (err) {
-            console.error('[PhysioCore] SW Kayıt Hatası:', err);
+            console.warn('[PhysioCore] SW Kayıt Uyarısı:', err);
           }
         };
 

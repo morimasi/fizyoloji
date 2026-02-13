@@ -30,12 +30,9 @@ import { UserManager } from './UserManager.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// Fixed ErrorBoundary class to use imported Component from React to ensure 'props' is correctly identified by the compiler
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false };
-  }
+// Fixed ErrorBoundary class by using Component direct import and declaring state property
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { hasError: false };
   
   static getDerivedStateFromError(_error: Error): ErrorBoundaryState { return { hasError: true }; }
   
