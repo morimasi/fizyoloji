@@ -1,15 +1,15 @@
 
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { 
   BrainCircuit, ShieldAlert, Zap, 
   TrendingDown, TrendingUp, AlertCircle,
   Activity, ArrowRight, Info, Target,
-  Pulse, History, FlaskConical, BarChart3
+  History, FlaskConical, BarChart3
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, 
   Tooltip, ResponsiveContainer, PieChart, Pie, 
-  Cell, Legend, BarChart, Bar, ComposedChart, Line
+  Cell, BarChart, Bar, ComposedChart, Line
 } from 'recharts';
 
 /**
@@ -35,7 +35,6 @@ const MOCK_RISK_DATA = [
 export const ClinicalIntelligence = () => {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-1000">
-      {/* Dynamic Intelligence Header */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
         <div className="flex items-center gap-5">
           <div className="w-16 h-16 bg-gradient-to-br from-cyan-500/20 to-blue-600/20 rounded-[1.5rem] flex items-center justify-center text-cyan-400 border border-cyan-500/30 shadow-[0_0_20px_rgba(6,182,212,0.1)]">
@@ -64,9 +63,7 @@ export const ClinicalIntelligence = () => {
         </div>
       </div>
 
-      {/* Analytics Power Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Population Risk Distribution */}
         <div className="lg:col-span-4 bg-slate-900/40 border border-white/5 rounded-[3rem] p-10 space-y-8 relative overflow-hidden group">
            <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
            <div className="space-y-1">
@@ -91,7 +88,7 @@ export const ClinicalIntelligence = () => {
                     ))}
                   </Pie>
                   <Tooltip 
-                    contentStyle={{ backgroundColor: '#020617', borderColor: '#1e293b', fontSize: '10px', borderRadius: '12px' }}
+                    contentStyle={{ backgroundColor: '#020617', borderColor: '#1e293b', fontSize: '10px', borderRadius: '12px', border: 'none' }}
                     itemStyle={{ color: '#fff' }}
                   />
                 </PieChart>
@@ -115,7 +112,6 @@ export const ClinicalIntelligence = () => {
            </div>
         </div>
 
-        {/* Global Recovery Intelligence */}
         <div className="lg:col-span-8 bg-slate-900/40 border border-white/5 rounded-[3rem] p-10 space-y-8 backdrop-blur-3xl">
            <div className="flex justify-between items-center">
               <div className="space-y-1">
@@ -153,7 +149,7 @@ export const ClinicalIntelligence = () => {
                       axisLine={false} 
                     />
                     <Tooltip 
-                      contentStyle={{ backgroundColor: '#020617', borderColor: '#1e293b', borderRadius: '16px' }}
+                      contentStyle={{ backgroundColor: '#020617', borderColor: '#1e293b', borderRadius: '16px', border: 'none' }}
                     />
                     <Area type="monotone" dataKey="progress" stroke="#06B6D4" strokeWidth={3} fillOpacity={1} fill="url(#colorProgress)" name="İyileşme Oranı %" />
                     <Bar dataKey="completion" barSize={12} fill="#1e293b" radius={[4, 4, 0, 0]} name="Uyum Skoru %" />
@@ -165,7 +161,6 @@ export const ClinicalIntelligence = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* High Priority Monitor */}
         <div className="lg:col-span-7 space-y-6">
            <div className="flex justify-between items-center px-4">
               <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2 italic">
@@ -199,7 +194,6 @@ export const ClinicalIntelligence = () => {
            </div>
         </div>
 
-        {/* AI Prescriptive Engine */}
         <div className="lg:col-span-5 bg-slate-900/40 border border-white/5 rounded-[3rem] p-10 space-y-8 relative overflow-hidden shadow-2xl">
            <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 rounded-full blur-[80px] -mr-32 -mt-32" />
            <div className="space-y-2 relative z-10">

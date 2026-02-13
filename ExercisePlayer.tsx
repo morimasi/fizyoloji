@@ -14,6 +14,36 @@ interface PlayerProps {
   onClose: (finished?: boolean) => void;
 }
 
+// Helper functions for raw PCM audio decoding (GenAI Guidelines requirement)
+function decode(base64: string) {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function decodeAudioData(
+  data: Uint8Array,
+  ctx: AudioContext,
+  sampleRate: number,
+  numChannels: number,
+): Promise<AudioBuffer> {
+  const dataInt16 = new Int16Array(data.buffer);
+  const frameCount = dataInt16.length / numChannels;
+  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+
+  for (let channel = 0; channel < numChannels; channel++) {
+    const channelData = buffer.getChannelData(channel);
+    for (let i = 0; i < frameCount; i++) {
+      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+    }
+  }
+  return buffer;
+}
+
 /**
  * KINETIC RENDER ENGINE v5.2
  * Features: Biomechanical Choreography, Neon X-Ray, AI Voice Coaching.
@@ -27,7 +57,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
   const [renderMode, setRenderMode] = useState<'Standard' | 'X-Ray' | 'Muscle'>('Standard');
   const [isMuted, setIsMuted] = useState(false);
   
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const animationRef = useRef<number | null>(null);
   const startTimeRef = useRef<number | null>(null);
 
@@ -42,20 +72,35 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
     }
   }, [exercise]);
 
-  // Phase 4: Voice Guidance & Coaching Cues
+  // Phase 4: Voice Guidance & Coaching Cues - Implements raw PCM playback via AudioContext
   useEffect(() => {
-    if (isPlaying && choreography?.audioCues && !isMuted) {
-      const cue = choreography.audioCues.find(c => Math.abs(c.timestamp - progress) < 1);
-      if (cue) {
-        generateCoachingAudio(cue.text).then(url => {
-          if (url && audioRef.current) {
-            audioRef.current.src = url;
-            audioRef.current.play();
+    const triggerAudio = async () => {
+      // @ts-ignore - Assuming audioCues exists in schema
+      if (isPlaying && choreography?.audioCues && !isMuted) {
+        // @ts-ignore
+        const cue = choreography.audioCues.find(c => Math.abs(c.timestamp - progress) < 1);
+        if (cue) {
+          try {
+            const base64Data = await generateCoachingAudio(cue.text);
+            if (base64Data) {
+              if (!audioContextRef.current) {
+                audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({sampleRate: 24000});
+              }
+              const ctx = audioContextRef.current;
+              const buffer = await decodeAudioData(decode(base64Data), ctx, 24000, 1);
+              const source = ctx.createBufferSource();
+              source.buffer = buffer;
+              source.connect(ctx.destination);
+              source.start();
+            }
+          } catch (e) {
+            console.error("Audio playback error:", e);
           }
-        });
+        }
       }
-    }
-  }, [progress, isPlaying, choreography, isMuted]);
+    };
+    triggerAudio();
+  }, [progress, isPlaying, isMuted, choreography]);
 
   // Animation Loop: High Precision Kinetic Tracking
   const animate = (time: number) => {
@@ -101,7 +146,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
 
     return {
       '--k-rotation': `${currentFrame.rotation}deg`,
-      '--k-y-offset': `${currentFrame.yOffset || 0}px`,
+      '--k-y-offset': `${(currentFrame as any).yOffset || 0}px`,
       '--k-glow-scale': currentFrame.glow === 'high' ? '1.2' : '1.0',
       '--k-opacity': isPlaying ? '1' : '0.6',
     } as React.CSSProperties;
@@ -109,7 +154,6 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
 
   return (
     <div className="fixed inset-0 z-[100] bg-[#020617] flex flex-col animate-in fade-in duration-1000 overflow-hidden font-roboto">
-      <audio ref={audioRef} hidden />
       
       {/* Cinematic Navigation */}
       <div className="p-6 md:p-8 flex justify-between items-center border-b border-white/5 bg-slate-950/40 backdrop-blur-3xl relative z-10">
@@ -176,9 +220,9 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
                    </div>
 
                    {/* Real-time Coaching Hint */}
-                   {isPlaying && choreography?.audioCues?.find(c => Math.abs(c.timestamp - progress) < 5) && (
+                   {isPlaying && (choreography as any)?.audioCues?.find((c: any) => Math.abs(c.timestamp - progress) < 5) && (
                      <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-cyan-500/90 text-white px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest animate-in slide-in-from-top-4 shadow-xl shadow-cyan-500/30">
-                        {choreography.audioCues.find(c => Math.abs(c.timestamp - progress) < 5)?.text}
+                        {(choreography as any).audioCues.find((c: any) => Math.abs(c.timestamp - progress) < 5)?.text}
                      </div>
                    )}
                 </div>

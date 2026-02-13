@@ -11,11 +11,10 @@ import { PatientProfile, ProgressReport, Exercise, AnimationChoreography, Treatm
 // Ensures it always uses the most up-to-date API key from the environment.
 const callGemini = async (fn: (ai: GoogleGenAI) => Promise<any>) => {
   try {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) throw new Error("API_KEY_NOT_FOUND");
+    // Directly use process.env.API_KEY as per GenAI SDK guidelines to ensure up-to-date key selection
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+    if (!process.env.API_KEY) throw new Error("API_KEY_NOT_FOUND");
     
-    // Always create a new instance right before making the API call.
-    const ai = new GoogleGenAI({ apiKey });
     return await fn(ai);
   } catch (err: any) {
     console.error("Gemini API Error:", err);

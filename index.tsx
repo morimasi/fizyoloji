@@ -1,11 +1,10 @@
 
-import React, { useState, useRef, useEffect, ReactNode } from 'react';
+import React, { useState, useRef, useEffect, ReactNode, Component } from 'react';
 import { createRoot } from 'react-dom/client';
 import { 
   Activity, User as UserIcon, Zap, BrainCircuit, Upload, 
   Stethoscope, LayoutDashboard, Database, TrendingUp, Users, 
-  CheckCircle2, AlertTriangle, Key, ShieldCheck, RefreshCw, X,
-  Info, Globe, Lock
+  CheckCircle2, AlertTriangle, Key, ShieldCheck, RefreshCw, X
 } from 'lucide-react';
 import { AppTab, PatientProfile, Exercise, ProgressReport } from './types.ts';
 import { runClinicalConsultation, runAdaptiveAdjustment } from './ai-service.ts';
@@ -19,9 +18,11 @@ import { UserManager } from './UserManager.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// Fixed ErrorBoundary props error by ensuring standard React.Component inheritance and proper type handling
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { hasError: false };
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
   static getDerivedStateFromError(_error: Error): ErrorBoundaryState { 
     return { hasError: true }; 
@@ -39,7 +40,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
-    return this.props.children;
+    return this.props.children || null;
   }
 }
 
@@ -63,15 +64,19 @@ export default function PhysioCoreApp() {
     const profile = PhysioDB.getProfile();
     if (profile) setPatientData(profile);
     
-    // Key availability is handled externally via process.env.API_KEY
-    const checkKeyStatus = () => {
-      setHasKey(!!process.env.API_KEY);
+    const checkKeyStatus = async () => {
+      const aistudio = (window as any).aistudio;
+      if (aistudio && typeof aistudio.hasSelectedApiKey === 'function') {
+        const selected = await aistudio.hasSelectedApiKey();
+        setHasKey(selected);
+      } else {
+        setHasKey(!!process.env.API_KEY);
+      }
     };
     checkKeyStatus();
   }, []);
 
   const handleOpenKey = async () => {
-    // Standard key selection bridge for AI Studio environments
     const aistudio = (window as any).aistudio;
     if (aistudio) {
       await aistudio.openSelectKey();
@@ -111,7 +116,9 @@ export default function PhysioCoreApp() {
       setShowFeedbackModal(false);
       setActiveTab('progress');
     } catch (err: any) {
-      if (err.message === "API_KEY_NOT_FOUND") setShowKeyWarning(true);
+      if (err.message === "API_KEY_NOT_FOUND" || err.message?.includes("Requested entity was not found")) {
+        setShowKeyWarning(true);
+      }
     } finally {
       setIsAnalyzing(false);
     }
@@ -305,4 +312,10 @@ function FeatureSmall({ icon: Icon, title, desc }: any) {
 }
 
 const rootElement = document.getElementById('root');
-if (rootElement) { createRoot(rootElement).render(<ErrorBoundary><PhysioCoreApp /></ErrorBoundary>); }
+if (rootElement) { 
+  createRoot(rootElement).render(
+    <ErrorBoundary>
+      <PhysioCoreApp />
+    </ErrorBoundary>
+  ); 
+}
