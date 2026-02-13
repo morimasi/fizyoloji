@@ -20,6 +20,7 @@ export const ExerciseStudio = () => {
   
   const initialDraft: Partial<Exercise> = {
     title: '',
+    titleTr: '',
     category: 'Spine / Lumbar',
     difficulty: 5,
     sets: 3,
@@ -53,25 +54,32 @@ export const ExerciseStudio = () => {
   };
 
   const handleEdit = (ex: Exercise) => {
-    setActiveDraft(ex);
+    // CRITICAL: Ensure we pass a clean object copy to avoid reference bugs
+    setActiveDraft({ ...ex });
     setEditingId(ex.id);
     setIsAdding(true);
   };
 
   const handleSave = async (data: Exercise) => {
-    const finalEx = {
+    // 1. Construct the final object
+    // If we are editing, preserve the ID. If new, generate ID.
+    const finalEx: Exercise = {
       ...data,
       id: editingId || Date.now().toString(),
       code: data.code || `PRO-${Math.floor(Math.random() * 900) + 100}`
     };
 
+    // 2. Perform DB Operation
     if (editingId) {
+      // Update logic
       await PhysioDB.updateExercise(finalEx);
     } else {
+      // Create logic
       await PhysioDB.addExercise(finalEx);
     }
 
-    await loadExercises();
+    // 3. Refresh and Close
+    await loadExercises(); // Await is important here to show updated list immediately
     setIsAdding(false);
     setEditingId(null);
   };
@@ -122,7 +130,12 @@ export const ExerciseStudio = () => {
 
       <div className="relative">
         {isAdding ? (
-          <ExerciseForm initialData={activeDraft} isEditing={!!editingId} onSave={handleSave} onCancel={() => setIsAdding(false)} />
+          <ExerciseForm 
+            initialData={activeDraft} 
+            isEditing={!!editingId} 
+            onSave={handleSave} 
+            onCancel={() => setIsAdding(false)} 
+          />
         ) : (
           <div className="space-y-6">
             <div className="flex flex-col lg:flex-row gap-4 items-center justify-between bg-slate-900/40 p-5 rounded-[2.5rem] border border-slate-800 backdrop-blur-xl">

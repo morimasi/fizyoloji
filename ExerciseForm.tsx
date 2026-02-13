@@ -1,10 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Zap, BrainCircuit, Target, Layers, Activity, Info, 
   Compass, AlertTriangle, Save, Settings2, Trash2, 
   Sparkles, History, Clock, Thermometer, Hammer, Microscope,
-  Languages, ChevronRight, X
+  Languages, ChevronRight, X, CheckCircle2, Loader2
 } from 'lucide-react';
 import { Exercise } from './types.ts';
 import { generateExerciseData, optimizeExerciseData } from './ai-service.ts';
@@ -18,11 +18,19 @@ interface ExerciseFormProps {
 }
 
 export const ExerciseForm: React.FC<ExerciseFormProps> = ({ initialData, onSave, onCancel, isEditing }) => {
+  // FIX: State initialization is handled, but we need useEffect for updates
   const [activeDraft, setActiveDraft] = useState<Partial<Exercise>>(initialData);
   const [isAIGenerating, setIsAIGenerating] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false); // UI Feedback for saving
   const [activeTab, setActiveTab] = useState<'data' | 'visual' | 'tuning'>('data');
   const [optimizationGoal, setOptimizationGoal] = useState('Maksimum Mobilite');
+
+  // CRITICAL FIX: Sync local state with prop changes. 
+  // This ensures the form populates correctly when switching between "New" and "Edit" modes.
+  useEffect(() => {
+    setActiveDraft(initialData);
+  }, [initialData]);
 
   const handleAISuggest = async () => {
     if (!activeDraft.title) return;
@@ -60,12 +68,24 @@ export const ExerciseForm: React.FC<ExerciseFormProps> = ({ initialData, onSave,
     }
   };
 
-  const submitForm = () => {
+  const submitForm = async () => {
+    // 1. Validation Layer
     if (!activeDraft.title || !activeDraft.description) {
-      alert("Lütfen en azından başlık ve açıklama alanlarını doldurun.");
+      alert("Kritik Hata: Protokol başlığı ve klinik talimatlar zorunludur.");
       return;
     }
-    onSave(activeDraft as Exercise);
+
+    // 2. Processing Layer
+    setIsSaving(true);
+    try {
+        // Simulate a brief delay for UX feedback (optional but good for feeling of "processing")
+        await new Promise(r => setTimeout(r, 500)); 
+        onSave(activeDraft as Exercise);
+    } catch (error) {
+        console.error("Save failed", error);
+        alert("Kayıt sırasında bir hata oluştu.");
+        setIsSaving(false);
+    }
   };
 
   return (
@@ -93,8 +113,20 @@ export const ExerciseForm: React.FC<ExerciseFormProps> = ({ initialData, onSave,
           <button onClick={onCancel} className="p-4 text-slate-500 hover:text-white transition-colors bg-slate-900/50 rounded-2xl border border-slate-800">
             <X size={20} />
           </button>
-          <button onClick={submitForm} className="flex items-center gap-3 bg-cyan-500 text-white px-8 py-4 rounded-2xl font-semibold text-xs shadow-xl shadow-cyan-500/20 hover:scale-[1.02] active:scale-95 transition-all">
-            <Save size={18} /> SİSTEMİ GÜNCELLE
+          <button 
+            onClick={submitForm} 
+            disabled={isSaving}
+            className={`flex items-center gap-3 px-8 py-4 rounded-2xl font-semibold text-xs shadow-xl transition-all ${isSaving ? 'bg-emerald-600 text-white cursor-wait' : 'bg-cyan-500 text-white hover:bg-cyan-400 hover:scale-[1.02] active:scale-95 shadow-cyan-500/20'}`}
+          >
+            {isSaving ? (
+                <>
+                    <Loader2 size={18} className="animate-spin" /> KAYDEDİLİYOR...
+                </>
+            ) : (
+                <>
+                    <Save size={18} /> {isEditing ? 'SİSTEMİ GÜNCELLE' : 'PROTOKOLÜ KAYDET'}
+                </>
+            )}
           </button>
         </div>
       </div>
@@ -109,7 +141,7 @@ export const ExerciseForm: React.FC<ExerciseFormProps> = ({ initialData, onSave,
                 <div className="flex gap-2">
                   <input 
                     type="text" 
-                    value={activeDraft.title}
+                    value={activeDraft.title || ''}
                     onChange={(e) => setActiveDraft({...activeDraft, title: e.target.value})}
                     placeholder="Örn: Scapular Wall Slide" 
                     className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl p-4 text-sm font-semibold outline-none focus:border-cyan-500/50 transition-all text-white shadow-inner"
@@ -127,7 +159,7 @@ export const ExerciseForm: React.FC<ExerciseFormProps> = ({ initialData, onSave,
                 <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2"><Languages size={12}/> Türkçe Karşılığı</label>
                 <input 
                   type="text" 
-                  value={activeDraft.titleTr}
+                  value={activeDraft.titleTr || ''}
                   onChange={(e) => setActiveDraft({...activeDraft, titleTr: e.target.value})}
                   placeholder="Örn: Kürek Kemiği Kaydırma" 
                   className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-sm font-semibold outline-none focus:border-cyan-500/50 transition-all text-white shadow-inner"
@@ -138,7 +170,7 @@ export const ExerciseForm: React.FC<ExerciseFormProps> = ({ initialData, onSave,
             <div className="space-y-3">
               <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2"><Info size={12}/> Uygulama Talimatları</label>
               <textarea 
-                value={activeDraft.description}
+                value={activeDraft.description || ''}
                 onChange={(e) => setActiveDraft({...activeDraft, description: e.target.value})}
                 placeholder="Hastanın okuyacağı adım adım talimatları girin..."
                 className="w-full bg-slate-950 border border-slate-800 rounded-3xl p-6 text-sm h-48 outline-none shadow-inner leading-relaxed text-slate-300 font-medium"
@@ -151,7 +183,7 @@ export const ExerciseForm: React.FC<ExerciseFormProps> = ({ initialData, onSave,
             <div className="grid grid-cols-2 gap-4">
               <FormField label="Kategori" icon={Layers}>
                 <select 
-                  value={activeDraft.category}
+                  value={activeDraft.category || 'Spine / Lumbar'}
                   onChange={(e) => setActiveDraft({...activeDraft, category: e.target.value})}
                   className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-[11px] font-semibold text-white outline-none"
                 >
@@ -163,11 +195,12 @@ export const ExerciseForm: React.FC<ExerciseFormProps> = ({ initialData, onSave,
                   <option>Stability / Balance</option>
                   <option>Neurological</option>
                   <option>Post-Op</option>
+                  <option>Cardiovascular</option>
                 </select>
               </FormField>
               <FormField label="Rehab Fazı" icon={Activity}>
                 <select 
-                  value={activeDraft.rehabPhase}
+                  value={activeDraft.rehabPhase || 'Sub-Akut'}
                   onChange={(e) => setActiveDraft({...activeDraft, rehabPhase: e.target.value as any})}
                   className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-[11px] font-semibold text-white outline-none"
                 >
@@ -182,7 +215,7 @@ export const ExerciseForm: React.FC<ExerciseFormProps> = ({ initialData, onSave,
             <div className="space-y-3">
               <label className="text-[10px] font-semibold text-cyan-500/60 uppercase tracking-widest flex items-center gap-2"><Microscope size={12} /> Biyomekanik Notlar</label>
               <textarea 
-                value={activeDraft.biomechanics}
+                value={activeDraft.biomechanics || ''}
                 onChange={(e) => setActiveDraft({...activeDraft, biomechanics: e.target.value})}
                 placeholder="Kas aktivasyonu ve eklem yükü analizi..."
                 className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-[11px] h-28 outline-none border-l-2 border-l-cyan-500 italic text-slate-400 leading-relaxed font-medium"
