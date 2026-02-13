@@ -12,7 +12,7 @@ import { PatientProfile, ProgressReport, Exercise, AnimationChoreography, Treatm
 const callGemini = async (fn: (ai: GoogleGenAI) => Promise<any>) => {
   try {
     // Directly use process.env.API_KEY as per GenAI SDK guidelines to ensure up-to-date key selection
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     if (!process.env.API_KEY) throw new Error("API_KEY_NOT_FOUND");
     
     return await fn(ai);

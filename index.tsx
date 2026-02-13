@@ -18,11 +18,10 @@ import { UserManager } from './UserManager.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// Fixed: Explicitly extended Component with defined props and state types to resolve access errors
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Use React.Component with explicit generic types to ensure props and state are correctly identified by the TypeScript compiler
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    // Fixed: Properly initialized state in constructor
     this.state = { hasError: false };
   }
 
@@ -30,13 +29,12 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     return { hasError: true }; 
   }
 
-  // Fixed: Used the directly imported ErrorInfo type for proper catch signature
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
   }
 
   render() {
-    // Fixed: Accessed state property safely as it now exists on the inferred type
+    // Explicitly accessing state through the inherited property
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-12 text-center">
@@ -48,7 +46,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
-    // Fixed: Accessed props property safely
+    // Explicitly accessing children through inherited props
     return this.props.children || null;
   }
 }
@@ -248,7 +246,7 @@ export default function PhysioCoreApp() {
       {/* API Key Modal Warning */}
       {showKeyWarning && (
         <div className="fixed inset-0 z-[200] bg-slate-950/95 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in">
-           <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-[3.5rem] p-12 space-y-8 shadow-2xl text-center relative overflow-hidden">
+           <div className="bg-slate-900 border border-slate-800 w-full max-lg rounded-[3.5rem] p-12 space-y-8 shadow-2xl text-center relative overflow-hidden">
               <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/5 rounded-full blur-[80px] -mr-32 -mt-32" />
               <div className="w-20 h-20 bg-rose-500/10 rounded-[2rem] mx-auto flex items-center justify-center text-rose-500 border border-rose-500/20 shadow-inner">
                 <Key size={40} />
