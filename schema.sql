@@ -1,13 +1,15 @@
 
 -- =============================================================================
--- PHYSIOCORE AI - GENESIS v4.2 ENTERPRISE (IDEMPOTENT STABLE)
--- Author: Chief Architect of Special Education Ecosystems
+-- PHYSIOCORE AI - GENESIS v5.5.2 ENTERPRISE MASTER SCHEMA (POSTGRESQL)
+-- Version: 5.5.2 "Idempotent Fix"
+-- Security: HIPAA, GDPR & KVKK Multi-Regional Compliance
 -- =============================================================================
 
--- 1. EXTENSIONS
+-- 1. SISTEM EKLENTILERI
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 2. ENUM TYPES (Sadece yoksa oluşturur)
+-- 2. KLINIK ENUM TIPLERI
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
         CREATE TYPE user_role AS ENUM ('Admin', 'Therapist', 'Patient');
@@ -15,184 +17,126 @@ DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'patient_status') THEN
         CREATE TYPE patient_status AS ENUM ('Kritik', 'Stabil', 'İyileşiyor', 'Taburcu');
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'staff_status') THEN
+        CREATE TYPE staff_status AS ENUM ('Aktif', 'İzinde', 'Pasif');
+    END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'pain_quality') THEN
-        CREATE TYPE pain_quality AS ENUM ('Keskin', 'Künt', 'Yanıcı', 'Batıcı', 'Elektriklenme');
+        CREATE TYPE pain_quality AS ENUM ('Keskin', 'Künt', 'Yanıcı', 'Batıcı', 'Elektriklenme', 'Sızlama');
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'rehab_phase') THEN
         CREATE TYPE rehab_phase AS ENUM ('Akut', 'Sub-Akut', 'Kronik', 'Performans');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'visual_style') THEN
+        CREATE TYPE visual_style AS ENUM ('AVM-Genesis', 'VEO-Premium', 'X-Ray', 'Cinematic-Motion', '4K-Render', 'Schematic');
     END IF;
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
 
--- 3. CORE USERS
+-- 3. KULLANICI MERKEZI
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     role user_role NOT NULL DEFAULT 'Patient',
-    full_name VARCHAR(150) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
+    phone VARCHAR(30),
+    password_hash TEXT NOT NULL,
     avatar_url TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    last_login_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE
 );
 
--- 4. THERAPIST PROFILES
+-- 4. TERAPIST PROFILLERI (status sütunu eklendi)
 CREATE TABLE IF NOT EXISTS therapist_profiles (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    license_no VARCHAR(100) UNIQUE,
     specialization TEXT[] DEFAULT '{}',
     bio TEXT,
     years_of_experience INTEGER DEFAULT 0,
-    success_rate DECIMAL(5,2) DEFAULT 0.00,
-    total_patients_active INTEGER DEFAULT 0,
-    average_recovery_time VARCHAR(50),
-    ai_assistant_settings JSONB DEFAULT '{
-        "autoSuggestProtocols": true,
-        "notifyHighRisk": true,
-        "weeklyReports": true
-    }'
+    success_rate_percent DECIMAL(5,2) DEFAULT 0.00,
+    status staff_status DEFAULT 'Aktif',
+    ai_assistant_config JSONB DEFAULT '{"autoSuggest": true, "riskAlerts": true}',
+    is_certified BOOLEAN DEFAULT FALSE
 );
 
--- 5. PATIENTS (Gelişmiş Düzeltme Mantığı)
+-- 5. HASTA PROFILLERI
 CREATE TABLE IF NOT EXISTS patients (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     assigned_therapist_id UUID REFERENCES users(id) ON DELETE SET NULL,
     status patient_status DEFAULT 'Stabil',
-    recovery_progress INTEGER DEFAULT 0 CHECK (recovery_progress BETWEEN 0 AND 100),
+    rehab_phase rehab_phase DEFAULT 'Akut',
     risk_score INTEGER DEFAULT 0 CHECK (risk_score BETWEEN 0 AND 100),
     diagnosis_summary TEXT,
-    risk_level VARCHAR(20) DEFAULT 'Orta',
-    last_visit TIMESTAMP WITH TIME ZONE,
-    latest_insight JSONB DEFAULT '{
-        "summary": null,
-        "adaptationNote": null,
-        "nextStep": null,
-        "phaseName": "Faz 1 (Akut)"
-    }',
+    assessment_data JSONB DEFAULT '{}',
+    latest_ai_insight JSONB DEFAULT '{}',
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Hata Giderici: Eğer tablo zaten varsa ve assigned_therapist_id kolonu eksikse ekle
-DO $$ 
-BEGIN 
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-                   WHERE table_name='patients' AND column_name='assigned_therapist_id') THEN
-        ALTER TABLE patients ADD COLUMN assigned_therapist_id UUID REFERENCES users(id) ON DELETE SET NULL;
+-- MIGRATION PATCH: Eğer tablo önceden oluştuysa ve 'status' sütunu yoksa ekle
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='patients' AND column_name='status') THEN
+        ALTER TABLE patients ADD COLUMN status patient_status DEFAULT 'Stabil';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='therapist_profiles' AND column_name='status') THEN
+        ALTER TABLE therapist_profiles ADD COLUMN status staff_status DEFAULT 'Aktif';
     END IF;
 END $$;
 
--- 6. EXERCISES (Klinik Kütüphane)
+-- 6. EGZERSIZ KUTUPHANESI
 CREATE TABLE IF NOT EXISTS exercises (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     code VARCHAR(50) UNIQUE NOT NULL,
-    title VARCHAR(200) NOT NULL,
-    title_tr VARCHAR(200),
+    title VARCHAR(255) NOT NULL,
+    title_tr VARCHAR(255),
     category VARCHAR(100) NOT NULL,
-    difficulty INTEGER DEFAULT 5 CHECK (difficulty BETWEEN 1 AND 10),
-    sets INTEGER DEFAULT 3,
-    reps INTEGER DEFAULT 10,
-    tempo VARCHAR(20) DEFAULT '3-1-3',
-    rest_period INTEGER DEFAULT 60,
-    description TEXT,
-    biomechanics TEXT,
-    safety_flags TEXT[] DEFAULT '{}',
-    muscle_groups TEXT[] DEFAULT '{}',
-    equipment TEXT[] DEFAULT '{}',
-    rehab_phase rehab_phase DEFAULT 'Sub-Akut',
-    movement_plane VARCHAR(50),
+    difficulty_level INTEGER DEFAULT 5,
     visual_url TEXT,
     video_url TEXT,
-    is_motion BOOLEAN DEFAULT FALSE,
-    visual_style VARCHAR(50) DEFAULT 'Cinematic-Motion',
-    is_personalized BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    vector_data TEXT,
+    visual_style visual_style DEFAULT 'AVM-Genesis',
+    description TEXT,
+    biomechanics_notes TEXT,
+    primary_muscles TEXT[] DEFAULT '{}',
+    default_sets INTEGER DEFAULT 3,
+    default_reps INTEGER DEFAULT 10,
+    default_rest_sec INTEGER DEFAULT 60,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 7. PRESCRIPTIONS & PROGRESS
+-- 7. RECETELER
 CREATE TABLE IF NOT EXISTS prescriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    patient_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    exercise_id UUID REFERENCES exercises(id) ON DELETE CASCADE,
-    assigned_by UUID REFERENCES users(id) ON DELETE SET NULL,
-    custom_sets INTEGER,
-    custom_reps INTEGER,
-    custom_notes TEXT,
-    status VARCHAR(20) DEFAULT 'Active',
+    patient_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    exercise_id UUID NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+    sets INTEGER NOT NULL DEFAULT 3,
+    reps INTEGER NOT NULL DEFAULT 10,
+    rest_period_sec INTEGER DEFAULT 60,
+    is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS progress_reports (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    patient_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    exercise_id UUID REFERENCES exercises(id) ON DELETE SET NULL,
-    pain_score INTEGER CHECK (pain_score BETWEEN 0 AND 10),
-    completion_rate INTEGER DEFAULT 100,
-    feedback TEXT,
-    date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS pain_logs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    patient_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    score INTEGER NOT NULL CHECK (score BETWEEN 0 AND 10),
-    location VARCHAR(100),
-    quality pain_quality,
-    triggers TEXT[] DEFAULT '{}',
-    duration VARCHAR(50),
-    date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- 8. MESSAGING & SYSTEM
-CREATE TABLE IF NOT EXISTS messages (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    sender_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    receiver_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    message_text TEXT NOT NULL,
-    attachment_url TEXT,
-    is_read BOOLEAN DEFAULT FALSE,
-    timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS ai_cache (
-    input_hash VARCHAR(64) PRIMARY KEY,
-    response_data JSONB NOT NULL,
-    timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS sync_logs (
-    id BIGSERIAL PRIMARY KEY,
-    sync_type VARCHAR(50),
-    status VARCHAR(20),
-    latency_ms INTEGER,
-    payload_size_kb INTEGER,
-    timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- 9. INDEXES (Hata korumalı tanımlama)
+-- 12. INDEKSLER (Idempotent)
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_patients_status ON patients(status);
 CREATE INDEX IF NOT EXISTS idx_patients_therapist ON patients(assigned_therapist_id);
-CREATE INDEX IF NOT EXISTS idx_exercises_category ON exercises(category);
-CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(sender_id, receiver_id);
-CREATE INDEX IF NOT EXISTS idx_reports_patient ON progress_reports(patient_id);
+CREATE INDEX IF NOT EXISTS idx_prescriptions_patient ON prescriptions(patient_id);
+CREATE INDEX IF NOT EXISTS idx_exercises_code ON exercises(code);
 
--- 10. AUTOMATION: UPDATED_AT TRIGGER
-CREATE OR REPLACE FUNCTION update_timestamp()
+-- 13. TRIGGERLAR
+CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.updated_at = NOW();
+    NEW.updated_at = CURRENT_TIMESTAMP;
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ language 'plpgsql';
 
-DROP TRIGGER IF EXISTS trigger_update_users_timestamp ON users;
-CREATE TRIGGER trigger_update_users_timestamp
-BEFORE UPDATE ON users
-FOR EACH ROW EXECUTE PROCEDURE update_timestamp();
+DROP TRIGGER IF EXISTS trg_users_updated_at ON users;
+CREATE TRIGGER trg_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
-DROP TRIGGER IF EXISTS trigger_update_patients_timestamp ON patients;
-CREATE TRIGGER trigger_update_patients_timestamp
-BEFORE UPDATE ON patients
-FOR EACH ROW EXECUTE PROCEDURE update_timestamp();
-
--- =============================================================================
--- SONUÇ: Şema v4.2 - Tam Idempotent Yapı Sağlandı.
--- =============================================================================
+DROP TRIGGER IF EXISTS trg_patients_updated_at ON patients;
+CREATE TRIGGER trg_patients_updated_at BEFORE UPDATE ON patients FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();

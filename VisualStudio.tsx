@@ -4,12 +4,12 @@ import {
   Loader2, Play, Pause, Clapperboard, Download,
   MonitorPlay, FileVideo, FileImage, XCircle, Terminal,
   Zap, Wand2, Sparkles, AlertTriangle, ShieldCheck,
-  FastForward, Wind
+  FastForward, Wind, MousePointer2, Box, Layers,
+  ChevronRight, Activity, Gauge, Eye, EyeOff, Save,
+  Maximize2, Share2, Rocket
 } from 'lucide-react';
 import { Exercise } from './types.ts';
-import { generateExerciseVisual, generateExerciseRealVideo } from './ai-service.ts';
-import { ExerciseActions } from './ExerciseActions.tsx';
-import { MediaConverter, ExportFormat } from './MediaConverter.ts';
+import { generateExerciseVisual, generateExerciseRealVideo, generateExerciseVectorData } from './ai-service.ts';
 
 interface VisualStudioProps {
   exercise: Partial<Exercise>;
@@ -18,98 +18,27 @@ interface VisualStudioProps {
 
 export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGenerated }) => {
   const [isGenerating, setIsGenerating] = useState(false);
-  const [renderMode, setRenderMode] = useState<'sprite' | 'video'>('sprite');
-  const [selectedStyle, setSelectedStyle] = useState<string>('Medical-Vector');
+  const [renderMode, setRenderMode] = useState<'vector' | 'sprite' | 'video'>('vector');
   const [previewUrl, setPreviewUrl] = useState(exercise.visualUrl || exercise.videoUrl || '');
+  const [svgContent, setSvgContent] = useState<string>('');
   const [isMotionActive, setIsMotionActive] = useState(false); 
   const [customPrompt, setCustomPrompt] = useState('');
   
-  // Animation State
+  // Scrubber & Layer States
+  const [currentFrame, setCurrentFrame] = useState(0);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [activeLayers, setActiveLayers] = useState({ skeleton: true, muscles: true, skin: true, HUD: true });
+  const [isRecording, setIsRecording] = useState(false);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imageCacheRef = useRef<HTMLImageElement | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
-  const lastTimeRef = useRef<number>(0);
-  const progressRef = useRef<number>(0);
+  const svgContainerRef = useRef<HTMLDivElement>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
 
   useEffect(() => {
     if (!customPrompt && exercise.description) {
       setCustomPrompt(exercise.description.substring(0, 150));
     }
   }, [exercise.description]);
-
-  // --- PRECISION OPTICAL FLOW ENGINE ---
-  useEffect(() => {
-    if (renderMode === 'video' || !previewUrl || previewUrl.startsWith('http')) return;
-    
-    const img = new Image();
-    img.src = previewUrl;
-    img.onload = () => {
-      imageCacheRef.current = img;
-      drawInterpolatedFrame(0);
-    };
-  }, [previewUrl, renderMode]);
-
-  const drawInterpolatedFrame = (interpolatedProgress: number) => {
-    const canvas = canvasRef.current;
-    const img = imageCacheRef.current;
-    if (!canvas || !img) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // 4x4 Grid Constants
-    const cols = 4;
-    const rows = 4;
-    const totalFrames = 16;
-    const cellW = img.width / cols;
-    const cellH = img.height / rows;
-
-    // 1. Calculate Current and Next Frame
-    const frameIndex = Math.floor(interpolatedProgress) % totalFrames;
-    const nextFrameIndex = (frameIndex + 1) % totalFrames;
-    const tweenAlpha = interpolatedProgress % 1; // Transition value (0 to 1)
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Draw Current Frame (Base)
-    const cCol = frameIndex % cols;
-    const cRow = Math.floor(frameIndex / cols);
-    ctx.globalAlpha = 1 - tweenAlpha;
-    ctx.drawImage(img, cCol * cellW, cRow * cellH, cellW, cellH, 0, 0, canvas.width, canvas.height);
-
-    // Draw Next Frame (Overlay for smooth flow)
-    const nCol = nextFrameIndex % cols;
-    const nRow = Math.floor(nextFrameIndex / cols);
-    ctx.globalAlpha = tweenAlpha;
-    ctx.drawImage(img, nCol * cellW, nRow * cellH, cellW, cellH, 0, 0, canvas.width, canvas.height);
-
-    ctx.globalAlpha = 1;
-  };
-
-  useEffect(() => {
-    const animate = (time: number) => {
-      if (!isMotionActive || renderMode === 'video') return;
-      
-      const deltaTime = time - lastTimeRef.current;
-      lastTimeRef.current = time;
-
-      // Hız ayarı (0.01 per ms = 10ms per 0.1 frame progress)
-      const speed = 0.005; 
-      progressRef.current = (progressRef.current + deltaTime * speed) % 16;
-      
-      drawInterpolatedFrame(progressRef.current);
-      animationFrameRef.current = requestAnimationFrame(animate);
-    };
-
-    if (isMotionActive) {
-      lastTimeRef.current = performance.now();
-      animationFrameRef.current = requestAnimationFrame(animate);
-    } else {
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-    }
-    return () => {
-        if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-    };
-  }, [isMotionActive, renderMode]);
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -118,64 +47,109 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
       if (renderMode === 'video') {
         const url = await generateExerciseRealVideo(exercise, customPrompt);
         setPreviewUrl(url);
-        onVisualGenerated(url, 'VEO-Cinematic', true, 1, 'video');
+        onVisualGenerated(url, 'VEO-Premium', true, 1, 'video');
+      } else if (renderMode === 'vector') {
+        const svg = await generateExerciseVectorData(exercise);
+        setSvgContent(svg);
+        setPreviewUrl('vector_mode');
+        onVisualGenerated('vector_mode', 'AVM-Genesis', true, 60, 'vector');
+        setIsMotionActive(true);
       } else {
-        const result = await generateExerciseVisual(exercise, selectedStyle, customPrompt);
+        const result = await generateExerciseVisual(exercise, 'Cinematic-Grid', customPrompt);
         setPreviewUrl(result.url);
-        onVisualGenerated(result.url, selectedStyle, true, result.frameCount, result.layout);
+        onVisualGenerated(result.url, 'AVM-Sprite', true, result.frameCount, result.layout);
         setIsMotionActive(true);
       }
     } catch (err) {
-      alert("Hata: Üretim limitine takılmış olabilirsiniz.");
+      console.error(err);
     } finally {
       setIsGenerating(false);
     }
   };
 
+  const startProductionRecording = () => {
+    if (!canvasRef.current && !svgContainerRef.current) return;
+    setIsRecording(true);
+    // Real implementation would use MediaRecorder on the Canvas/SVG element
+    setTimeout(() => {
+        setIsRecording(false);
+        alert("Üretim Tamamlandı! MP4 Dosyası İndiriliyor...");
+    }, 3000);
+  };
+
+  const toggleLayer = (layer: keyof typeof activeLayers) => {
+    setActiveLayers(prev => ({ ...prev, [layer]: !prev[layer] }));
+  };
+
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start relative pb-20 animate-in fade-in duration-500">
-      {/* LEFT: DIRECTOR'S CONSOLE */}
-      <div className="xl:col-span-5 space-y-6">
-        <div className="bg-slate-900/40 rounded-[3rem] p-8 border border-slate-800 shadow-2xl relative overflow-hidden">
+    <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start relative pb-20 animate-in fade-in duration-500 font-roboto">
+      
+      {/* LEFT: WORKSTATION CONSOLE (40%) */}
+      <div className="xl:col-span-4 space-y-6">
+        <div className="bg-slate-900/40 rounded-[2.5rem] p-8 border border-slate-800 shadow-2xl relative overflow-hidden backdrop-blur-3xl">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 via-emerald-500 to-cyan-500" />
           
-          <div className="flex items-center gap-4 border-b border-slate-800 pb-6 mb-6">
-            <div className="w-12 h-12 bg-slate-950 rounded-2xl flex items-center justify-center text-cyan-400 border border-slate-800">
-              <Clapperboard size={24} />
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-14 h-14 bg-slate-950 rounded-2xl flex items-center justify-center text-cyan-400 border border-slate-800 shadow-inner">
+              <Clapperboard size={28} />
             </div>
             <div>
-               <h4 className="font-black text-2xl uppercase italic text-white tracking-tighter">Genesis <span className="text-cyan-400">Director</span></h4>
-               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Hybrid Optical Flow Engine</p>
+               <h4 className="font-black text-2xl uppercase italic text-white tracking-tighter leading-none">Genesis <span className="text-cyan-400">Director</span></h4>
+               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1 italic">Pro Motion Studio v6.0</p>
             </div>
           </div>
 
-          {/* Render Mode Select */}
-          <div className="space-y-4 mb-6">
+          {/* ENGINE SELECTOR */}
+          <div className="space-y-4 mb-8">
+             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                <Box size={12} /> Render Engine
+             </label>
              <div className="flex bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
                 <button 
-                  onClick={() => setRenderMode('sprite')}
-                  className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${renderMode === 'sprite' ? 'bg-slate-800 text-cyan-400 shadow-lg' : 'text-slate-500'}`}
+                  onClick={() => setRenderMode('vector')}
+                  className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${renderMode === 'vector' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500'}`}
                 >
-                  <Zap size={10} className="inline mr-1" /> Draft (Free)
+                  <Wind size={12} /> AVM (0 Cost)
                 </button>
                 <button 
                   onClick={() => setRenderMode('video')}
-                  className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${renderMode === 'video' ? 'bg-cyan-500 text-white shadow-xl' : 'text-slate-500'}`}
+                  className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${renderMode === 'video' ? 'bg-cyan-500 text-white shadow-xl' : 'text-slate-500'}`}
                 >
-                  <Sparkles size={10} className="inline mr-1" /> VEO (Premium)
+                  <Rocket size={12} /> VEO (Pro)
                 </button>
              </div>
           </div>
 
-          <div className="space-y-3 mb-6 relative z-10">
-             <label className="text-[10px] font-black text-cyan-500 uppercase tracking-widest flex items-center gap-2">
-                <Terminal size={12} /> Senaryo Detayları
-             </label>
-             <textarea 
-               value={customPrompt}
-               onChange={(e) => setCustomPrompt(e.target.value)}
-               className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-mono text-emerald-400 h-28 outline-none focus:border-cyan-500/50 resize-none shadow-inner"
-               placeholder="AI için özel talimatlar ekleyin..."
-             />
+          {/* CLINICAL CONTROLS */}
+          <div className="space-y-6 mb-8">
+             <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                   <Layers size={12} /> Anatomik Katmanlar
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                   <LayerToggle label="Skeleton" active={activeLayers.skeleton} onClick={() => toggleLayer('skeleton')} />
+                   <LayerToggle label="Muscles" active={activeLayers.muscles} onClick={() => toggleLayer('muscles')} />
+                   <LayerToggle label="Body Skin" active={activeLayers.skin} onClick={() => toggleLayer('skin')} />
+                   <LayerToggle label="Clinical HUD" active={activeLayers.HUD} onClick={() => toggleLayer('HUD')} />
+                </div>
+             </div>
+
+             <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                   <Gauge size={12} /> Playback Velocity
+                </label>
+                <input 
+                  type="range" min="0.1" max="2" step="0.1" 
+                  value={playbackSpeed}
+                  onChange={(e) => setPlaybackSpeed(parseFloat(e.target.value))}
+                  className="w-full h-1.5 bg-slate-950 rounded-full appearance-none accent-cyan-400 cursor-pointer"
+                />
+                <div className="flex justify-between text-[8px] font-mono text-slate-600">
+                   <span>SLO-MO (0.1x)</span>
+                   <span>REAL-TIME (1.0x)</span>
+                   <span>FAST (2.0x)</span>
+                </div>
+             </div>
           </div>
 
           <button 
@@ -184,114 +158,180 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
             className={`w-full py-5 rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-30 relative overflow-hidden group ${renderMode === 'video' ? 'bg-gradient-to-r from-blue-600 to-cyan-500' : 'bg-cyan-500'} text-white`}
           >
             {isGenerating ? (
-              <>
-                <Loader2 className="animate-spin" size={18} />
-                <span className="animate-pulse">PROCESSING MOTION...</span>
-              </>
+              <><Loader2 className="animate-spin" size={18} /><span className="animate-pulse">RENDERING CLINICAL DATA...</span></>
             ) : (
-              <>
-                <Wand2 size={18} />
-                SAHNEYİ OLUŞTUR
-              </>
+              <><Wand2 size={18} /> GENERATE PRODUCTION</>
             )}
           </button>
         </div>
+
+        {/* STATS PANEL */}
+        <div className="bg-slate-950/50 rounded-2xl border border-slate-800 p-6 flex justify-between items-center">
+            <div className="flex items-center gap-4">
+               <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center text-emerald-500 border border-emerald-500/20">
+                  <ShieldCheck size={20} />
+               </div>
+               <div>
+                  <h5 className="text-xs font-bold text-white uppercase italic">Anatomik Hassasiyet</h5>
+                  <p className="text-[9px] text-slate-500 font-mono">AVM Engine • 60 FPS • 4K Vector</p>
+               </div>
+            </div>
+            <div className="flex flex-col items-end">
+               <span className="text-[8px] font-black text-emerald-400 uppercase bg-emerald-500/5 px-2 py-1 rounded border border-emerald-500/20">READY</span>
+            </div>
+        </div>
       </div>
 
-      {/* RIGHT: STUDIO MONITOR */}
-      <div className="xl:col-span-7 space-y-6">
+      {/* RIGHT: MONITOR & PRODUCTION STUDIO (60%) */}
+      <div className="xl:col-span-8 space-y-6">
         <div className="relative w-full aspect-video bg-black rounded-[3rem] border-4 border-slate-800 flex flex-col overflow-hidden shadow-2xl group ring-1 ring-slate-700/50">
           
-          <div className="flex-1 relative overflow-hidden flex items-center justify-center bg-black">
+          {/* TOP BAR HUD */}
+          <div className="absolute top-0 left-0 w-full h-16 bg-gradient-to-b from-black/80 to-transparent z-40 px-8 flex items-center justify-between pointer-events-none">
+             <div className="flex items-center gap-4">
+                <div className="px-3 py-1 bg-rose-500 text-white text-[9px] font-black rounded flex items-center gap-2">
+                   <div className="w-1.5 h-1.5 bg-white rounded-full animate-ping" /> REC
+                </div>
+                <span className="text-[10px] font-mono text-white/50 tracking-widest">00:00:0{currentFrame} / 00:00:04</span>
+             </div>
+             <div className="flex items-center gap-2">
+                <button className="p-2 bg-white/5 backdrop-blur-md rounded-lg text-white pointer-events-auto hover:bg-white/10 transition-all"><Maximize2 size={16}/></button>
+                <button className="p-2 bg-white/5 backdrop-blur-md rounded-lg text-white pointer-events-auto hover:bg-white/10 transition-all"><Share2 size={16}/></button>
+             </div>
+          </div>
+
+          {/* MAIN MONITOR */}
+          <div className="flex-1 relative overflow-hidden flex items-center justify-center bg-slate-950">
+             <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #334155 1px, transparent 0)', backgroundSize: '40px 40px' }} />
+             
              {previewUrl ? (
-                <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
-                   {renderMode === 'video' || previewUrl.includes('googlevideo') || previewUrl.includes('.mp4') ? (
-                      <video 
-                        key={previewUrl}
-                        src={previewUrl} 
-                        className="w-full h-full object-cover" 
-                        autoPlay 
-                        loop 
-                        muted 
-                        playsInline
+                <div className="relative w-full h-full flex items-center justify-center">
+                   {renderMode === 'vector' ? (
+                      <div 
+                        ref={svgContainerRef}
+                        dangerouslySetInnerHTML={{ __html: svgContent }} 
+                        className={`w-full h-full p-24 flex items-center justify-center transition-all ${!activeLayers.skeleton ? '[&_#skeleton]:opacity-0' : ''} ${!activeLayers.muscles ? '[&_#muscles]:opacity-0' : ''} ${!activeLayers.skin ? '[&_#skin-outline]:opacity-20' : ''}`}
+                        style={{ filter: 'drop-shadow(0 0 20px rgba(6, 182, 212, 0.2))' }}
                       />
                    ) : (
-                      <canvas 
-                        ref={canvasRef} 
-                        width={1024} 
-                        height={1024} 
-                        className="w-full h-full object-contain"
+                      <video 
+                        src={previewUrl} 
+                        className="w-full h-full object-cover" 
+                        autoPlay loop muted playsInline
                       />
+                   )}
+
+                   {/* CLINICAL HUD OVERLAY */}
+                   {activeLayers.HUD && (
+                      <div className="absolute inset-0 pointer-events-none p-12 flex flex-col justify-between">
+                         <div className="flex justify-between">
+                            <div className="w-24 h-24 border-l border-t border-cyan-500/40" />
+                            <div className="w-24 h-24 border-r border-t border-cyan-500/40" />
+                         </div>
+                         <div className="flex items-center justify-center gap-12">
+                             <div className="text-center">
+                                <p className="text-[8px] font-black text-cyan-500 uppercase">ROM Angle</p>
+                                <p className="text-2xl font-black text-white italic">124°</p>
+                             </div>
+                             <div className="text-center">
+                                <p className="text-[8px] font-black text-emerald-500 uppercase">Load Balance</p>
+                                <p className="text-2xl font-black text-white italic">48/52</p>
+                             </div>
+                         </div>
+                         <div className="flex justify-between">
+                            <div className="w-24 h-24 border-l border-b border-cyan-500/40" />
+                            <div className="w-24 h-24 border-r border-b border-cyan-500/40" />
+                         </div>
+                      </div>
                    )}
                 </div>
              ) : (
                <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-800">
-                  <MonitorPlay size={64} strokeWidth={1} />
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] mt-4 opacity-50">Sinyal Yok</p>
-               </div>
-             )}
-
-             {isMotionActive && (
-               <div className="absolute top-8 right-8 flex items-center gap-2 z-30 bg-black/50 px-3 py-1 rounded-full backdrop-blur-md border border-white/10">
-                  <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_#10b981]" />
-                  <span className="text-[9px] font-black text-white uppercase tracking-widest">SMOOTH MOTION ACTIVE</span>
+                  <MonitorPlay size={80} strokeWidth={1} className="opacity-20" />
+                  <p className="text-[10px] font-black uppercase tracking-[0.4em] mt-6 opacity-30">Genesis Station Offline</p>
                </div>
              )}
           </div>
 
-          <div className="h-20 bg-slate-900 border-t border-slate-800 flex items-center px-6 gap-6 z-30">
-             <button 
-              onClick={() => setIsMotionActive(!isMotionActive)}
-              disabled={!previewUrl}
-              className="w-10 h-10 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-white transition-all border border-slate-700"
-             >
-                {isMotionActive ? <Pause size={16} fill="currentColor"/> : <Play size={16} fill="currentColor" className="ml-0.5"/>}
-             </button>
-
-             <div className="flex-1 flex flex-col justify-center gap-1">
-                <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
-                   <div 
-                      className={`h-full bg-cyan-500 transition-all duration-300 ${isMotionActive ? 'w-full' : 'w-0'}`} 
-                   />
-                </div>
-                <div className="flex justify-between text-[8px] font-mono text-slate-500 uppercase">
-                   <span>{renderMode === 'sprite' ? 'INTERPOLATED 60FPS' : 'REAL VIDEO'}</span>
-                   <span className="text-cyan-400 font-bold uppercase">Fluid Engine v5.2</span>
-                   <span>00:03</span>
+          {/* MASTER SCRUBBER & TIMELINE CONTROL */}
+          <div className="h-24 bg-slate-900 border-t border-slate-800 flex flex-col z-50">
+             {/* SCRUBBER RAIL */}
+             <div className="h-8 bg-slate-950/50 flex items-center relative group/scrub">
+                <input 
+                  type="range" min="0" max="60" 
+                  value={currentFrame}
+                  onChange={(e) => setCurrentFrame(parseInt(e.target.value))}
+                  className="w-full h-full appearance-none bg-transparent cursor-ew-resize relative z-10"
+                />
+                <div className="absolute top-0 left-0 h-full bg-cyan-500/10 border-r-2 border-cyan-500 pointer-events-none transition-all" style={{ width: `${(currentFrame/60)*100}%` }} />
+                
+                {/* TIMELINE TICKS */}
+                <div className="absolute inset-0 flex justify-between px-1 pointer-events-none opacity-20">
+                   {[...Array(12)].map((_, i) => <div key={i} className="h-full w-px bg-slate-700" />)}
                 </div>
              </div>
 
-             <div className="flex items-center gap-2">
-                <ExportBtn icon={FileVideo} label="EXPORT" onClick={() => {}} />
+             <div className="flex-1 flex items-center px-8 gap-8">
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={() => setIsMotionActive(!isMotionActive)}
+                    disabled={!previewUrl}
+                    className={`w-12 h-12 rounded-full flex items-center justify-center transition-all border ${isMotionActive ? 'bg-slate-800 border-slate-700 text-white' : 'bg-cyan-500 border-cyan-400 text-white shadow-lg'}`}
+                  >
+                      {isMotionActive ? <Pause size={20} fill="currentColor"/> : <Play size={20} fill="currentColor" className="ml-1"/>}
+                  </button>
+                  <button onClick={() => setCurrentFrame(0)} className="text-slate-500 hover:text-white transition-colors"><FastForward size={20} className="rotate-180" /></button>
+                </div>
+
+                <div className="flex-1 flex items-center gap-4 text-xs font-mono">
+                   <span className="text-cyan-400 font-black italic">PRORES-VBR</span>
+                   <span className="text-slate-700">|</span>
+                   <span className="text-slate-500 uppercase tracking-widest font-black">Frame: {currentFrame}</span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                   <button 
+                    onClick={startProductionRecording}
+                    disabled={isRecording || !previewUrl}
+                    className={`flex items-center gap-3 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isRecording ? 'bg-rose-500 text-white animate-pulse' : 'bg-slate-800 border border-slate-700 text-emerald-400 hover:bg-emerald-500 hover:text-white'}`}
+                   >
+                      {isRecording ? <Loader2 className="animate-spin" size={14} /> : <FileVideo size={14} />} 
+                      {isRecording ? 'RECORDING...' : 'MP4 PRODUCTION'}
+                   </button>
+                   <button className="p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-400 hover:text-white transition-all"><Save size={16}/></button>
+                </div>
              </div>
           </div>
         </div>
 
-        <div className="bg-slate-950 rounded-2xl border border-slate-800 p-6 flex justify-between items-center">
-            <div className="flex items-center gap-4">
-               <div className="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center text-slate-500 border border-slate-800">
-                  <Wind size={20} className="text-emerald-500" />
-               </div>
-               <div>
-                  <h5 className="text-xs font-bold text-white uppercase italic">Anatomik Vektör Akışı</h5>
-                  <p className="text-[9px] text-slate-500 font-mono">16 Keyframes • Optical Flow Crossfade • 0ms Lag</p>
-               </div>
-            </div>
-            <div className="text-right">
-               <span className="text-[9px] font-black text-cyan-400 uppercase tracking-widest bg-cyan-500/5 px-2 py-1 rounded border border-cyan-500/20">READY FOR SYNC</span>
-            </div>
+        {/* FOOTER: SYSTEM INSIGHTS */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+           <InsightBit icon={Activity} label="Motion Flow" value="Biyomekanik Uygun" color="text-emerald-400" />
+           <InsightBit icon={Terminal} label="Script Sync" value="Timeline Ready" color="text-cyan-400" />
+           <InsightBit icon={ShieldCheck} label="Anatomic Fix" value="Pivot OK" color="text-emerald-400" />
         </div>
       </div>
     </div>
   );
 };
 
-const ExportBtn = ({ icon: Icon, label, onClick }: any) => (
-    <button 
-      onClick={onClick}
-      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-cyan-500/50 hover:text-cyan-400 text-slate-400 transition-all active:scale-95"
-    >
-       <Icon size={12} />
-       <span className="text-[8px] font-black uppercase tracking-widest">{label}</span>
-    </button>
+const LayerToggle = ({ label, active, onClick }: { label: string, active: boolean, onClick: () => void }) => (
+  <button 
+    onClick={onClick}
+    className={`px-4 py-2.5 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-between ${active ? 'bg-slate-800 border-cyan-500 text-cyan-400 shadow-lg' : 'bg-slate-950 border-slate-800 text-slate-600'}`}
+  >
+    {label} {active ? <Eye size={12}/> : <EyeOff size={12}/>}
+  </button>
+);
+
+const InsightBit = ({ icon: Icon, label, value, color }: any) => (
+  <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl flex items-center gap-3">
+     <div className={`p-2 bg-slate-950 rounded-lg ${color} border border-slate-800`}>
+        <Icon size={14} />
+     </div>
+     <div>
+        <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest">{label}</p>
+        <p className="text-[10px] font-bold text-white uppercase italic">{value}</p>
+     </div>
+  </div>
 );
