@@ -55,17 +55,16 @@
 <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@18.3.1",
-    "react-dom": "https://esm.sh/react-dom@18.3.1",
-    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
-    "lucide-react": "https://esm.sh/lucide-react@0.474.0?external=react,react-dom",
-    "@google/genai": "https://esm.sh/@google/genai@1.40.0",
-    "recharts": "https://esm.sh/recharts@2.12.7?external=react,react-dom",
-    "framer-motion": "https://esm.sh/framer-motion@11.11.11?external=react,react-dom",
-    "@vercel/node": "https://esm.sh/@vercel/node@^5.6.3",
-    "@vercel/postgres": "https://esm.sh/@vercel/postgres@^0.10.0",
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom": "https://esm.sh/react-dom@^19.2.4",
+    "react-dom/client": "https://esm.sh/react-dom@^19.2.4/client",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.40.0",
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "react/": "https://esm.sh/react@^19.2.4/"
+    "@vercel/node": "https://esm.sh/@vercel/node@^5.6.2",
+    "@vercel/postgres": "https://esm.sh/@vercel/postgres@^0.10.0",
+    "recharts": "https://esm.sh/recharts@2.12.7"
   }
 }
 </script>
@@ -73,5 +72,34 @@
 <body>
     <div id="root"></div>
     <script type="module" src="index.tsx"></script>
+    <script>
+      /**
+       * PHYSIOCORE AI - GENESIS SW MANAGER (v4.5 Stable)
+       * Vercel ve Vite entegrasyonu için mutlak yol (/sw.js) kullanımı.
+       */
+      (function() {
+        if (!('serviceWorker' in navigator)) return;
+
+        const registerSW = async () => {
+          try {
+            if (document.readyState !== 'complete') {
+              window.addEventListener('load', registerSW, { once: true });
+              return;
+            }
+
+            // Vite 'public' klasöründeki dosyalar root'tan servis edilir.
+            const registration = await navigator.serviceWorker.register('/sw.js');
+            console.log('%c[PhysioCore] Genesis SW Online', 'color: #06B6D4; font-weight: bold;', registration.scope);
+          } catch (err) {
+            console.groupCollapsed('%c[PhysioCore] SW Status: Local-Only Mode', 'color: #f59e0b; font-weight: bold;');
+            console.info('Service Worker feature is disabled in this environment.');
+            console.debug('Reason:', err.message);
+            console.groupEnd();
+          }
+        };
+
+        registerSW();
+      })();
+    </script>
 </body>
 </html>

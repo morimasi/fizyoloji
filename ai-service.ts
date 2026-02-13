@@ -3,43 +3,90 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { PatientProfile, ProgressReport, Exercise, AnimationChoreography, TreatmentHistory, DetailedPainLog } from "./types.ts";
 
 /**
- * PHYSIOCORE AI - MASTER CLINICAL ADAPTER (v5.6)
- * Based on Section 5 of fizyo.md Master Blueprint.
+ * PHYSIOCORE AI - SMART KEY ADAPTER (v5.4)
+ * Handles API key sourcing exclusively from process.env.API_KEY and secure AI Studio selection.
  */
 
+export const ensureApiKey = async (): Promise<string> => {
+  // Always prioritize and exclusively use process.env.API_KEY as per core guidelines.
+  let key = process.env.API_KEY;
+
+  // Fallback check for AI Studio Bridge selection if process.env.API_KEY is missing.
+  // This helps in development environments where a key selection dialog is used.
+  const aistudio = (window as any).aistudio;
+  if (!key || key === "undefined" || key === "") {
+    if (aistudio && typeof aistudio.hasSelectedApiKey === 'function') {
+      const hasKey = await aistudio.hasSelectedApiKey();
+      if (!hasKey) {
+        // Trigger the key selection dialog if no key is currently active.
+        try {
+          await aistudio.openSelectKey();
+        } catch (e) {
+          console.warn("AI Studio key selection failed or cancelled.");
+        }
+      }
+      // Re-acquire the key from the environment after selection.
+      key = process.env.API_KEY;
+    }
+  }
+
+  if (!key || key === "" || key === "undefined") {
+    throw new Error("API_KEY_NOT_FOUND");
+  }
+
+  return key;
+};
+
+// Helper function to initialize GoogleGenAI and execute a call just-in-time.
 const callGemini = async (fn: (ai: GoogleGenAI) => Promise<any>) => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    if (!process.env.API_KEY) throw new Error("API_KEY_NOT_FOUND");
+    const apiKey = await ensureApiKey();
+    // Always create a new instance right before making the API call.
+    const ai = new GoogleGenAI({ apiKey });
     return await fn(ai);
   } catch (err: any) {
     console.error("Gemini API Error:", err);
+    // Handle entity not found errors by resetting the key selection if applicable.
     if (err.message?.includes("API_KEY_NOT_FOUND") || err.message?.includes("Requested entity was not found")) {
       const aistudio = (window as any).aistudio;
-      if (aistudio && typeof aistudio.openSelectKey === 'function') {
-        await aistudio.openSelectKey();
-      }
+      if (aistudio) await aistudio.openSelectKey();
     }
     throw err;
   }
 };
 
+export const generateExerciseChoreography = async (exercise: Partial<Exercise>): Promise<AnimationChoreography | null> => {
+  return await callGemini(async (ai) => {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `Generate animation choreography for physical therapy: "${exercise.titleTr || exercise.title}"`,
+      config: { responseMimeType: "application/json" }
+    });
+    // Use .text property directly, do not call as a method.
+    return JSON.parse(response.text || "null");
+  });
+};
+
+export const generateExerciseVisual = async (exercise: Partial<Exercise>, style: string): Promise<string> => {
+  return await callGemini(async (ai) => {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: { parts: [{ text: `Clinical Anatomy Illustration: ${exercise.titleTr || exercise.title}. Style: ${style}` }] },
+      config: { imageConfig: { aspectRatio: "1:1" } }
+    });
+    // Iterate through candidates to find the image data.
+    const part = response.candidates?.[0]?.content?.parts.find(p => p.inlineData);
+    return part ? `data:image/png;base64,${part.inlineData.data}` : '';
+  });
+};
+
 export const runClinicalConsultation = async (text: string, imageBase64?: string): Promise<PatientProfile | null> => {
   return await callGemini(async (ai) => {
-    const systemInstruction = `
-      Sen kıdemli bir klinik fizyoterapist AI'sın. fizyo.md blueprint'ine sadık kalarak bir PatientProfile JSON oluştur.
-      KLİNİK KURALLAR (Section 5):
-      1. Tanı 'Herniation' ise Flexion içeren egzersizler YASAKTIR.
-      2. Başlangıç ağrısını (VAS) belirle.
-      3. Dozaj Formülü: reps = max(5, 15 - pain_score).
-      4. Egzersiz seçiminde biomechanics alanına 'Extension Bias' veya 'Flexion Bias' notu ekle.
-    `;
-
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: {
         parts: [
-          { text: `${systemInstruction}\n\nHasta Şikayeti: "${text}"` },
+          { text: `Clinical Analysis. Generate PatientProfile JSON for complaint: "${text}"` },
           ...(imageBase64 ? [{ inlineData: { mimeType: 'image/jpeg', data: imageBase64.split(',')[1] } }] : [])
         ]
       },
@@ -51,43 +98,12 @@ export const runClinicalConsultation = async (text: string, imageBase64?: string
 
 export const runAdaptiveAdjustment = async (currentProfile: PatientProfile, feedback: ProgressReport): Promise<PatientProfile> => {
   return await callGemini(async (ai) => {
-    const systemInstruction = `
-      Hastanın gelişim raporuna göre reçeteyi ADAPTE et.
-      KURAL SETİ:
-      - Eğer painScore > 7 ise: Sadece "Isometric" veya "Relaxation" egzersizleri bırak, diğerlerini kaldır.
-      - Eğer painScore düştüyse: Zorluğu (difficulty) 1 kademe artır ve reps formülünü (max(5, 15-pain)) tekrar hesapla.
-      - latestInsight alanına klinik bir 'adaptationNote' ekle.
-    `;
-
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `${systemInstruction}\n\nMevcut Profil: ${JSON.stringify(currentProfile)}\n\nYeni Geri Bildirim: ${JSON.stringify(feedback)}`,
+      contents: `Update PatientProfile JSON for feedback: ${JSON.stringify(feedback)}`,
       config: { responseMimeType: "application/json" }
     });
     return JSON.parse(response.text || "{}");
-  });
-};
-
-export const generateExerciseChoreography = async (exercise: Partial<Exercise>): Promise<AnimationChoreography | null> => {
-  return await callGemini(async (ai) => {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `Egzersiz için 5 karelik SVG transform/rotation verisi üret (JSON): "${exercise.titleTr || exercise.title}"`,
-      config: { responseMimeType: "application/json" }
-    });
-    return JSON.parse(response.text || "null");
-  });
-};
-
-export const generateExerciseVisual = async (exercise: Partial<Exercise>, style: string): Promise<string> => {
-  return await callGemini(async (ai) => {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: { parts: [{ text: `Clinical Anatomy Illustration (Master Blueprint Section 8): ${exercise.titleTr || exercise.title}. Style: ${style}. Ultra-high detail, professional rehabilitation art.` }] },
-      config: { imageConfig: { aspectRatio: "1:1" } }
-    });
-    const part = response.candidates?.[0]?.content?.parts.find(p => p.inlineData);
-    return part ? `data:image/png;base64,${part.inlineData.data}` : '';
   });
 };
 
@@ -95,7 +111,7 @@ export const generateExerciseData = async (title: string): Promise<Partial<Exerc
   return await callGemini(async (ai) => {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `fizyo.md standartlarında egzersiz verisi oluştur: "${title}"`,
+      contents: `Build exercise data JSON for: "${title}"`,
       config: { responseMimeType: "application/json" }
     });
     return JSON.parse(response.text || "{}");
@@ -106,7 +122,7 @@ export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: st
   return await callGemini(async (ai) => {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Optimize physical therapy exercise for "${goal}". Current: ${JSON.stringify(exercise)}`,
+      contents: `Optimize exercise for ${goal}. Current: ${JSON.stringify(exercise)}`,
       config: { responseMimeType: "application/json" }
     });
     return JSON.parse(response.text || "{}");
@@ -117,13 +133,15 @@ export const generateCoachingAudio = async (text: string): Promise<string> => {
   return await callGemini(async (ai) => {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text: `Say with clinical authority: ${text}` }] }],
+      contents: [{ parts: [{ text }] }],
       config: {
         responseModalities: [Modality.AUDIO],
         speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
       },
     });
+    // Extract raw PCM audio data from the response.
     const data = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    // Base64 encoded raw PCM data for decoding in UI.
     return data ? data : '';
   });
 };

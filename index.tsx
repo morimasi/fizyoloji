@@ -1,10 +1,11 @@
 
-import React, { useState, useRef, useEffect, ReactNode, Component, ErrorInfo } from 'react';
+import React, { useState, useRef, useEffect, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { 
   Activity, User as UserIcon, Zap, BrainCircuit, Upload, 
   Stethoscope, LayoutDashboard, Database, TrendingUp, Users, 
-  CheckCircle2, AlertTriangle, Key, ShieldCheck, RefreshCw, X
+  CheckCircle2, AlertTriangle, Key, ShieldCheck, RefreshCw, X,
+  Info, Globe, Lock
 } from 'lucide-react';
 import { AppTab, PatientProfile, Exercise, ProgressReport } from './types.ts';
 import { runClinicalConsultation, runAdaptiveAdjustment } from './ai-service.ts';
@@ -18,24 +19,24 @@ import { UserManager } from './UserManager.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// Fix: Inherit directly from Component to resolve property access issues for 'props' and 'state' in TypeScript environments
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// ErrorBoundary class component to catch rendering errors in the app tree.
+// Generics are explicitly defined to satisfy TypeScript environment constraints.
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Explicit declaration of state property to resolve "Property 'state' does not exist" errors.
   public state: ErrorBoundaryState = { hasError: false };
 
   constructor(props: ErrorBoundaryProps) {
     super(props);
+    // Redundant initialization for backward compatibility and strict constructor checks.
+    this.state = { hasError: false };
   }
 
   static getDerivedStateFromError(_error: Error): ErrorBoundaryState { 
     return { hasError: true }; 
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("Uncaught error:", error, errorInfo);
-  }
-
   render() {
-    // Accessing state inherited from Component
+    // Accessing this.state which is now explicitly declared.
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-12 text-center">
@@ -47,8 +48,8 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
-    // Accessing children from props
-    return this.props.children || null;
+    // Accessing this.props which is inherited from React.Component.
+    return this.props.children;
   }
 }
 
@@ -74,20 +75,22 @@ export default function PhysioCoreApp() {
     
     const checkKeyStatus = async () => {
       const aistudio = (window as any).aistudio;
-      if (aistudio && typeof aistudio.hasSelectedApiKey === 'function') {
-        const selected = await aistudio.hasSelectedApiKey();
-        setHasKey(selected);
-      } else {
-        setHasKey(!!process.env.API_KEY);
+      if (aistudio) {
+        const result = await aistudio.hasSelectedApiKey();
+        // Exclusively use process.env.API_KEY as per GenAI guidelines.
+        setHasKey(result || !!process.env.API_KEY);
       }
     };
     checkKeyStatus();
+    const interval = setInterval(checkKeyStatus, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleOpenKey = async () => {
     const aistudio = (window as any).aistudio;
     if (aistudio) {
       await aistudio.openSelectKey();
+      // Assume success after opening the dialog to avoid race conditions.
       setHasKey(true);
       setShowKeyWarning(false);
     }
@@ -105,7 +108,7 @@ export default function PhysioCoreApp() {
       }
     } catch (err: any) {
       console.error("Consultation Crash:", err);
-      if (err.message === "API_KEY_NOT_FOUND" || err.message?.includes("Requested entity was not found")) {
+      if (err.message === "API_KEY_NOT_FOUND") {
         setShowKeyWarning(true);
       }
     } finally {
@@ -124,9 +127,7 @@ export default function PhysioCoreApp() {
       setShowFeedbackModal(false);
       setActiveTab('progress');
     } catch (err: any) {
-      if (err.message === "API_KEY_NOT_FOUND" || err.message?.includes("Requested entity was not found")) {
-        setShowKeyWarning(true);
-      }
+      if (err.message === "API_KEY_NOT_FOUND") setShowKeyWarning(true);
     } finally {
       setIsAnalyzing(false);
     }
@@ -247,7 +248,7 @@ export default function PhysioCoreApp() {
       {/* API Key Modal Warning */}
       {showKeyWarning && (
         <div className="fixed inset-0 z-[200] bg-slate-950/95 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in">
-           <div className="bg-slate-900 border border-slate-800 w-full max-lg rounded-[3.5rem] p-12 space-y-8 shadow-2xl text-center relative overflow-hidden">
+           <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-[3.5rem] p-12 space-y-8 shadow-2xl text-center relative overflow-hidden">
               <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/5 rounded-full blur-[80px] -mr-32 -mt-32" />
               <div className="w-20 h-20 bg-rose-500/10 rounded-[2rem] mx-auto flex items-center justify-center text-rose-500 border border-rose-500/20 shadow-inner">
                 <Key size={40} />
@@ -255,8 +256,16 @@ export default function PhysioCoreApp() {
               <div className="space-y-4 relative z-10">
                 <h3 className="text-3xl font-black italic tracking-tighter uppercase text-white">BAĞLANTI <span className="text-rose-500">KESİLDİ</span></h3>
                 <p className="text-xs text-slate-400 leading-relaxed font-medium">
-                  Hizmet anahtarı bulunamadı veya geçersiz. Lütfen AI Studio köprüsü üzerinden bir anahtar seçin.
+                  Vercel veya Vite üzerindeki <b>API_KEY</b> çevresel değişkeni tarayıcı tarafına sızdırılmamış olabilir. Lütfen AI Studio köprüsü üzerinden bir anahtar seçin veya Vercel panelinden "Redeploy" yapın.
                 </p>
+                <div className="bg-slate-950 p-6 rounded-2xl border border-white/5 text-left space-y-3">
+                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><Info size={12}/> Teknik Çözüm Yolları</p>
+                   <ul className="text-[10px] text-slate-400 space-y-2 list-disc pl-4 italic">
+                     <li>Vercel Ayarlarında değişken adını <b>API_KEY</b> olarak kontrol edin.</li>
+                     <li>Vite projesinde <b>.env</b> dosyasına <b>VITE_API_KEY</b> ekleyin.</li>
+                     <li>Aşağıdaki butona basarak manuel anahtar seçin.</li>
+                   </ul>
+                </div>
               </div>
               <div className="flex gap-4 relative z-10">
                  <button onClick={() => setShowKeyWarning(false)} className="flex-1 py-5 bg-slate-800 rounded-2xl text-[11px] font-black text-slate-500 uppercase tracking-widest border border-slate-800">KAPAT</button>
@@ -320,10 +329,4 @@ function FeatureSmall({ icon: Icon, title, desc }: any) {
 }
 
 const rootElement = document.getElementById('root');
-if (rootElement) { 
-  createRoot(rootElement).render(
-    <ErrorBoundary>
-      <PhysioCoreApp />
-    </ErrorBoundary>
-  ); 
-}
+if (rootElement) { createRoot(rootElement).render(<ErrorBoundary><PhysioCoreApp /></ErrorBoundary>); }

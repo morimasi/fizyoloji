@@ -40,6 +40,7 @@ export interface Exercise {
   restPeriod?: number;
   muscleGroups?: string[];
   choreography?: AnimationChoreography;
+  // Added missing properties to support CMS and seed data
   equipment?: string[];
   rehabPhase?: 'Akut' | 'Sub-Akut' | 'Kronik' | 'Performans' | string;
   movementPlane?: 'Sagittal' | 'Frontal' | 'Transverse' | 'Oblique' | 'Multi-Planar' | 'Circumduction' | 'Visual' | 'Deep' | 'Internal' | 'Fascial' | 'Static' | 'Steady' | 'Rhythmic' | 'Safe' | 'Controlled' | 'Fluid' | 'Patient-led' | 'Continuous' | 'Normal' | 'Step' | '30s Hold' | 'Slow' | string;
@@ -99,15 +100,9 @@ export interface ProgressReport {
 }
 
 export type AppTab = 'consultation' | 'dashboard' | 'cms' | 'progress' | 'users';
-export type TherapistTab = 'dashboard' | 'patients' | 'intelligence' | 'settings';
 
-// Enhanced for Staff Module
-export interface StaffPerformanceMetrics {
-  monthlyRetention: number; // %
-  avgSessionDuration: number; // minutes
-  protocolAdherence: number; // %
-  patientSatisfaction: number; // 0-5
-}
+// Added missing types for User Management and Therapist Hub
+export type TherapistTab = 'dashboard' | 'patients' | 'intelligence' | 'settings';
 
 export interface TherapistProfile {
   specialization: string[];
@@ -116,15 +111,10 @@ export interface TherapistProfile {
   successRate: number;
   totalPatientsActive: number;
   averageRecoveryTime: string;
-  // Enhanced Settings for Staff Module
-  availabilityStatus?: 'Online' | 'In-Session' | 'Offline' | 'Break';
-  performanceMetrics?: StaffPerformanceMetrics;
-  shiftSchedule?: string; // e.g., "09:00 - 17:00"
   aiAssistantSettings: {
     autoSuggestProtocols: boolean;
     notifyHighRisk: boolean;
     weeklyReports: boolean;
-    sensitivityLevel?: 'Conservative' | 'Balanced' | 'Aggressive'; // For AI Logic
   };
 }
 

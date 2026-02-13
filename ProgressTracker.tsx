@@ -46,22 +46,16 @@ export const ProgressTracker = ({ profile }: { profile: PatientProfile }) => {
             <div className="space-y-6">
                <div className="p-5 bg-slate-950 rounded-2xl border border-slate-800 space-y-2">
                   <p className="text-[10px] font-mono text-cyan-500 uppercase tracking-widest flex items-center gap-2"><Info size={12}/> Ağrı Karakter Analizi</p>
-                  <p className="text-sm text-slate-300 italic">
-                    "{String(profile.latestInsight.painTrendAnalysis || "Ağrı karakteri stabil izleniyor.")}"
-                  </p>
+                  <p className="text-sm text-slate-300 italic">"{profile.latestInsight.painTrendAnalysis || "Ağrı karakteri stabil izleniyor."}"</p>
                </div>
                <div className="p-5 bg-slate-950 rounded-2xl border border-slate-800 border-l-4 border-l-cyan-500">
                   <p className="text-[10px] font-mono text-cyan-500 uppercase mb-1">Muhakeme Özeti</p>
-                  <p className="text-xs text-slate-400 leading-relaxed italic">
-                    {String(profile.latestInsight.summary || 'Özet hazırlanıyor...')}
-                  </p>
+                  <p className="text-xs text-slate-400 leading-relaxed italic">{profile.latestInsight.summary}</p>
                </div>
                <div className="flex items-center gap-4 pt-4 border-t border-slate-800">
                   <div className="flex-1">
                     <p className="text-[10px] font-mono text-slate-500 uppercase">Adaptasyon Stratejisi</p>
-                    <p className="text-sm font-bold text-white uppercase italic">
-                      {String(profile.latestInsight.nextStep || 'İzleme devam ediyor.')}
-                    </p>
+                    <p className="text-sm font-bold text-white uppercase italic">{profile.latestInsight.nextStep}</p>
                   </div>
                   <AlertCircle size={20} className="text-cyan-500 animate-pulse" />
                </div>
@@ -87,9 +81,7 @@ export const ProgressTracker = ({ profile }: { profile: PatientProfile }) => {
                       </div>
                       <div>
                         <p className="text-xs font-bold text-slate-200">Seans Tamamlandı</p>
-                        <p className="text-[10px] text-slate-500 italic truncate max-w-[150px]">
-                          "{String(log.feedback || '')}"
-                        </p>
+                        <p className="text-[10px] text-slate-500 italic truncate max-w-[150px]">"{log.feedback}"</p>
                       </div>
                    </div>
                    <div className="text-right">

@@ -2,7 +2,8 @@
 import React, { useState } from 'react';
 import { 
   LayoutDashboard, Users, BrainCircuit, Settings, 
-  Zap
+  Search, Bell, LogOut, ChevronRight, Activity,
+  ShieldCheck, Terminal, Filter, Zap
 } from 'lucide-react';
 import { TherapistDashboard } from './TherapistDashboard.tsx';
 import { ClinicalIntelligence } from './ClinicalIntelligence.tsx';
@@ -36,6 +37,7 @@ export const TherapistHub = () => {
 
   return (
     <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      {/* Top Banner / Breadcrumb */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="flex items-center gap-5">
           <div className="w-16 h-16 bg-slate-900 rounded-[1.5rem] flex items-center justify-center border border-slate-800 text-cyan-500 shadow-2xl relative">
@@ -45,7 +47,7 @@ export const TherapistHub = () => {
           <div>
             <h2 className="text-3xl font-black tracking-tighter text-white italic uppercase leading-none">TERAPİST <span className="text-cyan-400">Hub</span></h2>
             <div className="flex items-center gap-2 mt-2">
-              <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest bg-slate-950 px-3 py-1 rounded border border-white/5">
+              <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest bg-slate-950 px-3 py-1 rounded border border-slate-800">
                 LİSANS: PC-99412
               </span>
               <span className="w-1 h-1 bg-slate-800 rounded-full" />
@@ -62,6 +64,7 @@ export const TherapistHub = () => {
         </div>
       </div>
 
+      {/* Dynamic Content Area */}
       <div className="relative min-h-[600px]">
         {activeTab === 'dashboard' && <TherapistDashboard therapist={currentTherapist} />}
         {activeTab === 'patients' && <UserManager />}
