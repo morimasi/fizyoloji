@@ -35,8 +35,15 @@ export const TherapistManagement = ({ isAdminOverride = false }: { isAdminOverri
       });
       const newTasks = JSON.parse(response.text || "[]");
       setTasks(prev => [...prev, ...newTasks.map((t: any) => ({ ...t, id: Date.now().toString() + Math.random(), status: 'Pending' }))]);
-    } catch (err) {
+    } catch (err: any) {
       console.error("AI Task Gen Error", err);
+      // Hata Yönetimi: API Anahtarı eksikse diyaloğu aç
+      if (err.message === "API_KEY_MISSING" || err.message?.includes("Requested entity was not found")) {
+         const aistudio = (window as any).aistudio;
+         if (aistudio) await aistudio.openSelectKey();
+      } else {
+         alert("AI Görev listesi oluşturulamadı: " + (err.message || "Bilinmeyen hata"));
+      }
     } finally {
       setIsGenerating(false);
     }

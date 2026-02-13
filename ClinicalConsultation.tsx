@@ -55,8 +55,15 @@ export const ClinicalConsultation: React.FC<ConsultationProps> = ({ onAnalysisCo
       if (result) {
         onAnalysisComplete(result);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Analysis Failed", err);
+      // Hata Yönetimi: API Anahtarı eksikse diyaloğu aç
+      if (err.message === "API_KEY_MISSING" || err.message?.includes("Requested entity was not found")) {
+         const aistudio = (window as any).aistudio;
+         if (aistudio) await aistudio.openSelectKey();
+      } else {
+         alert("Klinik analiz başlatılamadı: " + (err.message || "Bilinmeyen sunucu hatası."));
+      }
       setStep(1);
     } finally {
       setIsAnalyzing(false);
