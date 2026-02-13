@@ -106,33 +106,43 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
     const ai = new GoogleGenAI({ apiKey });
     
     let stylePrompt = "";
-    
+    // Hareketli modlar için özel prompt stratejisi: "Sprite Sheet"
+    let isSpriteRequest = false;
+    let aspectRatio = "1:1";
+
     switch (style) {
         case 'Medical-Vector':
-            stylePrompt = "Medical Vector Art: Clean lines, minimalist, neon blue accents on dark background. Focus on muscle anatomy.";
+            stylePrompt = "TWO PANEL SPRITE SHEET (Side by Side). LEFT PANEL: Start Position. RIGHT PANEL: End Position. Style: Medical Vector Art, clean neon blue lines on dark background. Show muscle contraction clearly.";
+            isSpriteRequest = true;
+            aspectRatio = "16:9";
             break;
         case 'X-Ray-Lottie':
-            stylePrompt = "X-Ray Style: Transparent skeletal view, highlighting joint angles. Glowing bones on dark background.";
+            stylePrompt = "TWO PANEL SPRITE SHEET (Side by Side). LEFT PANEL: Start Position. RIGHT PANEL: End Position. Style: X-Ray Skeleton, glowing bones, transparent body. Highlight active joints.";
+            isSpriteRequest = true;
+            aspectRatio = "16:9";
             break;
         case 'Cinematic-GIF':
-            stylePrompt = "Dynamic Motion Shot: High contrast, motion blur trails indicating movement direction. Cyberpunk medical aesthetic. Action pose.";
+            stylePrompt = "TWO PANEL SPRITE SHEET (Side by Side). LEFT PANEL: Start Pose. RIGHT PANEL: Peak Action Pose. Style: Photorealistic 8k, dramatic lighting, professional physiotherapy studio environment.";
+            isSpriteRequest = true;
+            aspectRatio = "16:9";
             break;
         case 'Clinical-Slide':
-            stylePrompt = "Split Screen Sequence: Left side showing 'Start Position', Right side showing 'End Position'. Clear instructional diagram.";
+            stylePrompt = "Instructional Diagram. Split screen showing Start vs End position clearly labeled with arrows.";
+            aspectRatio = "16:9";
             break;
         default:
-            stylePrompt = "Medical Illustration: High fidelity, professional clinic style.";
+            stylePrompt = "Medical Illustration: High fidelity, professional clinic style, centered composition.";
     }
 
     const fullPrompt = `Create a professional physiotherapy visual for: "${exercise.titleTr || exercise.title}". 
-    Style: ${stylePrompt}. 
-    Context: Rehabilitation exercise guide. 
-    Aspect Ratio: Square (1:1).`;
+    PROMPT: ${stylePrompt}
+    Context: Clinical rehabilitation guide. 
+    Important: If asking for TWO PANELS, ensure strict separation between left and right side for animation processing.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: { parts: [{ text: fullPrompt }] },
-      config: { imageConfig: { aspectRatio: "1:1" } }
+      config: { imageConfig: { aspectRatio: aspectRatio } }
     });
     
     if (response.candidates?.[0]?.content?.parts) {
@@ -142,6 +152,7 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
     }
     return '';
   } catch (e) {
+    console.error("Image Gen Error", e);
     return '';
   }
 };
@@ -161,10 +172,6 @@ export const generateExerciseData = async (exerciseName: string): Promise<Partia
   }
 };
 
-/**
- * THE PUPPET MASTER: Generates Animation Script & Audio
- * This creates a "Live Animation" without video files.
- */
 export const generateExerciseTutorial = async (exerciseTitle: string): Promise<ExerciseTutorial | null> => {
   try {
     const apiKey = await ensureApiKey();

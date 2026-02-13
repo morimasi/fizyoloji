@@ -108,6 +108,7 @@ export interface Exercise {
   videoUrl?: string;
   isMotion?: boolean;
   visualStyle?: string;
+  visualLayout?: 'single' | 'sprite-2'; // New: Determines if image is split-screen
   isPersonalized?: boolean;
   tempo?: string;
   restPeriod?: number;
@@ -115,7 +116,7 @@ export interface Exercise {
   equipment?: string[];
   rehabPhase?: 'Akut' | 'Sub-Akut' | 'Kronik' | 'Performans';
   movementPlane?: string;
-  tutorialData?: ExerciseTutorial; // New field for Zero-Cost Animation
+  tutorialData?: ExerciseTutorial; 
 }
 
 export interface ProgressReport {
