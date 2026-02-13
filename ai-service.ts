@@ -6,115 +6,89 @@ import { PatientProfile, ProgressReport, Exercise, DetailedPainLog, TreatmentHis
  * GENESIS AVM v3.5 - TITAN MTS (MYOELECTRIC TENSION SIMULATION) ENGINE
  */
 export const generateExerciseVisual = async (exercise: Partial<Exercise>, style: string, customDirective?: string): Promise<{ url: string, frameCount: number, layout: 'grid-4x4' }> => {
-  try {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) throw new Error("API Key configuration missing");
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const totalFrames = 16;
+  
+  const fullPrompt = `
+    ULTRA-REALISTIC 4K MEDICAL 3D RENDER SPRITE SHEET (4x4 GRID).
+    SUBJECT: Real human anatomy performing "${exercise.titleTr || exercise.title}".
     
-    const ai = new GoogleGenAI({ apiKey });
-    const totalFrames = 16;
+    MTS 2.0 PROTOCOL:
+    1. ANATOMICAL HEATMAP: Highlight active muscle groups in glowing cyan and orange during peak contraction.
+    2. TENSION STRIATIONS: Show visible muscle fiber tightening.
+    3. CINEMATIC CLINICAL LIGHTING: High-contrast rim light on muscles against a pure black background.
+    4. ZERO-LATENCY STABILITY: Subject is locked in space (fixed axis) to prevent frame jitter.
+    5. X-RAY BLEND: Semi-transparent skin showing internal muscular and skeletal biomechanics.
     
-    const fullPrompt = `
-      ULTRA-REALISTIC 4K MEDICAL 3D RENDER SPRITE SHEET (4x4 GRID).
-      SUBJECT: Real human anatomy performing "${exercise.titleTr || exercise.title}".
-      
-      MTS 2.0 PROTOCOL:
-      1. ANATOMICAL HEATMAP: Highlight active muscle groups in glowing cyan and orange during peak contraction.
-      2. TENSION STRIATIONS: Show visible muscle fiber tightening.
-      3. CINEMATIC CLINICAL LIGHTING: High-contrast rim light on muscles against a pure black background.
-      4. ZERO-LATENCY STABILITY: Subject is locked in space (fixed axis) to prevent frame jitter.
-      5. X-RAY BLEND: Semi-transparent skin showing internal muscular and skeletal biomechanics.
-      
-      PRIMARY TARGETS: ${(exercise.primaryMuscles || ['Global Muscles']).join(', ')}
-      DESCRIPTION: ${customDirective || exercise.description || ''}
-    `;
+    PRIMARY TARGETS: ${(exercise.primaryMuscles || ['Global Muscles']).join(', ')}
+    DESCRIPTION: ${customDirective || exercise.description || ''}
+  `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image', 
-      contents: { parts: [{ text: fullPrompt }] },
-      config: { imageConfig: { aspectRatio: "1:1" } } 
-    });
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash-image', 
+    contents: { parts: [{ text: fullPrompt }] },
+    config: { imageConfig: { aspectRatio: "1:1" } } 
+  });
 
-    if (response.candidates?.[0]?.content?.parts) {
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
-            return { url: `data:image/png;base64,${part.inlineData.data}`, frameCount: totalFrames, layout: 'grid-4x4' };
-        }
+  if (response.candidates?.[0]?.content?.parts) {
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) {
+          return { url: `data:image/png;base64,${part.inlineData.data}`, frameCount: totalFrames, layout: 'grid-4x4' };
       }
     }
-    throw new Error("Titan MTS Generation Failed");
-  } catch (e) {
-    console.error("AVM Titan MTS Error:", e);
-    throw e;
   }
+  throw new Error("Titan MTS Generation Failed");
 };
 
 export const generateExerciseRealVideo = async (exercise: Partial<Exercise>, customPrompt?: string): Promise<string> => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) throw new Error("API Key missing");
-  
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `Cinematic medical 3D film, 4K, slow motion anatomical tension: ${exercise.titleTr || exercise.title}. Real muscle textures, glowing biomechanic nodes, studio lighting, black background.`;
   
-  try {
-    // SDK REQUIRES: numberOfVideos must be exactly 1
-    let op = await ai.models.generateVideos({ 
-      model: 'veo-3.1-fast-generate-preview', 
-      prompt, 
-      config: { 
-        resolution: '1080p', 
-        aspectRatio: '16:9',
-        numberOfVideos: 1
-      } 
-    });
-    
-    while (!op.done) { 
-      await new Promise(r => setTimeout(r, 5000)); 
-      op = await ai.operations.getVideosOperation({ operation: op }); 
-    }
-    
-    // Download link requires API key append as per guidelines
-    const videoUri = op.response?.generatedVideos?.[0]?.video?.uri;
-    return videoUri ? `${videoUri}&key=${apiKey}` : "";
-  } catch (err: any) {
-    console.error("Video Generation Error:", err);
-    if (err.message?.includes("Requested entity was not found")) {
-        throw new Error("API_KEY_ERROR");
-    }
-    throw err;
+  let operation = await ai.models.generateVideos({ 
+    model: 'veo-3.1-fast-generate-preview', 
+    prompt, 
+    config: { 
+      resolution: '1080p', 
+      aspectRatio: '16:9',
+      numberOfVideos: 1
+    } 
+  });
+  
+  while (!operation.done) { 
+    await new Promise(r => setTimeout(r, 10000)); 
+    operation = await ai.operations.getVideosOperation({ operation }); 
   }
+  
+  const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
+  return videoUri ? `${videoUri}&key=${process.env.API_KEY}` : "";
 };
 
 /**
  * AVM GENESIS - VECTOR DATA ENGINE (SVG GENERATOR)
  */
 export const generateExerciseVectorData = async (exercise: Partial<Exercise>): Promise<string> => {
-  try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `Generate a clinical medical SVG vector for: "${exercise.titleTr || exercise.title}". 
-      Return ONLY valid XML SVG code. NO MARKDOWN code blocks.`,
-    });
-    
-    // SDK 3.0 Standard: Use response.text property directly
-    let cleanSvg = response.text || "";
-    cleanSvg = cleanSvg.replace(/```svg|```/gi, '').trim();
-    if (!cleanSvg.startsWith('<svg')) {
-        throw new Error("Invalid SVG received from AI");
-    }
-    return cleanSvg;
-  } catch (err) {
-    console.error("Vector generation failed:", err);
-    throw err;
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: `Generate a clinical medical SVG vector for: "${exercise.titleTr || exercise.title}". 
+    Return ONLY valid XML SVG code. NO MARKDOWN code blocks.`,
+  });
+  
+  let cleanSvg = response.text || "";
+  cleanSvg = cleanSvg.replace(/```svg|```/gi, '').trim();
+  if (!cleanSvg.startsWith('<svg')) {
+      throw new Error("Invalid SVG received from AI");
   }
+  return cleanSvg;
 };
 
 export const generateExerciseTutorial = async (t: string) => {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) return null;
-    
-    const ai = new GoogleGenAI({ apiKey });
-    const sr = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: `Tutorial script for: ${t}. JSON return.`, config: { responseMimeType: "application/json" } });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const sr = await ai.models.generateContent({ 
+      model: 'gemini-3-flash-preview', 
+      contents: `Tutorial script for: ${t}. JSON return.`, 
+      config: { responseMimeType: "application/json" } 
+    });
     const sd = JSON.parse(sr.text || "{}");
     const ar = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
@@ -124,11 +98,15 @@ export const generateExerciseTutorial = async (t: string) => {
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } } 
         }
     });
-    return { script: sd.script, audioBase64: ar.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || null, bpm: sd.bpm || 60 };
+    return { 
+      script: sd.script, 
+      audioBase64: ar.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || null, 
+      bpm: sd.bpm || 60 
+    };
 };
 
 export const runClinicalConsultation = async (t:string, i?:string, h?:TreatmentHistory[], p?:DetailedPainLog[]) => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const r = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: `Clinical Analysis: ${t}. Return JSON PatientProfile.`,
@@ -138,7 +116,7 @@ export const runClinicalConsultation = async (t:string, i?:string, h?:TreatmentH
 };
 
 export const runAdaptiveAdjustment = async (p: PatientProfile, f: ProgressReport) => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const r = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: `Profile: ${JSON.stringify(p)}. Feedback: ${JSON.stringify(f)}. Update JSON.`,
@@ -148,7 +126,7 @@ export const runAdaptiveAdjustment = async (p: PatientProfile, f: ProgressReport
 };
 
 export const generateExerciseData = async (title: string): Promise<Partial<Exercise>> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
     contents: `Physiotherapy exercise clinical data for: "${title}". Return JSON format.`,
@@ -158,7 +136,7 @@ export const generateExerciseData = async (title: string): Promise<Partial<Exerc
 };
 
 export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: string): Promise<Partial<Exercise>> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: `Exercise: ${JSON.stringify(exercise)}. Goal: ${goal}. Optimize sets, reps, tempo. JSON return.`,

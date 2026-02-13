@@ -44,14 +44,14 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
     setIsMotionActive(false);
 
     try {
+      // MANDATORY API KEY CHECK BEFORE ANY GENERATION
+      const aistudio = (window as any).aistudio;
+      if (aistudio && !(await aistudio.hasSelectedApiKey())) {
+        await aistudio.openSelectKey();
+        // Proceeding as per instructions that key is assumed successful after call
+      }
+
       if (renderMode === 'video') {
-        // VEO (Pro) model calls might require paid API key check
-        const aistudio = (window as any).aistudio;
-        if (aistudio && !(await aistudio.hasSelectedApiKey())) {
-          await aistudio.openSelectKey();
-          // After selection, we proceed as instructed
-        }
-        
         const url = await generateExerciseRealVideo(exercise, customPrompt);
         if (!url) throw new Error("Video generation returned no URL");
         
@@ -62,7 +62,6 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
         const svg = await generateExerciseVectorData(exercise);
         setSvgContent(svg);
         setPreviewUrl('vector_mode');
-        // Synchronize parent state with vector data
         onVisualGenerated('vector_mode', 'AVM-Genesis', true, 60, 'vector');
       } 
       else {
@@ -73,10 +72,13 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
       setIsMotionActive(true);
     } catch (err: any) {
       console.error("Generation failed:", err);
-      if (err.message === "API_KEY_ERROR") {
-          setError("Ücretli API anahtarı gerekli. Lütfen üst menüden seçim yapın.");
+      // Handling "Requested entity was not found" error by prompting for key again
+      if (err.message?.includes("Requested entity was not found") || err.message?.includes("API key must be set")) {
+        const aistudio = (window as any).aistudio;
+        if (aistudio) await aistudio.openSelectKey();
+        setError("API Anahtarı bulunamadı veya geçersiz. Lütfen anahtarınızı seçin.");
       } else {
-          setError("Üretim sırasında bir hata oluştu. Lütfen protokol başlığını kontrol edin.");
+        setError("Üretim sırasında bir hata oluştu. Lütfen tekrar deneyin.");
       }
     } finally {
       setIsGenerating(false);
