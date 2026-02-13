@@ -4,8 +4,8 @@ import { PatientProfile, ProgressReport, Exercise, DetailedPainLog, TreatmentHis
 import { PhysioDB } from "./db-repository.ts";
 
 /**
- * PHYSIOCORE AI - GEMINI 3 FLASH ENGINE (v9.0 Cinematic Grid Edition)
- * 24FPS High-Density Vector Puppetry & Deep Clinical Injection
+ * PHYSIOCORE AI - GEMINI 3 FLASH ENGINE (v9.2 Cinematic Fluidity)
+ * High-Density Slow Motion Vector Puppetry
  */
 
 export const ensureApiKey = async (): Promise<string> => {
@@ -20,7 +20,7 @@ export const ensureApiKey = async (): Promise<string> => {
   throw new Error("MISSING_API_KEY");
 };
 
-// Vektörel Kukla Motoru (24 FPS Grid)
+// Vektörel Kukla Motoru
 export const generateExerciseVideo = async (exercise: Partial<Exercise>): Promise<string> => {
   const result = await generateExerciseVisual(exercise, 'Medical-Vector-Art');
   return result.url;
@@ -117,36 +117,28 @@ export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: st
   }
 };
 
-// GÖRSEL MOTOR: Gemini 2.5 Flash Image (24 FPS GRID MATRIX)
+// GÖRSEL MOTOR: Gemini 2.5 Flash Image (24 FPS GRID MATRIX - SLOW MOTION CAPTURE)
 export const generateExerciseVisual = async (exercise: Partial<Exercise>, style: string): Promise<{ url: string, frameCount: number, layout: 'grid-4x6' | 'strip' }> => {
   try {
     const apiKey = await ensureApiKey();
     const ai = new GoogleGenAI({ apiKey });
     
-    // --- 1. DEEP CLINICAL CONTEXT INJECTION ---
     const primaryMuscles = exercise.primaryMuscles?.join(', ') || 'Global Body';
     const equipment = exercise.equipment?.length ? `USING: ${exercise.equipment.join(', ')}` : 'BODYWEIGHT ONLY';
-    const rpe = exercise.targetRpe || 5;
     
-    // RPE (Zorluk) Seviyesine Göre Görsel Atmosfer
-    let strainLevel = "Relaxed face, effortless movement";
-    if (rpe > 5) strainLevel = "Focused face, engaged muscles";
-    if (rpe > 8) strainLevel = "Intense effort face, veins visible, maximum muscle contraction, sweat";
-
-    // --- 2. 24-FRAME GRID PROMPT ENGINEERING ---
-    // 24 kare (4 Satır, 6 Sütun) = Akışkan 1 Saniyelik Loop (veya yavaşlatılmış detay)
+    // 24 kare (4 Satır, 6 Sütun)
     const gridRows = 4;
     const gridCols = 6;
     const totalFrames = gridRows * gridCols;
 
-    let stylePrompt = `Create a precise SPRITE SHEET containing exactly ${totalFrames} frames arranged in a ${gridRows}x${gridCols} GRID matrix. `;
+    let stylePrompt = `Create a HIGH-PRECISION SPRITE SHEET containing exactly ${totalFrames} frames arranged in a ${gridRows}x${gridCols} GRID matrix. `;
     
     switch (style) {
         case 'Medical-Vector':
             stylePrompt += `
             Style: Premium Medical Vector Art. Dark Slate Background.
             Anatomy: The ${primaryMuscles} must glow NEON CYAN to show activation.
-            Bones: Subtle semi-transparent white lines.
+            Look: Clean lines, high contrast, flat shading (Kurzgesagt style but medical).
             `;
             break;
         case 'X-Ray-Lottie':
@@ -158,9 +150,9 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
             break;
         case 'Cinematic-GIF':
             stylePrompt += `
-            Style: Photorealistic 8K Studio.
-            Lighting: Rim lighting to highlight muscle definition.
+            Style: Photorealistic 8K Studio Lighting.
             Model: Professional athlete wearing minimal clinical attire.
+            Background: Dark infinite studio void.
             `;
             break;
         default:
@@ -172,24 +164,26 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
 
     SUBJECT: The exercise is "${exercise.titleTr || exercise.title}".
     
-    CLINICAL PARAMETERS:
+    ANIMATION INSTRUCTIONS (CRITICAL FOR FLUIDITY):
+    - This must look like a HIGH-SPEED CAMERA SLOW MOTION capture.
+    - The difference between Frame 1 and Frame 2 must be TINY (Micro-movements).
+    - Do NOT make large jumps between frames. I need smooth interpolation.
     - Equipment: ${equipment} (MUST be consistent in all frames).
-    - Intensity: ${strainLevel}.
-    - Key Movement: ${exercise.description || 'Standard form'}.
     
     LAYOUT INSTRUCTIONS (STRICT):
     - The image must be a grid of ${gridRows} rows and ${gridCols} columns.
     - Sequence starts Top-Left (Frame 1) and reads Left-to-Right, then down to next row.
     - Ends at Bottom-Right (Frame ${totalFrames}).
-    - The sequence must show ONE complete, smooth repetition of the movement.
+    - The sequence must show ONE complete, VERY SMOOTH repetition.
     - NO text, NO arrows, NO UI elements. Just the character.
-    - Background must be solid and uniform color.
+    - Background must be solid and uniform color (Dark Slate or Black).
+    - Ensure strict alignment so the character does not "jitter" when frames are played.
     `;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image', 
       contents: { parts: [{ text: fullPrompt }] },
-      config: { imageConfig: { aspectRatio: "4:3" } } // 4:3 is better for a 6x4 grid layout
+      config: { imageConfig: { aspectRatio: "4:3" } } // 4:3 ensures enough vertical space for 4 rows
     });
     
     if (response.candidates?.[0]?.content?.parts) {

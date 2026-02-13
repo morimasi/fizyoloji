@@ -16,8 +16,8 @@ interface PlayerProps {
 }
 
 /**
- * PHYSIOCORE 24FPS GRID PLAYER
- * Handles CSS-based Sprite Grid Animation
+ * PHYSIOCORE 24FPS GRID PLAYER (PING-PONG LOOP)
+ * Ensures smooth, continuous motion without jump cuts.
  */
 export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -72,15 +72,26 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
     return () => clearTimeout(stepTimerRef.current);
   }, [isPlaying]);
 
-  // 24 FPS LOOP
+  // 24 FPS PING-PONG LOOP
   useEffect(() => {
     let interval: any;
-    // Tempo verisine göre hız ayarı (varsayılan: 24fps)
-    const baseFps = 24;
-    
+    const baseFps = 18; // Smooth cinematic feel
+    let direction = 1;
+
     if (isPlaying && exercise.visualUrl) {
         interval = setInterval(() => {
-            setCurrentFrame(prev => (prev + 1) % frameCount);
+            setCurrentFrame(prev => {
+                let next = prev + direction;
+                // Reverse direction at ends
+                if (next >= frameCount - 1) {
+                    direction = -1;
+                    next = frameCount - 1;
+                } else if (next <= 0) {
+                    direction = 1;
+                    next = 0;
+                }
+                return next;
+            });
         }, 1000 / baseFps);
     } else {
         setCurrentFrame(0);
@@ -152,7 +163,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
           <h2 className="text-lg md:text-xl font-black italic uppercase text-white tracking-tighter">{exercise.titleTr || exercise.title}</h2>
           <div className="flex items-center justify-center gap-2">
             <span className="text-[9px] font-mono text-cyan-500 uppercase tracking-widest">
-                {frameCount} Kare / {layout === 'grid-4x6' ? 'Grid' : 'Strip'}
+                Cinematic Motion Engine
             </span>
             {isLoadingTutorial && <Loader2 size={10} className="animate-spin text-cyan-500" />}
           </div>
@@ -169,14 +180,15 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
             <div className={`relative w-full h-full rounded-[3rem] overflow-hidden border border-white/5 shadow-2xl transition-all duration-1000 ${isPlaying ? 'scale-[1.02]' : 'scale-100'}`}>
               
               {exercise.visualUrl || exercise.videoUrl ? (
-                <div className="relative w-full h-full bg-slate-900 overflow-hidden">
+                <div className="relative w-full h-full bg-slate-900 overflow-hidden flex items-center justify-center">
                   
                    <div 
-                        className="w-full h-full bg-no-repeat bg-contain bg-center"
+                        className="w-full h-full bg-no-repeat"
                         style={{
                             backgroundImage: `url(${exercise.visualUrl || exercise.videoUrl})`,
                             backgroundSize: layout === 'grid-4x6' ? '600% 400%' : `${frameCount * 100}% 100%`,
                             backgroundPosition: getBackgroundPosition(),
+                            imageRendering: 'auto'
                         }}
                       />
                   

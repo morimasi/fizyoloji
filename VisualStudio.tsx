@@ -27,22 +27,38 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
   
   // Varsayılan Frame Yapısı
   const frameCount = exercise.visualFrameCount || 24; 
-  const layout = exercise.visualLayout || 'grid-4x6'; // 'strip' | 'grid-4x6'
+  const layout = exercise.visualLayout || 'grid-4x6'; 
 
   // GRID MATRIX ENGINE
-  // 4x6 Grid için Sütun ve Satır sayısı
   const cols = layout === 'grid-4x6' ? 6 : frameCount; 
   const rows = layout === 'grid-4x6' ? 4 : 1;
 
+  // FLUID LOOP ENGINE (Ping-Pong)
   useEffect(() => {
     let interval: any;
-    // 24 FPS Standardı (1000ms / 24 = ~41ms per frame)
-    // Playback Speed çarpanı ile hızlanır/yavaşlar
-    const frameDuration = 41 / playbackSpeed; 
+    // 24 FPS Standardı için ~41ms. Ancak daha "film" gibi olması için 
+    // Ping-Pong modunda biraz yavaşlatıyoruz (15-18 FPS)
+    const baseFps = 18; 
+    const frameDuration = (1000 / baseFps) / playbackSpeed; 
+    
+    let direction = 1; // 1: Forward, -1: Backward
 
     if (isMotionActive && previewUrl) {
       interval = setInterval(() => {
-        setCurrentFrame(prev => (prev + 1) % frameCount); // Loop
+        setCurrentFrame(prev => {
+          let next = prev + direction;
+          
+          // Uç noktalarda yön değiştir (Süreyi 2 katına çıkarır ve kesintiyi önler)
+          if (next >= frameCount - 1) {
+            direction = -1;
+            next = frameCount - 1;
+          } else if (next <= 0) {
+            direction = 1;
+            next = 0;
+          }
+          
+          return next;
+        });
       }, frameDuration);
     } else {
       setCurrentFrame(0); 
@@ -97,15 +113,9 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
 
   const isSpriteMode = styles.find(s => s.id === selectedStyle)?.isSprite;
 
-  // Grid Background Position Calculation
-  // 6 columns => each step is 100% / (6-1) = 20% ? No.
-  // CSS Background Position for Sprites:
-  // X% = (currentColumn * 100) / (columns - 1)
-  // Y% = (currentRow * 100) / (rows - 1)
-  
+  // STRICT VIEWPORT MASKING CALCULATION
   const getBackgroundPosition = () => {
       if (layout === 'strip') {
-          // Horizontal strip logic
           const x = (currentFrame * 100) / (frameCount - 1);
           return `${x}% 0%`;
       } else {
@@ -133,7 +143,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
             </div>
             <div>
                <h4 className="font-black text-2xl uppercase italic text-white tracking-tighter">Genesis <span className="text-cyan-400">Studio</span></h4>
-               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">24 FPS Motion Engine</p>
+               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Cinematic Motion Engine</p>
             </div>
           </div>
 
@@ -171,7 +181,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
               {isGenerating ? (
                 <>
                   <Loader2 className="animate-spin" size={20} />
-                  <span className="animate-pulse">24FPS GRID RENDER...</span>
+                  <span className="animate-pulse">SİNEMATİK RENDER...</span>
                 </>
               ) : (
                 <>
@@ -188,17 +198,25 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
       <div className="xl:col-span-7">
         <div className="relative w-full aspect-video bg-slate-950 rounded-[3rem] border border-slate-800 flex flex-col overflow-hidden shadow-2xl group">
           
-          <div className="flex-1 relative overflow-hidden bg-[url('https://assets.codepen.io/1462889/grid.png')] bg-[length:40px_40px] bg-slate-900">
+          <div className="flex-1 relative overflow-hidden bg-[url('https://assets.codepen.io/1462889/grid.png')] bg-[length:40px_40px] bg-slate-900 flex items-center justify-center">
              {previewUrl ? (
-                <div className="absolute inset-0 flex items-center justify-center">
+                // VIEWPORT CONTAINER: Must match the single frame aspect ratio to prevent bleeding.
+                // Assuming 4:3 generation -> Single frame in 6x4 grid is roughly 1:1.1 or landscape.
+                // To be safe, we use 'contain' and strict background sizing.
+                <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
                    {isSpriteMode ? (
                       <div 
-                        className="w-full h-full bg-no-repeat bg-contain"
+                        className="w-full h-full bg-no-repeat"
                         style={{
                             backgroundImage: `url(${previewUrl})`,
+                            // CRITICAL: Size must be Cols * 100% and Rows * 100%
                             backgroundSize: layout === 'grid-4x6' ? '600% 400%' : `${frameCount * 100}% 100%`,
                             backgroundPosition: getBackgroundPosition(),
-                            imageRendering: 'auto'
+                            imageRendering: 'auto', // Browser interpolation for smoothness
+                            // Centering the sprite within the container
+                            backgroundRepeat: 'no-repeat',
+                            // Optional: Add transition for even smoother flow (simulated motion blur)
+                            // transition: 'background-position 0.04s linear' 
                         }}
                       />
                    ) : (
@@ -215,7 +233,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
              {isMotionActive && (
                <div className="absolute top-6 right-6 flex items-center gap-2 z-10">
                   <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse shadow-[0_0_15px_red]" />
-                  <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">24 FPS</span>
+                  <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">LOOP REC</span>
                </div>
              )}
           </div>
@@ -231,11 +249,11 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
 
              <div className="flex-1 space-y-2">
                 <div className="flex justify-between text-[9px] font-black text-slate-500 uppercase tracking-widest">
-                   <span>Oynatma Hızı</span>
+                   <span>Akıcılık Hızı</span>
                    <span>{playbackSpeed}x</span>
                 </div>
                 <div className="flex items-center gap-2 bg-slate-900 p-1 rounded-xl border border-slate-800">
-                   {[0.5, 1, 1.5, 2].map(speed => (
+                   {[0.5, 0.75, 1, 1.5].map(speed => (
                      <button 
                        key={speed} 
                        onClick={() => setPlaybackSpeed(speed)}
