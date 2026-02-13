@@ -4,8 +4,8 @@ import { PatientProfile, ProgressReport, Exercise, DetailedPainLog, TreatmentHis
 import { PhysioDB } from "./db-repository.ts";
 
 /**
- * PHYSIOCORE AI - GEMINI 3 FLASH ENGINE (v9.8 Director Cut)
- * High-Precision Sprite Generation with Custom Directives
+ * PHYSIOCORE AI - GEMINI 3 FLASH ENGINE (v10.0 PROJECTOR CORE)
+ * High-Precision Sprite Sheet Generation for Fluid Animation
  */
 
 export const ensureApiKey = async (): Promise<string> => {
@@ -117,8 +117,7 @@ export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: st
   }
 };
 
-// GÖRSEL MOTOR: Gemini 2.5 Flash Image (CINEMATIC SPRITE STUDIO)
-// UPDATED: Now accepts 'customDirective' for granular control
+// --- CINEMATIC PROJECTOR ENGINE ---
 export const generateExerciseVisual = async (exercise: Partial<Exercise>, style: string, customDirective?: string): Promise<{ url: string, frameCount: number, layout: 'grid-4x6' | 'strip' }> => {
   try {
     const apiKey = await ensureApiKey();
@@ -127,12 +126,12 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
     const primaryMuscles = exercise.primaryMuscles?.join(', ') || 'Global Body';
     const equipment = exercise.equipment?.length ? `USING: ${exercise.equipment.join(', ')}` : 'BODYWEIGHT ONLY';
     
-    // 4x6 Grid (24 Kare) Standart
+    // CRITICAL: We enforce a 4x6 grid. This gives us 24 frames for a smooth ~2 second loop.
     const gridRows = 4;
     const gridCols = 6;
     const totalFrames = gridRows * gridCols;
 
-    let stylePrompt = `Create a PERFECTLY ALIGNED SPRITE SHEET containing exactly ${totalFrames} frames arranged in a ${gridRows}x${gridCols} GRID matrix. `;
+    let stylePrompt = `Create a high-precision SPRITE SHEET animation containing exactly ${totalFrames} frames arranged in a strict ${gridRows}x${gridCols} GRID matrix. `;
     
     switch (style) {
         case 'Medical-Vector':
@@ -140,7 +139,7 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
             Style: Flat Medical Vector Art. Dark Slate Background (#0F172A).
             Character: Gender-neutral 3D mannequin, semi-transparent skin.
             Highlight: The ${primaryMuscles} must glow NEON CYAN.
-            Consistency: CAMERA MUST BE FIXED ON A TRIPOD. Only the body moves.
+            Camera: FIXED TRIPOD. The camera MUST NOT MOVE. Only the body moves.
             `;
             break;
         case 'X-Ray-Lottie':
@@ -162,33 +161,30 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
             stylePrompt += "Style: Clean professional medical illustration.";
     }
 
-    // DIRECTOR'S OVERRIDE
     const directiveBlock = customDirective 
-        ? `SPECIFIC DIRECTOR INSTRUCTIONS (MUST FOLLOW): ${customDirective}`
-        : `STANDARD INSTRUCTION: Show the exercise "${exercise.title}" being performed with perfect form.`;
+        ? `DIRECTOR NOTES: ${customDirective}`
+        : `INSTRUCTION: Perform "${exercise.title}" with perfect clinical form.`;
 
     const fullPrompt = `
     ${stylePrompt}
 
-    SUBJECT: The exercise is "${exercise.titleTr || exercise.title}".
-    ${directiveBlock}
+    SUBJECT: ${directiveBlock}
     Equipment: ${equipment}
 
-    SPRITE SHEET RULES (STRICT):
-    1. Grid: ${gridRows} Rows, ${gridCols} Columns. Total ${totalFrames} frames.
-    2. Sequence: Read Left-to-Right, Top-to-Bottom.
-    3. Loop: Frame 1 is Start, Frame ${totalFrames / 2} is Peak, Frame ${totalFrames} is End/Start (Seamless Loop).
-    4. ALIGNMENT: The character MUST be centered in each cell. No jitter.
-    5. PADDING: ZERO padding between cells.
-    6. CONTENT: Show one complete repetition of the movement clearly.
+    SPRITE SHEET RULES (CRITICAL FOR ANIMATION):
+    1. LAYOUT: You MUST output a single image divided into a ${gridRows} row by ${gridCols} column grid.
+    2. SEQUENCE: The animation starts at Top-Left, moves Right, then down to next row.
+    3. LOOP: Frame 1 is the start position. Frame ${totalFrames / 2} is the peak contraction. Frame ${totalFrames} returns to start.
+    4. ALIGNMENT: The character must be CENTERED in each grid cell. Do not let limbs bleed into neighboring cells.
+    5. CONTINUITY: This creates a video. The difference between Frame 1 and Frame 2 should be small and smooth.
     
-    This image will be used in a CSS animation projector. Precision is key.
+    Generate the SPRITE SHEET now.
     `;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image', 
       contents: { parts: [{ text: fullPrompt }] },
-      config: { imageConfig: { aspectRatio: "4:3" } } 
+      config: { imageConfig: { aspectRatio: "4:3" } } // 4:3 is close to the ratio of a 6x4 grid of square frames
     });
     
     if (response.candidates?.[0]?.content?.parts) {

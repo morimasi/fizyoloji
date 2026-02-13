@@ -16,8 +16,8 @@ interface PlayerProps {
 }
 
 /**
- * PHYSIOCORE 24FPS GRID PLAYER (THEATER MODE v2)
- * Uses strict viewport masking to simulate video playback from sprite sheets.
+ * PHYSIOCORE 24FPS PROJECTOR PLAYER (THEATER MODE v4.0)
+ * Uses precise CSS math to project a single frame from a sprite sheet.
  */
 export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -141,7 +141,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
       const bgSizeX = cols * 100; 
       const bgSizeY = rows * 100;
 
-      // Position Shift
+      // Position Shift (Strict Math)
       const colIndex = currentFrame % cols;
       const rowIndex = Math.floor(currentFrame / cols);
       

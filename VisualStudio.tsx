@@ -27,31 +27,30 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [currentFrame, setCurrentFrame] = useState(0); 
   
-  // NEW: Director's Prompt
+  // DIRECTOR'S PROMPT
   const [customPrompt, setCustomPrompt] = useState('');
   
-  // NEW: Export Preview Logic
+  // EXPORT PREVIEW
   const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
   const [previewFormat, setPreviewFormat] = useState<ExportFormat | null>(null);
   const [isProcessingExport, setIsProcessingExport] = useState(false);
 
-  // Initialize Prompt with Description if empty
   useEffect(() => {
     if (!customPrompt && exercise.description) {
       setCustomPrompt(`Perform: ${exercise.description.substring(0, 150)}...`);
     }
   }, [exercise.description]);
 
-  // STANDARDIZE GRID: 4x6 (24 Frames)
+  // GRID MATRIX CONSTANTS (4x6 Standart)
   const frameCount = exercise.visualFrameCount || 24; 
   const layout = exercise.visualLayout || 'grid-4x6'; 
   const cols = layout === 'grid-4x6' ? 6 : frameCount; 
   const rows = layout === 'grid-4x6' ? 4 : 1;
 
-  // CINEMATIC LOOP ENGINE (Ping-Pong)
+  // PROJECTOR LOOP ENGINE
   useEffect(() => {
     let interval: any;
-    const baseFps = 15; 
+    const baseFps = 15; // 15 FPS = Cinematic for Animations
     const frameDuration = (1000 / baseFps) / playbackSpeed; 
     let direction = 1;
 
@@ -87,7 +86,6 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
     setIsGenerating(true);
     setIsMotionActive(false);
     try {
-      // Pass custom prompt to AI
       const result = await generateExerciseVisual(exercise, selectedStyle, customPrompt);
       if (result.url) {
         setPreviewUrl(result.url);
@@ -112,7 +110,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
     if (!previewUrl) return;
     setIsProcessingExport(true);
     setPreviewFormat(format);
-    setPreviewBlob(null); // Clear previous
+    setPreviewBlob(null);
 
     try {
         const blob = await MediaConverter.generateBlob(previewUrl, format);
@@ -135,13 +133,13 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
-          setPreviewFormat(null); // Close modal
+          setPreviewFormat(null); 
       }
   };
 
   const isSpriteMode = styles.find(s => s.id === selectedStyle)?.isSprite;
 
-  // --- PROJECTOR ENGINE CALCULATION (Grid View Fix) ---
+  // --- PROJECTOR ENGINE v4.0 (The Magic Math) ---
   const getBackgroundStyles = () => {
       if (!isSpriteMode || layout !== 'grid-4x6') {
           return {
@@ -151,10 +149,19 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
               backgroundRepeat: 'no-repeat'
           };
       }
+
+      // 1. Zoom Factor:
+      // To show ONLY 1 cell of a 6x4 grid, the image needs to be scaled up.
+      // Width: 600%, Height: 400%.
       const bgSizeX = cols * 100; 
       const bgSizeY = rows * 100;
+
+      // 2. Coordinate Mapping:
+      // The background-position percentages are calculated based on the REMAINING space.
+      // Formula: (CurrentIndex / (TotalCount - 1)) * 100%
       const colIndex = currentFrame % cols;
       const rowIndex = Math.floor(currentFrame / cols);
+      
       const xPos = cols > 1 ? (colIndex / (cols - 1)) * 100 : 0;
       const yPos = rows > 1 ? (rowIndex / (rows - 1)) * 100 : 0;
 
@@ -163,7 +170,8 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
           backgroundSize: `${bgSizeX}% ${bgSizeY}%`,
           backgroundPosition: `${xPos}% ${yPos}%`,
           backgroundRepeat: 'no-repeat',
-          imageRendering: 'auto' as const
+          // 'auto' makes it smooth, 'pixelated' makes it retro. For medical, auto is better.
+          imageRendering: 'auto' as const 
       };
   };
 
@@ -194,7 +202,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                   value={customPrompt}
                   onChange={(e) => setCustomPrompt(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-mono text-emerald-400 h-32 outline-none focus:border-cyan-500/50 resize-none shadow-inner"
-                  placeholder="Örn: Kamera açısını biraz yukarıdan al. Kas aktivasyonunu daha parlak göster."
+                  placeholder="Örn: Kamerayı sabitle. Sadece bacak hareket etsin. Kaslar parlasın."
                 />
                 <div className="absolute bottom-3 right-3 text-[8px] font-bold text-slate-600 uppercase bg-slate-900 px-2 py-1 rounded">
                    AI Directive Active
@@ -256,10 +264,10 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
           {/* Monitor Gloss */}
           <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/5 to-transparent pointer-events-none z-20" />
 
-          {/* Viewport */}
-          <div className="flex-1 relative overflow-hidden flex items-center justify-center bg-black">
+          {/* Viewport - This is the "LENS" */}
+          <div className="flex-1 relative overflow-hidden flex items-center justify-center bg-black rounded-[2.5rem] m-2 border border-slate-900">
              {previewUrl ? (
-                // MASKED CONTAINER
+                // MASKED CONTAINER: This div is the "Frame". The internal div is the "Film Reel".
                 <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
                    {isSpriteMode ? (
                       <div className="w-full h-full" style={getBackgroundStyles()} />
