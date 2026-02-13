@@ -177,12 +177,13 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 
 -- 12. INDEKSLER (Performans Optimizasyonu)
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_patients_therapist ON patients(assigned_therapist_id);
-CREATE INDEX idx_prescriptions_patient ON prescriptions(patient_id);
-CREATE INDEX idx_exercises_code ON exercises(code);
-CREATE INDEX idx_reports_patient ON progress_reports(patient_id);
-CREATE INDEX idx_messages_flow ON messages(sender_id, receiver_id);
+-- Hata giderme: 'idx_users_email' ve diğerleri zaten varsa oluşturma.
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_patients_therapist ON patients(assigned_therapist_id);
+CREATE INDEX IF NOT EXISTS idx_prescriptions_patient ON prescriptions(patient_id);
+CREATE INDEX IF NOT EXISTS idx_exercises_code ON exercises(code);
+CREATE INDEX IF NOT EXISTS idx_reports_patient ON progress_reports(patient_id);
+CREATE INDEX IF NOT EXISTS idx_messages_flow ON messages(sender_id, receiver_id);
 
 -- 13. AUTO-UPDATE UPDATED_AT TRIGGER
 CREATE OR REPLACE FUNCTION update_timestamp()
@@ -193,8 +194,14 @@ BEGIN
 END;
 $$ LANGUAGE 'plpgsql';
 
+-- Tetikleyicileri (Triggers) her seferinde temizleyip yeniden oluşturuyoruz.
+DROP TRIGGER IF EXISTS trg_users_upd ON users;
 CREATE TRIGGER trg_users_upd BEFORE UPDATE ON users FOR EACH ROW EXECUTE PROCEDURE update_timestamp();
+
+DROP TRIGGER IF EXISTS trg_patients_upd ON patients;
 CREATE TRIGGER trg_patients_upd BEFORE UPDATE ON patients FOR EACH ROW EXECUTE PROCEDURE update_timestamp();
+
+DROP TRIGGER IF EXISTS trg_exercises_upd ON exercises;
 CREATE TRIGGER trg_exercises_upd BEFORE UPDATE ON exercises FOR EACH ROW EXECUTE PROCEDURE update_timestamp();
 
 -- =============================================================================
