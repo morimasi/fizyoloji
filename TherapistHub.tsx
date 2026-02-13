@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
   LayoutDashboard, Users, BrainCircuit, Settings, 
@@ -27,6 +26,7 @@ export const TherapistHub = () => {
       successRate: 94.5,
       totalPatientsActive: 28,
       averageRecoveryTime: '4.2 Hafta',
+      status: 'Aktif',
       aiAssistantSettings: {
         autoSuggestProtocols: true,
         notifyHighRisk: true,

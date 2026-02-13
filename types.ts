@@ -1,6 +1,7 @@
 
 export type UserRole = 'Admin' | 'Therapist' | 'Patient';
 export type PatientStatus = 'Kritik' | 'Stabil' | 'İyileşiyor' | 'Taburcu';
+export type StaffStatus = 'Aktif' | 'İzinde' | 'Pasif';
 export type PainQuality = 'Keskin' | 'Künt' | 'Yanıcı' | 'Batıcı' | 'Elektriklenme';
 
 export interface Message {
@@ -20,6 +21,9 @@ export interface TherapistProfile {
   successRate: number;
   totalPatientsActive: number;
   averageRecoveryTime: string;
+  status: StaffStatus;
+  department?: string;
+  phone?: string;
   aiAssistantSettings: {
     autoSuggestProtocols: boolean;
     notifyHighRisk: boolean;
@@ -32,10 +36,20 @@ export interface User {
   role: UserRole;
   fullName: string;
   email: string;
+  phone?: string;
   avatarUrl?: string;
   createdAt: string;
   assignedTherapistId?: string;
   therapistProfile?: TherapistProfile;
+  // Patient fields merged optionally for polymorphic usage
+  patientStatus?: PatientStatus;
+  clinicalProfile?: {
+    diagnosis: string;
+    riskLevel: 'Düşük' | 'Orta' | 'Yüksek';
+    notes: ClinicalNote[];
+    treatmentHistory: TreatmentHistory[];
+    painLogs: DetailedPainLog[];
+  };
 }
 
 export interface ClinicalNote {
@@ -66,10 +80,10 @@ export interface DetailedPainLog {
 }
 
 export interface PatientUser extends User {
-  status: PatientStatus;
+  patientStatus: PatientStatus; // Made required for PatientUser
   lastVisit: string;
   recoveryProgress: number;
-  riskScore: number; // 0-100 (AI Determined)
+  riskScore: number; 
   clinicalProfile: {
     diagnosis: string;
     riskLevel: 'Düşük' | 'Orta' | 'Yüksek';
@@ -108,7 +122,7 @@ export interface Exercise {
   videoUrl?: string;
   isMotion?: boolean;
   visualStyle?: string;
-  visualLayout?: 'single' | 'sprite-2'; // New: Determines if image is split-screen
+  visualLayout?: 'single' | 'sprite-2';
   isPersonalized?: boolean;
   tempo?: string;
   restPeriod?: number;

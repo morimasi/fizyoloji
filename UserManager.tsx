@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, UserPlus, Search, Filter, 
   UserCheck, Shield, MessageSquare, 
@@ -7,291 +7,370 @@ import {
   ChevronRight, MoreVertical, Star,
   AlertCircle, CheckCircle2, Clock,
   History, Thermometer, MapPin, 
-  PlusCircle, BookOpen, X, Save
+  PlusCircle, BookOpen, X, Save,
+  Briefcase, GraduationCap, Phone, Mail,
+  Stethoscope, LayoutGrid, List, Trash2, Edit
 } from 'lucide-react';
-import { PatientUser, PatientStatus, UserRole, DetailedPainLog, TreatmentHistory, PainQuality } from './types.ts';
+import { User, UserRole, TherapistProfile } from './types.ts';
 import { MessagingSystem } from './MessagingSystem.tsx';
 import { PhysioDB } from './db-repository.ts';
 
+/**
+ * GENESIS STAFF & PATIENT MANAGER (v4.0)
+ * Institutional HR Module with PhysioDB Integration
+ */
 export const UserManager = () => {
+  const [users, setUsers] = useState<User[]>([]);
   const [activeRole, setActiveRole] = useState<UserRole | 'All'>('All');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedPatient, setSelectedPatient] = useState<PatientUser | null>(null);
-  const [showMessaging, setShowMessaging] = useState(false);
-  const [detailTab, setDetailTab] = useState<'overview' | 'history' | 'pain'>('overview');
-  const [showAddForm, setShowAddForm] = useState<'history' | 'pain' | null>(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  
+  // Stats
+  const stats = {
+    total: users.length,
+    therapists: users.filter(u => u.role === 'Therapist').length,
+    patients: users.filter(u => u.role === 'Patient').length,
+    activePatients: users.filter(u => u.role === 'Patient' && u.patientStatus === 'Stabil').length
+  };
 
-  const [users, setUsers] = useState<PatientUser[]>([
-    {
-      id: 'p1',
-      fullName: 'Ahmet Yılmaz',
-      email: 'ahmet@email.com',
-      role: 'Patient',
-      status: 'Stabil',
-      createdAt: '2024-01-15',
-      lastVisit: '2024-02-10',
-      recoveryProgress: 65,
-      // riskScore özelliği, PatientUser tipindeki zorunlu alanı karşılamak için eklendi.
-      riskScore: 45,
-      assignedTherapistId: 't1',
-      clinicalProfile: {
-        diagnosis: 'L4-L5 Bel Fıtığı, Radikülopati',
-        riskLevel: 'Orta',
-        notes: [{ id: 'n1', authorId: 't1', text: 'Fleksiyon egzersizlerinde dikkatli olunmalı.', date: '2024-02-01', type: 'Warning' }],
-        treatmentHistory: [
-          { id: 'h1', date: '2023-11-10', facility: 'Özel Klinik X', summary: '15 seans fizik tedavi uygulandı. Manuel terapi ve ESWT yapıldı.', outcome: 'Kısmi iyileşme sağlandı fakat semptomlar nüksetti.', therapistName: 'Fzt. Caner Bakır' }
-        ],
-        painLogs: [
-          { id: 'l1', date: '2024-02-08', score: 6, location: 'Bel ve Sağ Bacak', quality: 'Yanıcı', triggers: ['Uzun süreli oturma'], duration: '2 saat' },
-          { id: 'l2', date: '2024-02-10', score: 4, location: 'Bel', quality: 'Künt', triggers: ['Yürüyüş sonrası'], duration: '30 dk' }
-        ]
-      }
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const loadUsers = async () => {
+    const data = await PhysioDB.getUsers();
+    setUsers(data);
+  };
+
+  const handleSaveUser = async (user: User) => {
+    if (users.find(u => u.id === user.id)) {
+      await PhysioDB.updateUser(user);
+    } else {
+      await PhysioDB.addUser(user);
     }
-  ]);
-
-  const filteredUsers = users.filter(u => u.fullName.toLowerCase().includes(searchTerm.toLowerCase()));
-
-  const handleAddHistory = (item: TreatmentHistory) => {
-    if (!selectedPatient) return;
-    const updatedPatient = {
-      ...selectedPatient,
-      clinicalProfile: {
-        ...selectedPatient.clinicalProfile,
-        treatmentHistory: [...selectedPatient.clinicalProfile.treatmentHistory, item]
-      }
-    };
-    setUsers(users.map(u => u.id === updatedPatient.id ? updatedPatient : u));
-    setSelectedPatient(updatedPatient);
-    setShowAddForm(null);
+    await loadUsers();
+    setShowForm(false);
   };
 
-  const handleAddPainLog = (log: DetailedPainLog) => {
-    if (!selectedPatient) return;
-    const updatedPatient = {
-      ...selectedPatient,
-      clinicalProfile: {
-        ...selectedPatient.clinicalProfile,
-        painLogs: [...selectedPatient.clinicalProfile.painLogs, log]
-      }
-    };
-    setUsers(users.map(u => u.id === updatedPatient.id ? updatedPatient : u));
-    setSelectedPatient(updatedPatient);
-    setShowAddForm(null);
+  const handleDeleteUser = async (id: string) => {
+    if (confirm("Bu kullanıcıyı silmek istediğinize emin misiniz? Bu işlem geri alınamaz.")) {
+      await PhysioDB.deleteUser(id);
+      await loadUsers();
+      if (selectedUser?.id === id) setSelectedUser(null);
+    }
   };
+
+  const filteredUsers = users.filter(u => {
+    const matchesRole = activeRole === 'All' || u.role === activeRole;
+    const matchesSearch = u.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          u.email.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesRole && matchesSearch;
+  });
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+      {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center border border-slate-800 text-cyan-500 shadow-2xl">
-            <Users size={32} />
+          <div className="w-16 h-16 bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl flex items-center justify-center border border-slate-700 text-cyan-500 shadow-2xl relative">
+            <Briefcase size={32} />
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-slate-950 animate-pulse" />
           </div>
           <div>
-            <h2 className="text-3xl font-semibold tracking-tighter text-white italic">OPERASYON <span className="text-cyan-400 uppercase">Merkezi</span></h2>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Klinik Kadro ve Hasta Yönetimi</p>
+            <h2 className="text-3xl font-black tracking-tighter text-white italic">KADRO <span className="text-cyan-400 uppercase">Yönetimi</span></h2>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">İnsan Kaynakları ve Hasta Kabul</p>
           </div>
         </div>
+        
+        <button 
+          onClick={() => { setSelectedUser(null); setShowForm(true); }}
+          className="bg-cyan-500 hover:bg-cyan-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-cyan-500/20 active:scale-95 transition-all flex items-center gap-2"
+        >
+          <UserPlus size={18} /> Yeni Kayıt
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className={`lg:col-span-${selectedPatient ? '4' : '12'} space-y-4 transition-all duration-500`}>
-          {filteredUsers.map(user => (
-            <div 
-              key={user.id} 
-              onClick={() => setSelectedPatient(user)}
-              className={`p-6 rounded-3xl border transition-all cursor-pointer ${selectedPatient?.id === user.id ? 'bg-cyan-500/10 border-cyan-500/50' : 'bg-slate-900/40 border-slate-800 hover:border-slate-700'}`}
-            >
-              <h4 className="font-semibold text-white italic">{user.fullName}</h4>
-              <p className="text-[10px] text-slate-500 font-bold uppercase mt-1 tracking-widest">{user.clinicalProfile.diagnosis}</p>
-            </div>
-          ))}
-        </div>
+      {/* Stats Bar */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatBadge icon={Users} label="Toplam Kadro" value={stats.total} color="text-white" />
+        <StatBadge icon={Stethoscope} label="Terapistler" value={stats.therapists} color="text-cyan-400" />
+        <StatBadge icon={Activity} label="Aktif Hastalar" value={stats.activePatients} color="text-emerald-400" />
+        <StatBadge icon={UserCheck} label="Doluluk" value={`%${Math.min(100, (stats.patients / (stats.therapists * 10 || 1)) * 100).toFixed(0)}`} color="text-amber-400" />
+      </div>
 
-        {selectedPatient && (
-          <div className="lg:col-span-8 space-y-6 animate-in slide-in-from-right-8 duration-500">
-            <div className="glass-panel rounded-[3rem] border border-slate-800 overflow-hidden relative">
-              <div className="p-8 border-b border-slate-800 bg-slate-950/50 flex justify-between items-center">
-                <div className="flex gap-2">
-                  <TabButton active={detailTab === 'overview'} onClick={() => setDetailTab('overview')} icon={Activity} label="ÖZET" />
-                  <TabButton active={detailTab === 'history'} onClick={() => setDetailTab('history')} icon={History} label="GEÇMİŞ" />
-                  <TabButton active={detailTab === 'pain'} onClick={() => setDetailTab('pain')} icon={Thermometer} label="AĞRI" />
+      {/* Filter & Toolbar */}
+      <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-[2rem] flex flex-col lg:flex-row items-center justify-between gap-4">
+         <div className="flex bg-slate-950 p-1.5 rounded-xl border border-slate-800 w-full lg:w-auto">
+            <FilterBtn active={activeRole === 'All'} onClick={() => setActiveRole('All')} label="Tümü" />
+            <FilterBtn active={activeRole === 'Therapist'} onClick={() => setActiveRole('Therapist')} label="Uzmanlar" />
+            <FilterBtn active={activeRole === 'Patient'} onClick={() => setActiveRole('Patient')} label="Hastalar" />
+         </div>
+
+         <div className="flex items-center gap-3 w-full lg:w-auto">
+            <div className="relative flex-1 lg:w-64">
+               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+               <input 
+                 type="text" 
+                 placeholder="İsim, E-posta veya ID..." 
+                 value={searchTerm}
+                 onChange={(e) => setSearchTerm(e.target.value)}
+                 className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-12 pr-4 text-xs font-bold text-white outline-none focus:border-cyan-500/50"
+               />
+            </div>
+            <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 shrink-0">
+               <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-cyan-500 text-white' : 'text-slate-500'}`}><LayoutGrid size={16}/></button>
+               <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-cyan-500 text-white' : 'text-slate-500'}`}><List size={16}/></button>
+            </div>
+         </div>
+      </div>
+
+      {/* Content Grid */}
+      <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3' : 'grid-cols-1'}`}>
+         {filteredUsers.map(user => (
+           <UserCard 
+             key={user.id} 
+             user={user} 
+             onEdit={() => { setSelectedUser(user); setShowForm(true); }} 
+             onDelete={() => handleDeleteUser(user.id)}
+             therapists={users.filter(u => u.role === 'Therapist')}
+           />
+         ))}
+      </div>
+
+      {showForm && (
+        <UserFormModal 
+          user={selectedUser} 
+          onClose={() => setShowForm(false)} 
+          onSave={handleSaveUser}
+          therapists={users.filter(u => u.role === 'Therapist')}
+        />
+      )}
+    </div>
+  );
+};
+
+// --- SUB COMPONENTS ---
+
+const StatBadge = ({ icon: Icon, label, value, color }: any) => (
+  <div className="bg-slate-900/50 border border-slate-800 p-5 rounded-2xl flex items-center gap-4 hover:border-slate-700 transition-all">
+     <div className={`w-10 h-10 rounded-xl bg-slate-950 flex items-center justify-center border border-slate-800 shadow-inner ${color}`}>
+        <Icon size={20} />
+     </div>
+     <div>
+        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{label}</p>
+        <p className="text-xl font-black text-white italic tracking-tighter">{value}</p>
+     </div>
+  </div>
+);
+
+const FilterBtn = ({ active, onClick, label }: any) => (
+  <button 
+    onClick={onClick}
+    className={`px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${active ? 'bg-slate-800 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'}`}
+  >
+    {label}
+  </button>
+);
+
+const UserCard = ({ user, onEdit, onDelete, therapists }: { user: User, onEdit: () => void, onDelete: () => void, therapists: User[] }) => {
+  const isTherapist = user.role === 'Therapist';
+  const assignedTherapist = therapists.find(t => t.id === user.assignedTherapistId);
+
+  return (
+    <div className={`group relative p-6 rounded-[2rem] border transition-all hover:-translate-y-1 ${isTherapist ? 'bg-slate-900/40 border-slate-800 hover:border-cyan-500/30' : 'bg-slate-900/20 border-slate-800 hover:border-emerald-500/30'}`}>
+       <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button onClick={onEdit} className="p-2 bg-slate-950 rounded-lg text-slate-400 hover:text-white border border-slate-800"><Edit size={14} /></button>
+          <button onClick={onDelete} className="p-2 bg-rose-500/10 rounded-lg text-rose-500 hover:bg-rose-500 hover:text-white border border-rose-500/20"><Trash2 size={14} /></button>
+       </div>
+
+       <div className="flex items-center gap-4 mb-6">
+          <div className="relative">
+             <div className="w-16 h-16 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center overflow-hidden">
+                {user.avatarUrl ? <img src={user.avatarUrl} className="w-full h-full object-cover" /> : <span className="text-xl font-black text-slate-700">{user.fullName.charAt(0)}</span>}
+             </div>
+             <div className={`absolute -bottom-1 -right-1 px-2 py-0.5 rounded text-[8px] font-black uppercase border border-slate-950 ${isTherapist ? 'bg-cyan-500 text-white' : 'bg-emerald-500 text-white'}`}>
+               {isTherapist ? 'Uzman' : 'Hasta'}
+             </div>
+          </div>
+          <div>
+             <h4 className="font-bold text-white text-lg tracking-tight italic">{user.fullName}</h4>
+             <p className="text-[10px] font-mono text-slate-500 flex items-center gap-1"><Mail size={10} /> {user.email}</p>
+             {user.phone && <p className="text-[10px] font-mono text-slate-500 flex items-center gap-1"><Phone size={10} /> {user.phone}</p>}
+          </div>
+       </div>
+
+       <div className="space-y-3 bg-slate-950/50 p-4 rounded-2xl border border-slate-800/50">
+          {isTherapist && user.therapistProfile ? (
+             <>
+               <InfoRow label="Uzmanlık" value={user.therapistProfile.specialization[0]} icon={GraduationCap} />
+               <InfoRow label="Deneyim" value={`${user.therapistProfile.yearsOfExperience} Yıl`} icon={Star} color="text-amber-400" />
+               <InfoRow label="Aktif Hasta" value={user.therapistProfile.totalPatientsActive} icon={Users} />
+               <div className="flex gap-1 mt-2 flex-wrap">
+                  {user.therapistProfile.specialization.slice(1).map(s => <span key={s} className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-[8px] text-slate-400 font-bold">{s}</span>)}
+               </div>
+             </>
+          ) : user.clinicalProfile ? (
+             <>
+               <InfoRow label="Klinik Tanı" value={user.clinicalProfile.diagnosis} icon={Activity} color="text-white" />
+               <InfoRow label="Risk Seviyesi" value={user.clinicalProfile.riskLevel} icon={AlertCircle} color={user.clinicalProfile.riskLevel === 'Yüksek' ? 'text-rose-500' : 'text-emerald-500'} />
+               <InfoRow label="Atanan Uzman" value={assignedTherapist?.fullName || 'Atanmadı'} icon={UserCheck} />
+             </>
+          ) : null}
+       </div>
+    </div>
+  );
+};
+
+const InfoRow = ({ label, value, icon: Icon, color = 'text-slate-300' }: any) => (
+  <div className="flex justify-between items-center">
+     <div className="flex items-center gap-2 text-slate-500">
+        <Icon size={12} />
+        <span className="text-[9px] font-black uppercase tracking-widest">{label}</span>
+     </div>
+     <span className={`text-[10px] font-bold ${color}`}>{value}</span>
+  </div>
+);
+
+// --- FORM MODAL ---
+
+const UserFormModal = ({ user, onClose, onSave, therapists }: { user: User | null, onClose: () => void, onSave: (u: User) => void, therapists: User[] }) => {
+  const [formData, setFormData] = useState<User>(user || {
+    id: Date.now().toString(),
+    role: 'Patient',
+    fullName: '',
+    email: '',
+    phone: '',
+    createdAt: new Date().toISOString(),
+    patientStatus: 'Stabil',
+    clinicalProfile: { diagnosis: '', riskLevel: 'Düşük', notes: [], treatmentHistory: [], painLogs: [] }
+  } as User);
+
+  const [activeTab, setActiveTab] = useState<'basic' | 'clinical' | 'professional'>('basic');
+
+  const handleSubmit = () => {
+    if (!formData.fullName || !formData.email) return alert("İsim ve E-posta zorunludur.");
+    onSave(formData);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-6 animate-in zoom-in-95 duration-300">
+       <div className="bg-slate-900 border border-slate-800 w-full max-w-2xl rounded-[3rem] p-10 relative overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+          
+          <div className="flex justify-between items-center mb-8">
+             <div>
+                <h3 className="text-2xl font-black italic text-white uppercase">{user ? 'Profili' : 'Yeni Kayıt'} <span className="text-cyan-400">Düzenle</span></h3>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Sistem Veritabanı Girişi</p>
+             </div>
+             <button onClick={onClose} className="p-3 bg-slate-950 rounded-xl text-slate-500 hover:text-white border border-slate-800"><X size={20}/></button>
+          </div>
+
+          <div className="flex gap-2 mb-6 bg-slate-950 p-1.5 rounded-xl border border-slate-800 shrink-0">
+             <FilterBtn active={activeTab === 'basic'} onClick={() => setActiveTab('basic')} label="Temel Bilgiler" />
+             {formData.role === 'Patient' && <FilterBtn active={activeTab === 'clinical'} onClick={() => setActiveTab('clinical')} label="Klinik Profil" />}
+             {formData.role === 'Therapist' && <FilterBtn active={activeTab === 'professional'} onClick={() => setActiveTab('professional')} label="Uzmanlık" />}
+          </div>
+
+          <div className="flex-1 overflow-y-auto pr-2 space-y-6">
+             {activeTab === 'basic' && (
+                <div className="space-y-4">
+                   <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                         <label className="text-[9px] font-black text-slate-500 uppercase">Hesap Türü</label>
+                         <select 
+                           value={formData.role} 
+                           onChange={(e) => setFormData({...formData, role: e.target.value as UserRole})}
+                           className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-xs font-bold outline-none"
+                           disabled={!!user} // Rol değişimi yeni kayıtta sadece
+                         >
+                            <option value="Patient">Hasta</option>
+                            <option value="Therapist">Terapist</option>
+                            <option value="Admin">Yönetici</option>
+                         </select>
+                      </div>
+                      <Input label="Ad Soyad" value={formData.fullName} onChange={v => setFormData({...formData, fullName: v})} />
+                   </div>
+                   <div className="grid grid-cols-2 gap-4">
+                      <Input label="E-Posta" value={formData.email} onChange={v => setFormData({...formData, email: v})} />
+                      <Input label="Telefon" value={formData.phone || ''} onChange={v => setFormData({...formData, phone: v})} />
+                   </div>
+                   {formData.role === 'Patient' && (
+                     <div className="space-y-2">
+                        <label className="text-[9px] font-black text-slate-500 uppercase">Atanan Uzman</label>
+                        <select 
+                           value={formData.assignedTherapistId || ''} 
+                           onChange={(e) => setFormData({...formData, assignedTherapistId: e.target.value})}
+                           className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-xs font-bold outline-none"
+                        >
+                           <option value="">Seçiniz...</option>
+                           {therapists.map(t => <option key={t.id} value={t.id}>{t.fullName}</option>)}
+                        </select>
+                     </div>
+                   )}
                 </div>
-                <button onClick={() => setShowMessaging(true)} className="p-4 bg-cyan-500 text-white rounded-2xl shadow-lg shadow-cyan-500/20"><MessageSquare size={18} /></button>
-              </div>
+             )}
 
-              <div className="p-10 min-h-[400px]">
-                {detailTab === 'overview' && <OverviewTab patient={selectedPatient} />}
-                {detailTab === 'history' && <HistoryTab history={selectedPatient.clinicalProfile.treatmentHistory} onAdd={() => setShowAddForm('history')} />}
-                {detailTab === 'pain' && <PainTab logs={selectedPatient.clinicalProfile.painLogs} onAdd={() => setShowAddForm('pain')} />}
-              </div>
+             {activeTab === 'clinical' && formData.role === 'Patient' && (
+                <div className="space-y-4">
+                   <Input label="Klinik Tanı (Diagnosis)" value={formData.clinicalProfile?.diagnosis || ''} onChange={v => setFormData({...formData, clinicalProfile: { ...formData.clinicalProfile!, diagnosis: v }})} />
+                   <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                         <label className="text-[9px] font-black text-slate-500 uppercase">Risk Seviyesi</label>
+                         <select 
+                           value={formData.clinicalProfile?.riskLevel || 'Düşük'} 
+                           onChange={(e) => setFormData({...formData, clinicalProfile: { ...formData.clinicalProfile!, riskLevel: e.target.value as any }})}
+                           className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-xs font-bold outline-none"
+                        >
+                           <option>Düşük</option><option>Orta</option><option>Yüksek</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                         <label className="text-[9px] font-black text-slate-500 uppercase">Hasta Durumu</label>
+                         <select 
+                           value={formData.patientStatus || 'Stabil'} 
+                           onChange={(e) => setFormData({...formData, patientStatus: e.target.value as any})}
+                           className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-xs font-bold outline-none"
+                        >
+                           <option>Stabil</option><option>Kritik</option><option>İyileşiyor</option><option>Taburcu</option>
+                        </select>
+                      </div>
+                   </div>
+                </div>
+             )}
 
-              {showAddForm === 'history' && <AddHistoryForm onSave={handleAddHistory} onCancel={() => setShowAddForm(null)} />}
-              {showAddForm === 'pain' && <AddPainForm onSave={handleAddPainLog} onCancel={() => setShowAddForm(null)} />}
-            </div>
+             {activeTab === 'professional' && formData.role === 'Therapist' && (
+                <div className="space-y-4">
+                   <div className="grid grid-cols-2 gap-4">
+                      <Input label="Deneyim (Yıl)" type="number" value={formData.therapistProfile?.yearsOfExperience || 0} onChange={v => setFormData({...formData, therapistProfile: { ...formData.therapistProfile!, yearsOfExperience: parseInt(v) }})} />
+                      <Input label="Başarı Oranı (%)" type="number" value={formData.therapistProfile?.successRate || 0} onChange={v => setFormData({...formData, therapistProfile: { ...formData.therapistProfile!, successRate: parseFloat(v) }})} />
+                   </div>
+                   <div className="space-y-2">
+                     <label className="text-[9px] font-black text-slate-500 uppercase">Biyografi</label>
+                     <textarea 
+                       value={formData.therapistProfile?.bio || ''} 
+                       onChange={e => setFormData({...formData, therapistProfile: { ...formData.therapistProfile!, bio: e.target.value }})}
+                       className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-xs outline-none h-24"
+                     />
+                   </div>
+                </div>
+             )}
           </div>
-        )}
-      </div>
-      {showMessaging && selectedPatient && <MessagingSystem patient={selectedPatient} onClose={() => setShowMessaging(false)} />}
-    </div>
-  );
-};
 
-const AddHistoryForm = ({ onSave, onCancel }: { onSave: (h: TreatmentHistory) => void, onCancel: () => void }) => {
-  const [formData, setFormData] = useState<TreatmentHistory>({ id: Date.now().toString(), date: new Date().toISOString().split('T')[0], facility: '', summary: '', outcome: '', therapistName: '' });
-  return (
-    <div className="absolute inset-0 z-20 bg-slate-950/95 backdrop-blur-xl p-10 overflow-y-auto animate-in fade-in duration-300">
-      <div className="max-w-xl mx-auto space-y-6">
-        <div className="flex justify-between items-center">
-          <h4 className="text-lg font-black italic text-cyan-400 uppercase tracking-tighter">YENİ TEDAVİ ÖZETİ</h4>
-          <button onClick={onCancel} className="text-slate-500 hover:text-white"><X size={24}/></button>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <Input label="Tarih" type="date" value={formData.date} onChange={v => setFormData({...formData, date: v})} />
-          <Input label="Kurum" value={formData.facility} onChange={v => setFormData({...formData, facility: v})} />
-        </div>
-        <Input label="Terapist" value={formData.therapistName} onChange={v => setFormData({...formData, therapistName: v})} />
-        <TextArea label="Tedavi Özeti" value={formData.summary} onChange={v => setFormData({...formData, summary: v})} />
-        <TextArea label="Sonuç ve Notlar" value={formData.outcome} onChange={v => setFormData({...formData, outcome: v})} />
-        <button onClick={() => onSave(formData)} className="w-full bg-cyan-500 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-cyan-500/20 flex items-center justify-center gap-2"><Save size={18}/> SİSTEME KAYDET</button>
-      </div>
-    </div>
-  );
-};
-
-const AddPainForm = ({ onSave, onCancel }: { onSave: (p: DetailedPainLog) => void, onCancel: () => void }) => {
-  const [formData, setFormData] = useState<DetailedPainLog>({ id: Date.now().toString(), date: new Date().toISOString().split('T')[0], score: 5, location: '', quality: 'Künt', triggers: [], duration: '' });
-  return (
-    <div className="absolute inset-0 z-20 bg-slate-950/95 backdrop-blur-xl p-10 overflow-y-auto animate-in fade-in duration-300">
-      <div className="max-w-xl mx-auto space-y-6">
-        <div className="flex justify-between items-center">
-          <h4 className="text-lg font-black italic text-rose-500 uppercase tracking-tighter">YENİ AĞRI KAYDI</h4>
-          <button onClick={onCancel} className="text-slate-500 hover:text-white"><X size={24}/></button>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <Input label="Tarih" type="date" value={formData.date} onChange={v => setFormData({...formData, date: v})} />
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-500 uppercase">Ağrı Skoru: {formData.score}</label>
-            <input type="range" min="0" max="10" value={formData.score} onChange={e => setFormData({...formData, score: parseInt(e.target.value)})} className="w-full" />
+          <div className="pt-6 border-t border-slate-800 mt-6">
+             <button onClick={handleSubmit} className="w-full bg-cyan-500 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-cyan-500/20 flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
+               <Save size={18} /> Kaydı Tamamla
+             </button>
           </div>
-        </div>
-        <Input label="Lokasyon" value={formData.location} onChange={v => setFormData({...formData, location: v})} />
-        <div className="grid grid-cols-2 gap-4">
-           <div className="space-y-2">
-             <label className="text-[10px] font-black text-slate-500 uppercase">Karakter</label>
-             <select value={formData.quality} onChange={e => setFormData({...formData, quality: e.target.value as any})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white text-xs">
-                {['Keskin', 'Künt', 'Yanıcı', 'Batıcı', 'Elektriklenme'].map(q => <option key={q} value={q}>{q}</option>)}
-             </select>
-           </div>
-           <Input label="Süre" value={formData.duration} onChange={v => setFormData({...formData, duration: v})} />
-        </div>
-        <button onClick={() => onSave(formData)} className="w-full bg-rose-500 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-rose-500/20 flex items-center justify-center gap-2"><Save size={18}/> KAYDI OLUŞTUR</button>
-      </div>
+
+       </div>
     </div>
   );
 };
 
 const Input = ({ label, type = "text", value, onChange }: any) => (
   <div className="space-y-2">
-    <label className="text-[10px] font-black text-slate-500 uppercase">{label}</label>
-    <input type={type} value={value} onChange={e => onChange(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4 text-white text-sm outline-none focus:border-cyan-500/50" />
-  </div>
-);
-
-const TextArea = ({ label, value, onChange }: any) => (
-  <div className="space-y-2">
-    <label className="text-[10px] font-black text-slate-500 uppercase">{label}</label>
-    <textarea value={value} onChange={e => onChange(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4 text-white text-sm h-24 outline-none focus:border-cyan-500/50" />
-  </div>
-);
-
-const TabButton = ({ active, onClick, icon: Icon, label }: any) => (
-  <button onClick={onClick} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${active ? 'bg-slate-800 text-cyan-400 border border-cyan-500/30' : 'text-slate-500 hover:text-white'}`}>
-    <Icon size={14} /> {label}
-  </button>
-);
-
-const OverviewTab = ({ patient }: { patient: PatientUser }) => (
-  <div className="space-y-8 animate-in fade-in duration-500">
-    <div className="bg-slate-950/40 p-8 rounded-3xl border border-slate-800 space-y-4">
-      <h5 className="text-[11px] font-black text-white uppercase tracking-widest flex items-center gap-2"><AlertCircle size={14} className="text-cyan-400" /> Aktif Klinik Durum</h5>
-      <p className="text-sm text-slate-300 italic">"{patient.clinicalProfile.diagnosis}"</p>
-      <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-800/50">
-        <div>
-          <span className="text-[9px] font-black text-slate-500 uppercase">Risk Seviyesi</span>
-          <p className={`text-xs font-black uppercase mt-1 ${patient.clinicalProfile.riskLevel === 'Yüksek' ? 'text-rose-500' : 'text-emerald-500'}`}>{patient.clinicalProfile.riskLevel}</p>
-        </div>
-        <div>
-          <span className="text-[9px] font-black text-slate-500 uppercase">İyileşme Oranı</span>
-          <p className="text-xs font-black text-white mt-1">%{patient.recoveryProgress}</p>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-const HistoryTab = ({ history, onAdd }: { history: TreatmentHistory[], onAdd: () => void }) => (
-  <div className="space-y-6 animate-in fade-in duration-500">
-    <div className="flex justify-between items-center">
-      <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Tedavi Kronolojisi</h5>
-      <button onClick={onAdd} className="flex items-center gap-2 text-[9px] font-black text-cyan-400 uppercase tracking-widest"><PlusCircle size={14}/> Yeni Özet Ekle</button>
-    </div>
-    {history.map(item => (
-      <div key={item.id} className="bg-slate-900/40 p-6 rounded-3xl border border-slate-800 space-y-4 group hover:border-slate-600 transition-all">
-        <div className="flex justify-between items-start">
-          <div>
-            <span className="text-[10px] font-black text-cyan-500 uppercase tracking-widest">{item.date}</span>
-            <h6 className="text-sm font-semibold text-white italic mt-1">{item.facility}</h6>
-          </div>
-          <div className="text-right">
-            <span className="text-[9px] font-bold text-slate-500 uppercase">{item.therapistName}</span>
-          </div>
-        </div>
-        <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800/50">
-           <p className="text-xs text-slate-400 leading-relaxed font-medium italic">"{item.summary}"</p>
-        </div>
-        <div>
-           <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Klinik Sonuç</span>
-           <p className="text-xs text-slate-300 italic mt-1">{item.outcome}</p>
-        </div>
-      </div>
-    ))}
-  </div>
-);
-
-const PainTab = ({ logs, onAdd }: { logs: DetailedPainLog[], onAdd: () => void }) => (
-  <div className="space-y-6 animate-in fade-in duration-500">
-    <div className="flex justify-between items-center">
-      <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Güncel Ağrı Logları</h5>
-      <button onClick={onAdd} className="flex items-center gap-2 text-[9px] font-black text-rose-400 uppercase tracking-widest"><PlusCircle size={14}/> Kayıt Gir</button>
-    </div>
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {logs.map(log => (
-        <div key={log.id} className="bg-slate-900 border border-slate-800 p-6 rounded-[2rem] space-y-4 group">
-           <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                 <MapPin size={14} className="text-rose-500" />
-                 <span className="text-xs font-bold text-slate-200">{log.location}</span>
-              </div>
-              <span className="text-xl font-black italic text-rose-500">{log.score}/10</span>
-           </div>
-           <div className="grid grid-cols-2 gap-3">
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
-                 <span className="text-[8px] font-black text-slate-600 uppercase">Karakter</span>
-                 <p className="text-[10px] font-bold text-slate-300">{log.quality}</p>
-              </div>
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
-                 <span className="text-[8px] font-black text-slate-600 uppercase">Süre</span>
-                 <p className="text-[10px] font-bold text-slate-300">{log.duration}</p>
-              </div>
-           </div>
-           <div>
-              <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Tetikleyiciler</span>
-              <div className="flex flex-wrap gap-1 mt-2">
-                 {log.triggers.map(t => <span key={t} className="px-2 py-0.5 bg-slate-800 rounded text-[8px] font-bold text-slate-400">{t}</span>)}
-              </div>
-           </div>
-        </div>
-      ))}
-    </div>
+    <label className="text-[9px] font-black text-slate-500 uppercase">{label}</label>
+    <input type={type} value={value} onChange={e => onChange(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-xs font-bold outline-none focus:border-cyan-500/50" />
   </div>
 );
