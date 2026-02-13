@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect, ReactNode, Component } from 'react';
+import React, { useState, useRef, useEffect, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { 
   Activity, User as UserIcon, Zap, BrainCircuit, Upload, 
@@ -18,6 +18,7 @@ import { UserManager } from './UserManager.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
+// Fixed: Inherit from React.Component with explicit generic types to resolve the 'props' not found error in TypeScript
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
@@ -26,6 +27,10 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
   static getDerivedStateFromError(_error: Error): ErrorBoundaryState { 
     return { hasError: true }; 
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("Uncaught error:", error, errorInfo);
   }
 
   render() {
@@ -40,6 +45,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
+    // Fixed: Accessed this.props.children safely
     return this.props.children || null;
   }
 }

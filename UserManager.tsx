@@ -7,21 +7,20 @@ import {
   ChevronRight, MoreVertical, Star,
   AlertCircle, CheckCircle2, Clock,
   History, Thermometer, MapPin, 
-  PlusCircle, BookOpen, X, Save
+  PlusCircle, BookOpen, X, Save,
+  Briefcase, UserCog
 } from 'lucide-react';
 import { PatientUser, PatientStatus, UserRole, DetailedPainLog, TreatmentHistory, PainQuality } from './types.ts';
 import { MessagingSystem } from './MessagingSystem.tsx';
-import { PhysioDB } from './db-repository.ts';
+import { StaffModule } from './StaffModule.tsx';
 
-export const UserManager = () => {
-  const [activeRole, setActiveRole] = useState<UserRole | 'All'>('All');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedPatient, setSelectedPatient] = useState<PatientUser | null>(null);
-  const [showMessaging, setShowMessaging] = useState(false);
-  const [detailTab, setDetailTab] = useState<'overview' | 'history' | 'pain'>('overview');
-  const [showAddForm, setShowAddForm] = useState<'history' | 'pain' | null>(null);
+// --- SUB-COMPONENTS FOR PATIENT LOGIC ---
+// (Kept local to avoid creating too many files, but clearly separated from the new router logic)
 
-  const [users, setUsers] = useState<PatientUser[]>([
+// ... [Previous Patient Logic Imports/Components would logically be here, but we will redefine them to keep file consistent]
+
+// Mock Patient Data
+const MOCK_PATIENTS: PatientUser[] = [
     {
       id: 'p1',
       fullName: 'Ahmet Yılmaz',
@@ -31,7 +30,6 @@ export const UserManager = () => {
       createdAt: '2024-01-15',
       lastVisit: '2024-02-10',
       recoveryProgress: 65,
-      // riskScore özelliği, PatientUser tipindeki zorunlu alanı karşılamak için eklendi.
       riskScore: 45,
       assignedTherapistId: 't1',
       clinicalProfile: {
@@ -47,7 +45,58 @@ export const UserManager = () => {
         ]
       }
     }
-  ]);
+];
+
+export const UserManager = () => {
+  // Router State
+  const [activeSection, setActiveSection] = useState<'Patients' | 'Staff'>('Patients');
+
+  return (
+    <div className="space-y-6">
+      {/* Top Level Navigation Switch */}
+      <div className="flex justify-center">
+         <div className="bg-slate-900 p-1.5 rounded-2xl border border-slate-800 flex items-center gap-2 shadow-lg">
+            <NavSwitch 
+              active={activeSection === 'Patients'} 
+              onClick={() => setActiveSection('Patients')} 
+              icon={UserCheck} 
+              label="HASTA YÖNETİMİ" 
+            />
+            <div className="w-[1px] h-6 bg-slate-800" />
+            <NavSwitch 
+              active={activeSection === 'Staff'} 
+              onClick={() => setActiveSection('Staff')} 
+              icon={UserCog} 
+              label="KADRO & İK" 
+            />
+         </div>
+      </div>
+
+      {/* Content Router */}
+      <div className="min-h-[600px]">
+         {activeSection === 'Patients' ? <PatientManager /> : <StaffModule />}
+      </div>
+    </div>
+  );
+};
+
+const NavSwitch = ({ active, onClick, icon: Icon, label }: any) => (
+  <button 
+    onClick={onClick}
+    className={`flex items-center gap-3 px-8 py-3 rounded-xl text-[10px] font-black tracking-widest transition-all ${active ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-slate-800'}`}
+  >
+    <Icon size={16} /> {label}
+  </button>
+);
+
+// --- ORIGINAL PATIENT MANAGER LOGIC (Encapsulated) ---
+const PatientManager = () => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedPatient, setSelectedPatient] = useState<PatientUser | null>(null);
+  const [showMessaging, setShowMessaging] = useState(false);
+  const [detailTab, setDetailTab] = useState<'overview' | 'history' | 'pain'>('overview');
+  const [showAddForm, setShowAddForm] = useState<'history' | 'pain' | null>(null);
+  const [users, setUsers] = useState<PatientUser[]>(MOCK_PATIENTS);
 
   const filteredUsers = users.filter(u => u.fullName.toLowerCase().includes(searchTerm.toLowerCase()));
 
@@ -87,19 +136,29 @@ export const UserManager = () => {
             <Users size={32} />
           </div>
           <div>
-            <h2 className="text-3xl font-semibold tracking-tighter text-white italic">OPERASYON <span className="text-cyan-400 uppercase">Merkezi</span></h2>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Klinik Kadro ve Hasta Yönetimi</p>
+            <h2 className="text-3xl font-semibold tracking-tighter text-white italic">KLİNİK <span className="text-cyan-400 uppercase">HASTALAR</span></h2>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Aktif Tedavi Protokolleri</p>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className={`lg:col-span-${selectedPatient ? '4' : '12'} space-y-4 transition-all duration-500`}>
+           <div className="bg-slate-900/40 p-4 rounded-2xl border border-slate-800 flex items-center gap-4 mb-4">
+              <Search size={18} className="text-slate-500" />
+              <input 
+                type="text" 
+                placeholder="Hasta adı veya tanı ara..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="bg-transparent border-none outline-none text-sm text-white w-full font-medium"
+              />
+           </div>
           {filteredUsers.map(user => (
             <div 
               key={user.id} 
               onClick={() => setSelectedPatient(user)}
-              className={`p-6 rounded-3xl border transition-all cursor-pointer ${selectedPatient?.id === user.id ? 'bg-cyan-500/10 border-cyan-500/50' : 'bg-slate-900/40 border-slate-800 hover:border-slate-700'}`}
+              className={`p-6 rounded-3xl border transition-all cursor-pointer ${selectedPatient?.id === user.id ? 'bg-cyan-500/10 border-cyan-500/50 shadow-lg shadow-cyan-500/10' : 'bg-slate-900/40 border-slate-800 hover:border-slate-700'}`}
             >
               <h4 className="font-semibold text-white italic">{user.fullName}</h4>
               <p className="text-[10px] text-slate-500 font-bold uppercase mt-1 tracking-widest">{user.clinicalProfile.diagnosis}</p>
@@ -134,7 +193,9 @@ export const UserManager = () => {
       {showMessaging && selectedPatient && <MessagingSystem patient={selectedPatient} onClose={() => setShowMessaging(false)} />}
     </div>
   );
-};
+}
+
+// ... [Sub-components from original file are preserved below for PatientManager functionality] ...
 
 const AddHistoryForm = ({ onSave, onCancel }: { onSave: (h: TreatmentHistory) => void, onCancel: () => void }) => {
   const [formData, setFormData] = useState<TreatmentHistory>({ id: Date.now().toString(), date: new Date().toISOString().split('T')[0], facility: '', summary: '', outcome: '', therapistName: '' });
@@ -146,12 +207,12 @@ const AddHistoryForm = ({ onSave, onCancel }: { onSave: (h: TreatmentHistory) =>
           <button onClick={onCancel} className="text-slate-500 hover:text-white"><X size={24}/></button>
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <Input label="Tarih" type="date" value={formData.date} onChange={v => setFormData({...formData, date: v})} />
-          <Input label="Kurum" value={formData.facility} onChange={v => setFormData({...formData, facility: v})} />
+          <Input label="Tarih" type="date" value={formData.date} onChange={(v: string) => setFormData({...formData, date: v})} />
+          <Input label="Kurum" value={formData.facility} onChange={(v: string) => setFormData({...formData, facility: v})} />
         </div>
-        <Input label="Terapist" value={formData.therapistName} onChange={v => setFormData({...formData, therapistName: v})} />
-        <TextArea label="Tedavi Özeti" value={formData.summary} onChange={v => setFormData({...formData, summary: v})} />
-        <TextArea label="Sonuç ve Notlar" value={formData.outcome} onChange={v => setFormData({...formData, outcome: v})} />
+        <Input label="Terapist" value={formData.therapistName} onChange={(v: string) => setFormData({...formData, therapistName: v})} />
+        <TextArea label="Tedavi Özeti" value={formData.summary} onChange={(v: string) => setFormData({...formData, summary: v})} />
+        <TextArea label="Sonuç ve Notlar" value={formData.outcome} onChange={(v: string) => setFormData({...formData, outcome: v})} />
         <button onClick={() => onSave(formData)} className="w-full bg-cyan-500 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-cyan-500/20 flex items-center justify-center gap-2"><Save size={18}/> SİSTEME KAYDET</button>
       </div>
     </div>
@@ -168,13 +229,13 @@ const AddPainForm = ({ onSave, onCancel }: { onSave: (p: DetailedPainLog) => voi
           <button onClick={onCancel} className="text-slate-500 hover:text-white"><X size={24}/></button>
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <Input label="Tarih" type="date" value={formData.date} onChange={v => setFormData({...formData, date: v})} />
+          <Input label="Tarih" type="date" value={formData.date} onChange={(v: string) => setFormData({...formData, date: v})} />
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-500 uppercase">Ağrı Skoru: {formData.score}</label>
             <input type="range" min="0" max="10" value={formData.score} onChange={e => setFormData({...formData, score: parseInt(e.target.value)})} className="w-full" />
           </div>
         </div>
-        <Input label="Lokasyon" value={formData.location} onChange={v => setFormData({...formData, location: v})} />
+        <Input label="Lokasyon" value={formData.location} onChange={(v: string) => setFormData({...formData, location: v})} />
         <div className="grid grid-cols-2 gap-4">
            <div className="space-y-2">
              <label className="text-[10px] font-black text-slate-500 uppercase">Karakter</label>
@@ -182,7 +243,7 @@ const AddPainForm = ({ onSave, onCancel }: { onSave: (p: DetailedPainLog) => voi
                 {['Keskin', 'Künt', 'Yanıcı', 'Batıcı', 'Elektriklenme'].map(q => <option key={q} value={q}>{q}</option>)}
              </select>
            </div>
-           <Input label="Süre" value={formData.duration} onChange={v => setFormData({...formData, duration: v})} />
+           <Input label="Süre" value={formData.duration} onChange={(v: string) => setFormData({...formData, duration: v})} />
         </div>
         <button onClick={() => onSave(formData)} className="w-full bg-rose-500 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-rose-500/20 flex items-center justify-center gap-2"><Save size={18}/> KAYDI OLUŞTUR</button>
       </div>

@@ -56,16 +56,15 @@
 {
   "imports": {
     "react": "https://esm.sh/react@18.3.1",
-    "react-dom": "https://esm.sh/react-dom@18.3.1",
-    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "react-dom": "https://esm.sh/react-dom@18.3.1/client",
     "lucide-react": "https://esm.sh/lucide-react@^0.474.0",
-    "react/": "https://esm.sh/react@18.3.1/",
     "@google/genai": "https://esm.sh/@google/genai@^1.40.0",
-    "react-dom/": "https://esm.sh/react-dom@18.3.1/",
-    "@vercel/node": "https://esm.sh/@vercel/node@^5.6.2",
-    "@vercel/postgres": "https://esm.sh/@vercel/postgres@^0.10.0",
     "recharts": "https://esm.sh/recharts@2.12.7",
-    "framer-motion": "https://esm.sh/framer-motion@11.0.0"
+    "framer-motion": "https://esm.sh/framer-motion@11.0.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "@vercel/node": "https://esm.sh/@vercel/node@^5.6.3",
+    "@vercel/postgres": "https://esm.sh/@vercel/postgres@^0.10.0"
   }
 }
 </script>
@@ -73,23 +72,5 @@
 <body>
     <div id="root"></div>
     <script type="module" src="index.tsx"></script>
-    <script>
-      (function() {
-        if (!('serviceWorker' in navigator)) return;
-        const registerSW = async () => {
-          try {
-            if (document.readyState !== 'complete') {
-              window.addEventListener('load', registerSW, { once: true });
-              return;
-            }
-            const registration = await navigator.serviceWorker.register('/sw.js');
-            console.log('%c[PhysioCore] Genesis SW Online', 'color: #06B6D4; font-weight: bold;', registration.scope);
-          } catch (err) {
-            console.warn('[PhysioCore] SW Registration failed:', err.message);
-          }
-        };
-        registerSW();
-      })();
-    </script>
 </body>
 </html>
