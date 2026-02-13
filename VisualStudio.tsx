@@ -24,9 +24,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
   const [isMotionActive, setIsMotionActive] = useState(false); 
   const [customPrompt, setCustomPrompt] = useState('');
   const [error, setError] = useState<string | null>(null);
-  
   const [currentFrame, setCurrentFrame] = useState(0);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [activeLayers, setActiveLayers] = useState({ skeleton: true, muscles: true, skin: true, HUD: true });
   const [isRecording, setIsRecording] = useState(false);
 
@@ -46,16 +44,17 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
     try {
       const aistudio = (window as any).aistudio;
       
-      // Mandatory check before generation
+      /**
+       * KRİTİK: "Free" modeller de API Key gerektirir. 
+       * Eğer process.env.API_KEY boşsa veya kullanıcı henüz anahtar seçmemişse diyaloğu zorla açıyoruz.
+       */
       if (aistudio && !(await aistudio.hasSelectedApiKey())) {
         await aistudio.openSelectKey();
-        // Proceed as per instructions: assume key selection was successful
       }
 
       if (renderMode === 'video') {
         const url = await generateExerciseRealVideo(exercise, customPrompt);
         if (!url) throw new Error("Video generation returned no URL");
-        
         setPreviewUrl(url);
         onVisualGenerated(url, 'VEO-Premium', true, 1, 'video');
       } 
@@ -75,29 +74,19 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
       console.error("Generation failed:", err);
       const aistudio = (window as any).aistudio;
       
-      // Handle missing/invalid key errors by resetting and prompting
       if (
         err.message === "API_KEY_MISSING" || 
         err.message?.includes("API key must be set") || 
         err.message?.includes("Requested entity was not found")
       ) {
         if (aistudio) await aistudio.openSelectKey();
-        setError("API Anahtarı gerekli veya geçersiz. Lütfen bir anahtar seçin.");
+        setError("API Anahtarı gerekli (Ücretsiz modeller için de geçerlidir). Lütfen bir anahtar seçin.");
       } else {
-        setError("Üretim sırasında bir hata oluştu. Lütfen tekrar deneyin.");
+        setError("Üretim sırasında teknik bir hata oluştu. Lütfen protokol başlığını kontrol edip tekrar deneyin.");
       }
     } finally {
       setIsGenerating(false);
     }
-  };
-
-  const startProductionRecording = () => {
-    if (!previewUrl) return;
-    setIsRecording(true);
-    setTimeout(() => {
-        setIsRecording(false);
-        alert("Üretim Tamamlandı! Klinik çıktı hazır.");
-    }, 2000);
   };
 
   const toggleLayer = (layer: keyof typeof activeLayers) => {
@@ -106,8 +95,6 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start relative pb-20 animate-in fade-in duration-500 font-roboto">
-      
-      {/* LEFT: WORKSTATION CONSOLE */}
       <div className="xl:col-span-4 space-y-6">
         <div className="bg-slate-900/40 rounded-[2.5rem] p-8 border border-slate-800 shadow-2xl relative overflow-hidden backdrop-blur-3xl">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 via-emerald-500 to-cyan-500" />
@@ -122,7 +109,6 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
             </div>
           </div>
 
-          {/* ENGINE SELECTOR */}
           <div className="space-y-4 mb-8">
              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                 <Box size={12} /> Render Engine
@@ -141,6 +127,9 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                   <Rocket size={12} /> VEO (Paid)
                 </button>
              </div>
+             <p className="text-[8px] text-slate-500 italic px-2">
+                * AVM modu ücretsiz kota kullanır ancak her iki mod için de Google API Anahtarı seçilmelidir.
+             </p>
           </div>
 
           <div className="space-y-6 mb-8">
@@ -178,7 +167,6 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
         </div>
       </div>
 
-      {/* RIGHT: MONITOR & PRODUCTION STUDIO */}
       <div className="xl:col-span-8 space-y-6">
         <div className="relative w-full aspect-video bg-black rounded-[3rem] border-4 border-slate-800 flex flex-col overflow-hidden shadow-2xl group ring-1 ring-slate-700/50">
           
@@ -275,7 +263,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
 
                 <div className="flex items-center gap-3">
                    <button 
-                    onClick={startProductionRecording}
+                    onClick={() => {}}
                     disabled={isRecording || !previewUrl}
                     className={`flex items-center gap-3 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isRecording ? 'bg-rose-500 text-white animate-pulse' : 'bg-slate-800 border border-slate-700 text-emerald-400 hover:bg-emerald-500 hover:text-white'}`}
                    >

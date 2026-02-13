@@ -27,13 +27,45 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageCacheRef = useRef<HTMLImageElement | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioBufferRef = useRef<AudioBuffer | null>(null);
+  const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const stepTimerRef = useRef<any>(null);
   const animationFrameRef = useRef<number | null>(null);
   const progressRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
 
   const isVideo = exercise.videoUrl?.includes('.mp4') || (exercise.videoUrl && exercise.isMotion && !exercise.videoUrl.includes('vector'));
+
+  // Implement decode/encode manually as per guidelines for Gemini TTS raw PCM handling
+  function decodeBase64(base64: string) {
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
+  }
+
+  async function decodeAudioData(
+    data: Uint8Array,
+    ctx: AudioContext,
+    sampleRate: number,
+    numChannels: number,
+  ): Promise<AudioBuffer> {
+    const dataInt16 = new Int16Array(data.buffer);
+    const frameCount = dataInt16.length / numChannels;
+    const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+
+    for (let channel = 0; channel < numChannels; channel++) {
+      const channelData = buffer.getChannelData(channel);
+      for (let i = 0; i < frameCount; i++) {
+        channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+      }
+    }
+    return buffer;
+  }
 
   useEffect(() => {
     if (!tutorial && (exercise.visualUrl || exercise.videoUrl)) {
@@ -48,6 +80,11 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
         drawInterpolatedFrame(0);
       };
     }
+
+    return () => {
+      if (audioSourceRef.current) audioSourceRef.current.stop();
+      if (audioContextRef.current) audioContextRef.current.close();
+    };
   }, [exercise.visualUrl, exercise.videoUrl]);
 
   const loadTutorial = async () => {
@@ -56,10 +93,27 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
     if (data) {
       setTutorial(data);
       if (data.audioBase64) {
-        audioRef.current = new Audio(`data:audio/mp3;base64,${data.audioBase64}`);
+        // Handle raw PCM data from Gemini TTS using AudioContext as per guidelines
+        if (!audioContextRef.current) {
+          audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+        }
+        const bytes = decodeBase64(data.audioBase64);
+        const buffer = await decodeAudioData(bytes, audioContextRef.current, 24000, 1);
+        audioBufferRef.current = buffer;
       }
     }
     setIsLoadingTutorial(false);
+  };
+
+  const playAudio = () => {
+    if (audioBufferRef.current && audioContextRef.current && audioEnabled) {
+      if (audioSourceRef.current) audioSourceRef.current.stop();
+      const source = audioContextRef.current.createBufferSource();
+      source.buffer = audioBufferRef.current;
+      source.connect(audioContextRef.current.destination);
+      source.start();
+      audioSourceRef.current = source;
+    }
   };
 
   /**
@@ -191,10 +245,10 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
 
   useEffect(() => {
     if (isPlaying) {
-      if (audioRef.current && audioEnabled && currentRep === 0) audioRef.current.play();
+      if (currentRep === 0) playAudio();
       runStepSequence();
     } else {
-      if (audioRef.current) audioRef.current.pause();
+      if (audioSourceRef.current) audioSourceRef.current.stop();
       clearTimeout(stepTimerRef.current);
     }
     return () => clearTimeout(stepTimerRef.current);
