@@ -44,10 +44,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
     try {
       const aistudio = (window as any).aistudio;
       
-      /**
-       * KRİTİK: "Free" modeller de API Key gerektirir. 
-       * Eğer process.env.API_KEY boşsa veya kullanıcı henüz anahtar seçmemişse diyaloğu zorla açıyoruz.
-       */
+      // Güvenlik: Eğer anahtar seçilmemişse diyaloğu aç
       if (aistudio && !(await aistudio.hasSelectedApiKey())) {
         await aistudio.openSelectKey();
       }
@@ -74,15 +71,16 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
       console.error("Generation failed:", err);
       const aistudio = (window as any).aistudio;
       
+      // Önemli: "Requested entity was not found" hatası anahtarın geçersiz olduğunu gösterir
       if (
-        err.message === "API_KEY_MISSING" || 
         err.message?.includes("API key must be set") || 
-        err.message?.includes("Requested entity was not found")
+        err.message?.includes("Requested entity was not found") ||
+        err.message?.includes("API_KEY_INVALID")
       ) {
         if (aistudio) await aistudio.openSelectKey();
-        setError("API Anahtarı gerekli (Ücretsiz modeller için de geçerlidir). Lütfen bir anahtar seçin.");
+        setError("API Anahtarı bulunamadı veya geçersiz. Lütfen tekrar bir anahtar seçin.");
       } else {
-        setError("Üretim sırasında teknik bir hata oluştu. Lütfen protokol başlığını kontrol edip tekrar deneyin.");
+        setError(`Üretim hatası: ${err.message || 'Bilinmeyen hata'}`);
       }
     } finally {
       setIsGenerating(false);
@@ -118,17 +116,17 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                   onClick={() => setRenderMode('vector')}
                   className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${renderMode === 'vector' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500'}`}
                 >
-                  <Wind size={12} /> AVM (Free)
+                  <Wind size={12} /> AVM (Vektör)
                 </button>
                 <button 
                   onClick={() => setRenderMode('video')}
                   className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${renderMode === 'video' ? 'bg-cyan-500 text-white shadow-xl' : 'text-slate-500'}`}
                 >
-                  <Rocket size={12} /> VEO (Paid)
+                  <Rocket size={12} /> VEO (Video)
                 </button>
              </div>
              <p className="text-[8px] text-slate-500 italic px-2">
-                * AVM modu ücretsiz kota kullanır ancak her iki mod için de Google API Anahtarı seçilmelidir.
+                * Vercel'deki anahtarınız aktif olsa bile tarayıcı güvenliği için anahtar seçimi istenebilir.
              </p>
           </div>
 
@@ -177,10 +175,6 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                 </div>
                 <span className="text-[10px] font-mono text-white/50 tracking-widest">00:00:0{currentFrame} / 00:00:04</span>
              </div>
-             <div className="flex items-center gap-2">
-                <button className="p-2 bg-white/5 backdrop-blur-md rounded-lg text-white pointer-events-auto hover:bg-white/10 transition-all"><Maximize2 size={16}/></button>
-                <button className="p-2 bg-white/5 backdrop-blur-md rounded-lg text-white pointer-events-auto hover:bg-white/10 transition-all"><Share2 size={16}/></button>
-             </div>
           </div>
 
           <div className="flex-1 relative overflow-hidden flex items-center justify-center bg-slate-950">
@@ -202,19 +196,6 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                         className="w-full h-full object-cover" 
                         autoPlay loop muted playsInline
                       />
-                   )}
-
-                   {activeLayers.HUD && (
-                      <div className="absolute inset-0 pointer-events-none p-12 flex flex-col justify-between">
-                         <div className="flex justify-between">
-                            <div className="w-24 h-24 border-l border-t border-cyan-500/40" />
-                            <div className="w-24 h-24 border-r border-t border-cyan-500/40" />
-                         </div>
-                         <div className="flex justify-between">
-                            <div className="w-24 h-24 border-l border-b border-cyan-500/40" />
-                            <div className="w-24 h-24 border-r border-b border-cyan-500/40" />
-                         </div>
-                      </div>
                    )}
                 </div>
              ) : (
@@ -252,24 +233,11 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                   >
                       {isMotionActive ? <Pause size={20} fill="currentColor"/> : <Play size={20} fill="currentColor" className="ml-1"/>}
                   </button>
-                  <button onClick={() => setCurrentFrame(0)} className="text-slate-500 hover:text-white transition-colors"><FastForward size={20} className="rotate-180" /></button>
                 </div>
-
                 <div className="flex-1 flex items-center gap-4 text-xs font-mono">
                    <span className="text-cyan-400 font-black italic">PRO-OUTPUT</span>
                    <span className="text-slate-700">|</span>
                    <span className="text-slate-500 uppercase tracking-widest font-black">Frame: {currentFrame}</span>
-                </div>
-
-                <div className="flex items-center gap-3">
-                   <button 
-                    onClick={() => {}}
-                    disabled={isRecording || !previewUrl}
-                    className={`flex items-center gap-3 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isRecording ? 'bg-rose-500 text-white animate-pulse' : 'bg-slate-800 border border-slate-700 text-emerald-400 hover:bg-emerald-500 hover:text-white'}`}
-                   >
-                      {isRecording ? <Loader2 className="animate-spin" size={14} /> : <FileVideo size={14} />} 
-                      {isRecording ? 'PROCESSING...' : 'EXPORT OUTPUT'}
-                   </button>
                 </div>
              </div>
           </div>

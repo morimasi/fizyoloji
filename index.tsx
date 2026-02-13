@@ -32,8 +32,8 @@ import { UserManager } from './UserManager.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// Fixed: Explicitly using React.Component to resolve 'props' typing issue on line 60
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fixed: Correctly inheriting from Component to resolve 'props' typing issue on line 60
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false };
 
   constructor(props: ErrorBoundaryProps) {
@@ -56,7 +56,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
-    // Fixed: Accessed via inheritance from React.Component
+    // Correctly accessing children from this.props
     return this.props.children;
   }
 }
@@ -116,7 +116,7 @@ export default function PhysioCoreApp() {
       }
     } catch (err: any) {
         console.error("Clinical Consultation Failed", err);
-        // Fixed: Added check for "Requested entity was not found" as per guidelines
+        // Reset key selection state and prompt user again if key is missing or invalid
         if (err.message?.includes("API key must be set") || err.message?.includes("Requested entity was not found")) {
             const aistudio = (window as any).aistudio;
             if (aistudio) await aistudio.openSelectKey();
