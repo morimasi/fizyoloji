@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect, ReactNode } from 'react';
+import React, { useState, useRef, useEffect, ReactNode, Component, ErrorInfo } from 'react';
 import { createRoot } from 'react-dom/client';
 import { 
   Activity, User as UserIcon, Zap, BrainCircuit, Upload, 
@@ -18,10 +18,11 @@ import { UserManager } from './UserManager.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// Fixed: Inherit from React.Component with explicit generic types to resolve the 'props' not found error in TypeScript
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fixed: Explicitly extended Component with defined props and state types to resolve access errors
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
+    // Fixed: Properly initialized state in constructor
     this.state = { hasError: false };
   }
 
@@ -29,11 +30,13 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
     return { hasError: true }; 
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  // Fixed: Used the directly imported ErrorInfo type for proper catch signature
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
   }
 
   render() {
+    // Fixed: Accessed state property safely as it now exists on the inferred type
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-12 text-center">
@@ -45,7 +48,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
-    // Fixed: Accessed this.props.children safely
+    // Fixed: Accessed props property safely
     return this.props.children || null;
   }
 }
