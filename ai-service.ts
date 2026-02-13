@@ -104,9 +104,34 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
   try {
     const apiKey = await ensureApiKey();
     const ai = new GoogleGenAI({ apiKey });
+    
+    let stylePrompt = "";
+    
+    switch (style) {
+        case 'Medical-Vector':
+            stylePrompt = "Medical Vector Art: Clean lines, minimalist, neon blue accents on dark background. Focus on muscle anatomy.";
+            break;
+        case 'X-Ray-Lottie':
+            stylePrompt = "X-Ray Style: Transparent skeletal view, highlighting joint angles. Glowing bones on dark background.";
+            break;
+        case 'Cinematic-GIF':
+            stylePrompt = "Dynamic Motion Shot: High contrast, motion blur trails indicating movement direction. Cyberpunk medical aesthetic. Action pose.";
+            break;
+        case 'Clinical-Slide':
+            stylePrompt = "Split Screen Sequence: Left side showing 'Start Position', Right side showing 'End Position'. Clear instructional diagram.";
+            break;
+        default:
+            stylePrompt = "Medical Illustration: High fidelity, professional clinic style.";
+    }
+
+    const fullPrompt = `Create a professional physiotherapy visual for: "${exercise.titleTr || exercise.title}". 
+    Style: ${stylePrompt}. 
+    Context: Rehabilitation exercise guide. 
+    Aspect Ratio: Square (1:1).`;
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
-      contents: { parts: [{ text: `High-fidelity Medical Vector Illustration: ${exercise.titleTr || exercise.title}. Style: ${style}. Minimalist, clean lines, neon blue accents on dark background. Focus on the main muscle group.` }] },
+      contents: { parts: [{ text: fullPrompt }] },
       config: { imageConfig: { aspectRatio: "1:1" } }
     });
     

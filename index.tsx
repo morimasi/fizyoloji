@@ -31,8 +31,11 @@ interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
 // Fixed ErrorBoundary class to use imported Component from React to ensure 'props' is correctly identified by the compiler
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = { hasError: false };
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
   
   static getDerivedStateFromError(_error: Error): ErrorBoundaryState { return { hasError: true }; }
   
