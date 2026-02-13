@@ -4,29 +4,121 @@ import { PatientProfile, ProgressReport, Exercise, DetailedPainLog, TreatmentHis
 import { PhysioDB } from "./db-repository.ts";
 
 /**
- * PHYSIOCORE AI - GEMINI 3 FLASH ENGINE (v10.0 PROJECTOR CORE)
- * High-Precision Sprite Sheet Generation for Fluid Animation
+ * PHYSIOCORE AI - GENESIS HYBRID ENGINE (v11.0)
+ * Supports: Flash (Sprites) & VEO (Real MP4 Video)
  */
 
 export const ensureApiKey = async (): Promise<string> => {
   if (import.meta.env.VITE_API_KEY) return import.meta.env.VITE_API_KEY;
   const key = process.env.API_KEY;
   if (key && key !== "undefined" && key !== "") return key;
+  
   const aistudio = (window as any).aistudio;
   if (aistudio) {
-    await aistudio.openSelectKey();
-    throw new Error("MISSING_API_KEY");
+    const hasKey = await aistudio.hasSelectedApiKey();
+    if (!hasKey) {
+      await aistudio.openSelectKey();
+      // Assume success and proceed, as per instructions to avoid race conditions
+    }
+    return process.env.API_KEY || "";
   }
   throw new Error("MISSING_API_KEY");
 };
 
-// Vektörel Kukla Motoru
-export const generateExerciseVideo = async (exercise: Partial<Exercise>): Promise<string> => {
-  const result = await generateExerciseVisual(exercise, 'Medical-Vector-Art');
-  return result.url;
+// --- REAL VIDEO ENGINE (VEO) ---
+export const generateExerciseRealVideo = async (exercise: Partial<Exercise>, customPrompt?: string): Promise<string> => {
+  try {
+    const apiKey = await ensureApiKey();
+    const ai = new GoogleGenAI({ apiKey });
+    
+    const prompt = `A professional clinical physiotherapy video showing ${exercise.titleTr || exercise.title}. 
+    ${customPrompt || exercise.description}. 
+    Style: High-quality medical 3D animation, clean studio lighting, neutral background, 24fps, cinematic fluid motion. 
+    The movement should be slow and controlled.`;
+
+    let operation = await ai.models.generateVideos({
+      model: 'veo-3.1-fast-generate-preview',
+      prompt: prompt,
+      config: {
+        numberOfVideos: 1,
+        resolution: '720p',
+        aspectRatio: '16:9'
+      }
+    });
+
+    // Polling for completion
+    while (!operation.done) {
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      operation = await ai.operations.getVideosOperation({ operation });
+    }
+
+    const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+    if (!downloadLink) throw new Error("Video generation failed");
+    
+    // Append API key for direct access
+    return `${downloadLink}&key=${apiKey}`;
+  } catch (error: any) {
+    if (error.message?.includes("Requested entity was not found")) {
+      const aistudio = (window as any).aistudio;
+      if (aistudio) await aistudio.openSelectKey();
+    }
+    console.error("VEO Error:", error);
+    throw error;
+  }
 };
 
-// Klinik Muhakeme
+// --- IMPROVED SPRITE ENGINE (FLASH) ---
+export const generateExerciseVisual = async (exercise: Partial<Exercise>, style: string, customDirective?: string): Promise<{ url: string, frameCount: number, layout: 'grid-4x6' | 'grid-2x4' }> => {
+  try {
+    const apiKey = await ensureApiKey();
+    const ai = new GoogleGenAI({ apiKey });
+    
+    const primaryMuscles = exercise.primaryMuscles?.join(', ') || 'Global Body';
+    const gridRows = 2; // 2x4 is more reliable for free model clarity
+    const gridCols = 4;
+    const totalFrames = gridRows * gridCols;
+
+    const stylePrompt = style === 'X-Ray-Lottie' 
+      ? `Style: Bioluminescent X-Ray MRI Scan. Blue glowing skeleton on black. Highlight ${primaryMuscles} in Orange.`
+      : `Style: Clean 3D Vector Medical Art. High contrast, dark slate background.`;
+
+    const fullPrompt = `
+    CREATE A HIGH-PRECISION 2x4 SPRITE SHEET (8 FRAMES TOTAL).
+    SUBJECT: ${customDirective || `Perform "${exercise.title}" with perfect clinical form.`}
+    RULES:
+    1. IMAGE LAYOUT: Exactly 2 rows and 4 columns.
+    2. ALIGNMENT: The mannequin MUST be perfectly centered in each cell. 
+    3. CONTINUITY: Frames must flow like a real video (Frame 1 -> Frame 8 is one full rep).
+    4. NO BORDERS: Zero padding or lines between grid cells.
+    5. STABILITY: Camera is a fixed tripod. No zooming or moving.
+    ${stylePrompt}
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image', 
+      contents: { parts: [{ text: fullPrompt }] },
+      config: { imageConfig: { aspectRatio: "16:9" } } 
+    });
+    
+    if (response.candidates?.[0]?.content?.parts) {
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) {
+            return {
+                url: `data:image/png;base64,${part.inlineData.data}`,
+                frameCount: totalFrames,
+                layout: 'grid-2x4'
+            };
+        }
+      }
+    }
+    throw new Error("No image generated");
+  } catch (e) {
+    console.error("Image Gen Error", e);
+    return { url: '', frameCount: 0, layout: 'grid-2x4' };
+  }
+};
+
+// ... existing clinical functions (runClinicalConsultation, etc.) ...
 export const runClinicalConsultation = async (
   text: string, 
   imageBase64?: string,
@@ -40,11 +132,7 @@ export const runClinicalConsultation = async (
   try {
     const apiKey = await ensureApiKey();
     const ai = new GoogleGenAI({ apiKey });
-    const prompt = `Sen kıdemli bir klinik uzmanısın.
-    Girdi: "${text}"
-    Hasta Geçmişi: ${JSON.stringify(history || [])}
-    Görevin: Girdiyi analiz et ve eksiksiz bir PatientProfile JSON nesnesi döndür.`;
-
+    const prompt = `Sen kıdemli bir klinik uzmanısın. Girdi: "${text}". Analiz et ve JSON PatientProfile döndür.`;
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview', 
       contents: {
@@ -53,16 +141,12 @@ export const runClinicalConsultation = async (
           ...(imageBase64 ? [{ inlineData: { mimeType: 'image/jpeg', data: imageBase64.split(',')[1] } }] : [])
         ]
       },
-      config: { 
-        responseMimeType: "application/json"
-      }
+      config: { responseMimeType: "application/json" }
     });
-
     const result = JSON.parse(response.text || "null");
     if (result) PhysioDB.setCachedResponse(inputHash, result);
     return result;
   } catch (err) {
-    console.error("Consultation Error:", err);
     return null;
   }
 };
@@ -73,219 +157,55 @@ export const runAdaptiveAdjustment = async (currentProfile: PatientProfile, feed
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview', 
-      contents: `Hasta Geri Bildirimi: ${JSON.stringify(feedback)}. Mevcut Profil: ${JSON.stringify(currentProfile)}. Tedavi planını güncelle ve JSON döndür.`,
+      contents: `Geri Bildirim: ${JSON.stringify(feedback)}. Mevcut: ${JSON.stringify(currentProfile)}. Güncelle ve JSON döndür.`,
       config: { responseMimeType: "application/json" }
     });
     return JSON.parse(response.text || "{}");
-  } catch (err) {
-    return currentProfile;
-  }
+  } catch (err) { return currentProfile; }
 };
 
 export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: string): Promise<Partial<Exercise>> => {
   try {
     const apiKey = await ensureApiKey();
     const ai = new GoogleGenAI({ apiKey });
-    
-    const prompt = `
-      Sen Kıdemli bir Spor Fizyoterapistisin.
-      GÖREV: Aşağıdaki egzersizi "${goal}" klinik hedefine göre optimize et.
-      
-      MEVCUT VERİ: ${JSON.stringify(exercise)}
-      
-      ÇIKTI FORMATI (JSON):
-      {
-        "sets": number,
-        "reps": number,
-        "tempo": string (Format: "E-P-C", örn "3-1-3"),
-        "restPeriod": number (saniye),
-        "targetRpe": number (1-10 Borg),
-        "frequency": string,
-        "biomechanics": string (Kısa klinik rasyonel)
-      }
-    `;
-
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: prompt,
+      contents: `Egzersiz: ${JSON.stringify(exercise)}. Hedef: ${goal}. Optimize et ve JSON döndür.`,
       config: { responseMimeType: "application/json" }
     });
     return JSON.parse(response.text || "{}");
-  } catch (err) {
-    console.error("Optimization Service Error:", err);
-    return exercise;
-  }
-};
-
-// --- CINEMATIC PROJECTOR ENGINE ---
-export const generateExerciseVisual = async (exercise: Partial<Exercise>, style: string, customDirective?: string): Promise<{ url: string, frameCount: number, layout: 'grid-4x6' | 'strip' }> => {
-  try {
-    const apiKey = await ensureApiKey();
-    const ai = new GoogleGenAI({ apiKey });
-    
-    const primaryMuscles = exercise.primaryMuscles?.join(', ') || 'Global Body';
-    const equipment = exercise.equipment?.length ? `USING: ${exercise.equipment.join(', ')}` : 'BODYWEIGHT ONLY';
-    
-    // CRITICAL: We enforce a 4x6 grid. This gives us 24 frames for a smooth ~2 second loop.
-    const gridRows = 4;
-    const gridCols = 6;
-    const totalFrames = gridRows * gridCols;
-
-    let stylePrompt = `Create a high-precision SPRITE SHEET animation containing exactly ${totalFrames} frames arranged in a strict ${gridRows}x${gridCols} GRID matrix. `;
-    
-    switch (style) {
-        case 'Medical-Vector':
-            stylePrompt += `
-            Style: Flat Medical Vector Art. Dark Slate Background (#0F172A).
-            Character: Gender-neutral 3D mannequin, semi-transparent skin.
-            Highlight: The ${primaryMuscles} must glow NEON CYAN.
-            Camera: FIXED TRIPOD. The camera MUST NOT MOVE. Only the body moves.
-            `;
-            break;
-        case 'X-Ray-Lottie':
-            stylePrompt += `
-            Style: Bioluminescent MRI Scan. 
-            Skeleton: Blue glowing bones on black background.
-            Muscles: ${primaryMuscles} highlighted in Orange heat map style.
-            `;
-            break;
-        case 'Cinematic-GIF':
-            stylePrompt += `
-            Style: Photorealistic 8K Studio.
-            Lighting: Rim lighting, dramatic shadows.
-            Model: Professional athlete in dark compression gear.
-            Background: Solid Black (Important for masking).
-            `;
-            break;
-        default:
-            stylePrompt += "Style: Clean professional medical illustration.";
-    }
-
-    const directiveBlock = customDirective 
-        ? `DIRECTOR NOTES: ${customDirective}`
-        : `INSTRUCTION: Perform "${exercise.title}" with perfect clinical form.`;
-
-    const fullPrompt = `
-    ${stylePrompt}
-
-    SUBJECT: ${directiveBlock}
-    Equipment: ${equipment}
-
-    SPRITE SHEET RULES (CRITICAL FOR ANIMATION):
-    1. LAYOUT: You MUST output a single image divided into a ${gridRows} row by ${gridCols} column grid.
-    2. SEQUENCE: The animation starts at Top-Left, moves Right, then down to next row.
-    3. LOOP: Frame 1 is the start position. Frame ${totalFrames / 2} is the peak contraction. Frame ${totalFrames} returns to start.
-    4. ALIGNMENT: The character must be CENTERED in each grid cell. Do not let limbs bleed into neighboring cells.
-    5. CONTINUITY: This creates a video. The difference between Frame 1 and Frame 2 should be small and smooth.
-    
-    Generate the SPRITE SHEET now.
-    `;
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image', 
-      contents: { parts: [{ text: fullPrompt }] },
-      config: { imageConfig: { aspectRatio: "4:3" } } // 4:3 is close to the ratio of a 6x4 grid of square frames
-    });
-    
-    if (response.candidates?.[0]?.content?.parts) {
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
-            return {
-                url: `data:image/png;base64,${part.inlineData.data}`,
-                frameCount: totalFrames,
-                layout: 'grid-4x6'
-            };
-        }
-      }
-    }
-    return { url: '', frameCount: 0, layout: 'strip' };
-  } catch (e) {
-    console.error("Image Gen Error", e);
-    return { url: '', frameCount: 0, layout: 'strip' };
-  }
+  } catch (err) { return exercise; }
 };
 
 export const generateExerciseData = async (exerciseName: string): Promise<Partial<Exercise>> => {
   try {
     const apiKey = await ensureApiKey();
     const ai = new GoogleGenAI({ apiKey });
-    
-    const prompt = `
-      Sen bir Tıbbi Veri Uzmanısın.
-      EGZERSİZ: "${exerciseName}"
-      
-      GÖREV: Aşağıdaki alanları doldurarak detaylı bir klinik JSON oluştur.
-      
-      ÇIKTI (JSON):
-      {
-        "title": "${exerciseName}",
-        "titleTr": "Türkçe Tıbbi Karşılığı",
-        "description": "Hastanın anlayacağı dilde adım adım talimatlar.",
-        "biomechanics": "Kinesiyolojik analiz.",
-        "primaryMuscles": ["Agonist 1", "Agonist 2"],
-        "secondaryMuscles": ["Stabilizörler"],
-        "icdCode": "ICD-10 Kodu (örn M54.5)",
-        "safetyFlags": ["Kontrendikasyonlar"],
-        "rehabPhase": "Sub-Akut",
-        "movementPlane": "Sagittal",
-        "equipment": ["Gerekli ekipmanlar"]
-      }
-    `;
-
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: prompt,
+      contents: `Egzersiz: ${exerciseName}. Detaylı klinik JSON oluştur.`,
       config: { responseMimeType: "application/json" }
     });
     return JSON.parse(response.text || "{}");
-  } catch (err) {
-    return {};
-  }
+  } catch (err) { return {}; }
 };
 
 export const generateExerciseTutorial = async (exerciseTitle: string): Promise<ExerciseTutorial | null> => {
   try {
     const apiKey = await ensureApiKey();
     const ai = new GoogleGenAI({ apiKey });
-
-    // 1. Script Generation
-    const scriptPrompt = `
-      Create a rhythmic breathing and movement script for: "${exerciseTitle}".
-      Format: JSON { "bpm": 60, "script": [{ "step": 1, "text": "...", "duration": 3000, "animation": "hold" }] }
-    `;
-
     const scriptResponse = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: scriptPrompt,
+      contents: `Egzersiz: ${exerciseTitle}. Ritmik talimatlar JSON { "bpm": 60, "script": [...] }`,
       config: { responseMimeType: "application/json" }
     });
-
     const scriptData = JSON.parse(scriptResponse.text || "{}");
-
-    // 2. Audio Generation
-    const ttsText = `Guide for ${exerciseTitle}. ${scriptData.script.map((s: any) => s.text).join(' ')}`;
     const audioResponse = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text: ttsText }] }],
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
-      },
+      contents: [{ parts: [{ text: scriptData.script.map((s: any) => s.text).join(' ') }] }],
+      config: { responseModalities: [Modality.AUDIO], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } } },
     });
-
-    let audioBase64 = null;
-    if (audioResponse.candidates?.[0]?.content?.parts?.[0]?.inlineData) {
-        audioBase64 = audioResponse.candidates[0].content.parts[0].inlineData.data;
-    }
-
-    return {
-      script: scriptData.script,
-      audioBase64: audioBase64,
-      bpm: scriptData.bpm || 60
-    };
-
-  } catch (err) {
-    console.error("Tutorial Gen Error:", err);
-    return null;
-  }
+    let audioBase64 = audioResponse.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || null;
+    return { script: scriptData.script, audioBase64, bpm: scriptData.bpm || 60 };
+  } catch (err) { return null; }
 };
