@@ -18,11 +18,12 @@ import { UserManager } from './UserManager.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// Use React.Component with explicit generic types to ensure props and state are correctly identified by the TypeScript compiler
+// Fix: Explicitly extending React.Component and declaring the state property to ensure proper type resolution for state and props
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public state: ErrorBoundaryState = { hasError: false };
+
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false };
   }
 
   static getDerivedStateFromError(_error: Error): ErrorBoundaryState { 
@@ -34,7 +35,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   render() {
-    // Explicitly accessing state through the inherited property
+    // Accessing state inherited from React.Component
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-12 text-center">
@@ -46,7 +47,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
-    // Explicitly accessing children through inherited props
+    // Accessing children inherited from React.Component props
     return this.props.children || null;
   }
 }
