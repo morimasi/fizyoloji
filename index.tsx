@@ -32,7 +32,7 @@ import { UserManager } from './UserManager.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// Fixed: Inheriting from React.Component with proper typing to resolve property 'props' access issues
+// Fixed: Explicitly using React.Component with generics to resolve TypeScript 'props' missing error
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false };
 
@@ -56,7 +56,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
-    // Correctly accessing props.children from React.Component base class
+    // Correctly access children from this.props
     return this.props.children;
   }
 }

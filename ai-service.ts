@@ -3,27 +3,29 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { PatientProfile, ProgressReport, Exercise, DetailedPainLog, TreatmentHistory, ExerciseTutorial } from "./types.ts";
 
 /**
- * GENESIS AVM v3.0 - TITAN ANATOMICAL MASTER ENGINE (MTS ENABLED)
+ * GENESIS AVM v3.5 - TITAN MTS (MYOELECTRIC TENSION SIMULATION) ENGINE
  */
 export const generateExerciseVisual = async (exercise: Partial<Exercise>, style: string, customDirective?: string): Promise<{ url: string, frameCount: number, layout: 'grid-4x4' }> => {
   try {
-    // Initializing GoogleGenAI right before the call to ensure up-to-date API key from environment
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) throw new Error("API Key configuration missing");
+    
+    const ai = new GoogleGenAI({ apiKey });
     const totalFrames = 16;
     
     const fullPrompt = `
       ULTRA-REALISTIC 4K MEDICAL 3D RENDER SPRITE SHEET (4x4 GRID).
       SUBJECT: Real human anatomy performing "${exercise.titleTr || exercise.title}".
       
-      MTS RENDER PROTOCOL:
-      1. HIGH-CONTRAST MUSCLE STRIATIONS: Visible muscle fibers that appear to tighten and bulge.
-      2. NEURAL EMISSIONS: Subtle orange/cyan glowing highlights on active joint axes.
-      3. CINEMATIC DARK STUDIO: Pure black background (#000000), single source top-down lighting.
-      4. ZERO-JITTER STABILITY: Fixed camera, fixed pivot point, fixed scale for all 16 frames.
-      5. ANATOMICAL DEPTH: Cross-section style where skin is semi-transparent over deep red muscle tissue.
+      MTS 2.0 PROTOCOL:
+      1. ANATOMICAL HEATMAP: Highlight active muscle groups in glowing cyan and orange during peak contraction.
+      2. TENSION STRIATIONS: Show visible muscle fiber tightening.
+      3. CINEMATIC CLINICAL LIGHTING: High-contrast rim light on muscles against a pure black background.
+      4. ZERO-LATENCY STABILITY: Subject is locked in space (fixed axis) to prevent frame jitter.
+      5. X-RAY BLEND: Semi-transparent skin showing internal muscular and skeletal biomechanics.
       
-      SCENE CONTEXT: ${customDirective || exercise.description || ''}
-      PRIMARY TARGETS: ${(exercise.primaryMuscles || []).join(', ')}
+      PRIMARY TARGETS: ${(exercise.primaryMuscles || ['Global Muscles']).join(', ')}
+      DESCRIPTION: ${customDirective || exercise.description || ''}
     `;
 
     const response = await ai.models.generateContent({
@@ -34,7 +36,6 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
 
     if (response.candidates?.[0]?.content?.parts) {
       for (const part of response.candidates[0].content.parts) {
-        // Correctly iterating through parts to find inlineData for the generated image
         if (part.inlineData) {
             return { url: `data:image/png;base64,${part.inlineData.data}`, frameCount: totalFrames, layout: 'grid-4x4' };
         }
@@ -43,62 +44,91 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
     throw new Error("Titan MTS Generation Failed");
   } catch (e) {
     console.error("AVM Titan MTS Error:", e);
-    return { url: '', frameCount: 0, layout: 'grid-4x4' };
+    throw e;
   }
-};
-
-export const generateExerciseVectorData = async (exercise: Partial<Exercise>): Promise<string> => {
-  try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const prompt = `GENERATE NEURAL PATHWAY SVG OVERLAY: "${exercise.titleTr || exercise.title}". Glowing pulses on #primary_nerve. XML ONLY.`;
-    const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
-    // Correctly using .text property on the response object
-    return response.text || "";
-  } catch (err) { return ""; }
 };
 
 export const generateExerciseRealVideo = async (exercise: Partial<Exercise>, customPrompt?: string): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const prompt = `Cinematic medical 3D masterwork, 4K: ${exercise.titleTr || exercise.title}. Real anatomical detail, slow tension-based movement, studio lighting, black background.`;
-  // Including mandatory numberOfVideos parameter for video generation as per SDK requirements
-  let op = await ai.models.generateVideos({ 
-    model: 'veo-3.1-fast-generate-preview', 
-    prompt, 
-    config: { 
-      resolution: '1080p', 
-      aspectRatio: '16:9',
-      numberOfVideos: 1
-    } 
-  });
-  while (!op.done) { 
-    await new Promise(r => setTimeout(r, 10000)); 
-    op = await ai.operations.getVideosOperation({ operation: op }); 
-  }
-  return op.response?.generatedVideos?.[0]?.video?.uri ? `${op.response.generatedVideos[0].video.uri}&key=${process.env.API_KEY}` : "";
-};
-
-export const generateExerciseData = async (title: string): Promise<Partial<Exercise>> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
-    contents: `Physiotherapy exercise clinical data for: "${title}". Return JSON format.`,
-    config: { responseMimeType: "application/json" }
-  });
-  return JSON.parse(response.text || "{}");
-};
-
-export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: string): Promise<Partial<Exercise>> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Exercise: ${JSON.stringify(exercise)}. Goal: ${goal}. Optimize sets, reps, tempo. JSON return.`,
-        config: { responseMimeType: "application/json" }
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) throw new Error("API Key missing");
+  
+  const ai = new GoogleGenAI({ apiKey });
+  const prompt = `Cinematic medical 3D film, 4K, slow motion anatomical tension: ${exercise.titleTr || exercise.title}. Real muscle textures, glowing biomechanic nodes, studio lighting, black background.`;
+  
+  try {
+    // SDK REQUIRES: numberOfVideos must be exactly 1
+    let op = await ai.models.generateVideos({ 
+      model: 'veo-3.1-fast-generate-preview', 
+      prompt, 
+      config: { 
+        resolution: '1080p', 
+        aspectRatio: '16:9',
+        numberOfVideos: 1
+      } 
     });
-    return JSON.parse(response.text || "{}");
+    
+    while (!op.done) { 
+      await new Promise(r => setTimeout(r, 5000)); 
+      op = await ai.operations.getVideosOperation({ operation: op }); 
+    }
+    
+    // Download link requires API key append as per guidelines
+    const videoUri = op.response?.generatedVideos?.[0]?.video?.uri;
+    return videoUri ? `${videoUri}&key=${apiKey}` : "";
+  } catch (err: any) {
+    console.error("Video Generation Error:", err);
+    if (err.message?.includes("Requested entity was not found")) {
+        throw new Error("API_KEY_ERROR");
+    }
+    throw err;
+  }
+};
+
+/**
+ * AVM GENESIS - VECTOR DATA ENGINE (SVG GENERATOR)
+ */
+export const generateExerciseVectorData = async (exercise: Partial<Exercise>): Promise<string> => {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `Generate a clinical medical SVG vector for: "${exercise.titleTr || exercise.title}". 
+      Return ONLY valid XML SVG code. NO MARKDOWN code blocks.`,
+    });
+    
+    // SDK 3.0 Standard: Use response.text property directly
+    let cleanSvg = response.text || "";
+    cleanSvg = cleanSvg.replace(/```svg|```/gi, '').trim();
+    if (!cleanSvg.startsWith('<svg')) {
+        throw new Error("Invalid SVG received from AI");
+    }
+    return cleanSvg;
+  } catch (err) {
+    console.error("Vector generation failed:", err);
+    throw err;
+  }
+};
+
+export const generateExerciseTutorial = async (t: string) => {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) return null;
+    
+    const ai = new GoogleGenAI({ apiKey });
+    const sr = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: `Tutorial script for: ${t}. JSON return.`, config: { responseMimeType: "application/json" } });
+    const sd = JSON.parse(sr.text || "{}");
+    const ar = await ai.models.generateContent({
+        model: "gemini-2.5-flash-preview-tts",
+        contents: [{ parts: [{ text: sd.script?.map((s:any)=>s.text).join(' ') || "" }] }],
+        config: { 
+          responseModalities: [Modality.AUDIO], 
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } } 
+        }
+    });
+    return { script: sd.script, audioBase64: ar.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || null, bpm: sd.bpm || 60 };
 };
 
 export const runClinicalConsultation = async (t:string, i?:string, h?:TreatmentHistory[], p?:DetailedPainLog[]) => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
     const r = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: `Clinical Analysis: ${t}. Return JSON PatientProfile.`,
@@ -108,7 +138,7 @@ export const runClinicalConsultation = async (t:string, i?:string, h?:TreatmentH
 };
 
 export const runAdaptiveAdjustment = async (p: PatientProfile, f: ProgressReport) => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
     const r = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: `Profile: ${JSON.stringify(p)}. Feedback: ${JSON.stringify(f)}. Update JSON.`,
@@ -117,21 +147,22 @@ export const runAdaptiveAdjustment = async (p: PatientProfile, f: ProgressReport
     return JSON.parse(r.text || "{}");
 };
 
-export const generateExerciseTutorial = async (t: string) => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const sr = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: `Tutorial script for: ${t}. JSON return.`, config: { responseMimeType: "application/json" } });
-    const sd = JSON.parse(sr.text || "{}");
-    const ar = await ai.models.generateContent({
-        model: "gemini-2.5-flash-preview-tts",
-        contents: [{ parts: [{ text: sd.script?.map((s:any)=>s.text).join(' ') || "" }] }],
-        config: { 
-          responseModalities: [Modality.AUDIO], 
-          speechConfig: { 
-            voiceConfig: { 
-              prebuiltVoiceConfig: { voiceName: 'Kore' } 
-            } 
-          } 
-        }
+export const generateExerciseData = async (title: string): Promise<Partial<Exercise>> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-pro-preview',
+    contents: `Physiotherapy exercise clinical data for: "${title}". Return JSON format.`,
+    config: { responseMimeType: "application/json" }
+  });
+  return JSON.parse(response.text || "{}");
+};
+
+export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: string): Promise<Partial<Exercise>> => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: `Exercise: ${JSON.stringify(exercise)}. Goal: ${goal}. Optimize sets, reps, tempo. JSON return.`,
+        config: { responseMimeType: "application/json" }
     });
-    return { script: sd.script, audioBase64: ar.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || null, bpm: sd.bpm || 60 };
+    return JSON.parse(response.text || "{}");
 };
