@@ -73,11 +73,28 @@
     <script type="module" src="index.tsx"></script>
     <script>
       /**
-       * PHYSIOCORE AI - GENESIS SW MANAGER (v4.5 Stable)
-       * Vercel ve Vite entegrasyonu için mutlak yol (/sw.js) kullanımı.
+       * PHYSIOCORE AI - GENESIS SW MANAGER (v5.0 Production)
+       * Sadece üretim ortamında (Non-Localhost) devreye girer.
+       * Localhost üzerindeki cache problemlerini önler.
        */
       (function() {
         if (!('serviceWorker' in navigator)) return;
+
+        const isLocalhost = Boolean(
+          window.location.hostname === 'localhost' ||
+          window.location.hostname === '[::1]' ||
+          window.location.hostname.match(
+            /^127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$/
+          )
+        );
+
+        if (isLocalhost) {
+          console.groupCollapsed('%c[PhysioCore] SW: Dev Mode', 'color: #f59e0b; font-weight: bold;');
+          console.info('Service Worker localhost üzerinde devre dışı bırakıldı.');
+          console.debug('Amaç: Anlık kod değişimlerini (HMR) cache engeli olmadan görebilmek.');
+          console.groupEnd();
+          return;
+        }
 
         const registerSW = async () => {
           try {
@@ -86,14 +103,10 @@
               return;
             }
 
-            // Vite 'public' klasöründeki dosyalar root'tan servis edilir.
             const registration = await navigator.serviceWorker.register('/sw.js');
             console.log('%c[PhysioCore] Genesis SW Online', 'color: #06B6D4; font-weight: bold;', registration.scope);
           } catch (err) {
-            console.groupCollapsed('%c[PhysioCore] SW Status: Local-Only Mode', 'color: #f59e0b; font-weight: bold;');
-            console.info('Service Worker feature is disabled in this environment.');
-            console.debug('Reason:', err.message);
-            console.groupEnd();
+            console.error('[PhysioCore] SW Kayıt Hatası:', err);
           }
         };
 

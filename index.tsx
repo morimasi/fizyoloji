@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, ErrorInfo, ReactNode } from 'react';
+import React, { Component, useState, useRef, useEffect, ErrorInfo, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { 
   Activity, 
@@ -31,10 +31,13 @@ interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
 // Fixed ErrorBoundary class to use imported Component from React to ensure 'props' is correctly identified by the compiler
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false };
+  
   static getDerivedStateFromError(_error: Error): ErrorBoundaryState { return { hasError: true }; }
+  
   componentDidCatch(error: Error, errorInfo: ErrorInfo) { console.error("CRASH:", error, errorInfo); }
+  
   render() {
     if (this.state.hasError) {
       return (
