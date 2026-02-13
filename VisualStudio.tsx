@@ -10,6 +10,7 @@ import {
 import { Exercise } from './types.ts';
 import { generateExerciseVisual } from './ai-service.ts';
 import { PhysioDB } from './db-repository.ts';
+import { ExerciseActions } from './ExerciseActions.tsx';
 
 interface VisualStudioProps {
   exercise: Partial<Exercise>;
@@ -64,7 +65,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
 
   const handleSearchLibrary = async () => {
     const library = await PhysioDB.getExercises();
-    const found = library.find(ex => ex.title.toLowerCase().includes(exercise.title?.toLowerCase() || ''));
+    const found = library.find(ex => ex.title?.toLowerCase().includes(exercise.title?.toLowerCase() || ''));
     if (found?.visualUrl) {
        setPreviewUrl(found.visualUrl);
        onVisualGenerated(found.visualUrl, found.visualStyle || 'Library', found.isMotion);
@@ -210,7 +211,8 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
           <div className="h-24 bg-slate-950 border-t border-slate-800 p-4 flex items-center gap-6 z-20">
              <button 
               onClick={() => setIsMotionActive(!isMotionActive)}
-              className="w-14 h-14 bg-cyan-500 hover:bg-cyan-400 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-cyan-500/20 transition-all active:scale-95"
+              disabled={!previewUrl}
+              className="w-14 h-14 bg-cyan-500 hover:bg-cyan-400 disabled:bg-slate-800 disabled:text-slate-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-cyan-500/20 transition-all active:scale-95"
              >
                 {isMotionActive ? <Pause size={24} fill="currentColor"/> : <Play size={24} fill="currentColor" className="ml-1"/>}
              </button>
@@ -249,6 +251,29 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                   <FastForward size={18} />
                 </button>
              </div>
+
+             <div className="w-[1px] h-10 bg-slate-800" />
+
+             {/* DOWNLOAD MODULE: Canlı olarak oluşturulan içeriği buraya aktarıyoruz */}
+             {previewUrl && (
+                 <ExerciseActions 
+                    exercise={{ 
+                        ...exercise, 
+                        visualUrl: previewUrl, 
+                        id: 'draft', 
+                        code: 'DRAFT',
+                        title: exercise.title || 'Untitled',
+                        category: exercise.category || 'General',
+                        difficulty: 5,
+                        sets: 3,
+                        reps: 10,
+                        description: '',
+                        biomechanics: '',
+                        safetyFlags: []
+                    } as Exercise} 
+                    variant="player" 
+                 />
+             )}
           </div>
         </div>
       </div>
