@@ -45,16 +45,17 @@ export interface Exercise {
   videoUrl?: string;
   isMotion?: boolean;
   vectorData?: string;
-  syncInfo?: SyncMetadata; // Sync Tracking
-  lastViewedAt?: string;   // Monitoring
+  syncInfo?: SyncMetadata;
+  lastViewedAt?: string;
   isPersonalized?: boolean;
   isFavorite?: boolean;
   isArchived?: boolean;
-  visualStyle?: 'Cinematic-Grid' | 'VEO-Premium' | 'AVM-Genesis' | 'AVM-Sprite' | 'X-Ray' | 'Schematic' | '4K-Render' | 'Cinematic-Motion';
+  visualStyle?: 'Cinematic-Grid' | 'VEO-Premium' | 'AVM-Genesis' | 'AVM-Sprite' | 'X-Ray' | 'Schematic' | '4K-Render' | 'Cinematic-Motion' | 'Anatomical-Master';
   visualFrameCount?: number;
   visualLayout?: string;
   movementPlane?: string;
   tutorialData?: ExerciseTutorial;
+  anatomicalDepth?: 'skin' | 'muscle' | 'skeleton';
 }
 
 export interface ProgressReport {
@@ -90,7 +91,7 @@ export interface PatientProfile {
     recommendation?: string;
     painTrendAnalysis?: string;
   };
-  syncStatus?: 'Outdated' | 'Synced' | 'Syncing'; // Global Sync Status
+  syncStatus?: 'Outdated' | 'Synced' | 'Syncing';
 }
 
 export interface TherapistProfile {

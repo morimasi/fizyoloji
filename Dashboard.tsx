@@ -9,7 +9,8 @@ import {
 import { PatientProfile, Exercise } from './types.ts';
 import { RPMBridge } from './RPMBridge.tsx';
 
-const GlassCard = ({ children, className = "", onClick }: { children: React.ReactNode; className?: string; onClick?: () => void }) => (
+// Fixed GlassCard by making children optional in the prop type definition to satisfy JSX parser and resolve 'missing children' errors
+const GlassCard = ({ children, className = "", onClick }: { children?: React.ReactNode; className?: string; onClick?: () => void }) => (
   <div 
     onClick={onClick}
     className={`bg-slate-900/40 backdrop-blur-xl border border-slate-800 rounded-[2rem] p-6 relative overflow-hidden group transition-all duration-300 hover:border-slate-700/80 ${onClick ? 'cursor-pointer active:scale-[0.98]' : ''} ${className}`}

@@ -19,53 +19,39 @@ export const ensureApiKey = async (): Promise<string> => {
 };
 
 /**
- * GENESIS AVM (Anatomic Vector Motion) ENGINE v2.0
- * Generates layered, clinical-grade SVGs for animation.
+ * GENESIS AVM v3.0 - ANATOMICAL MASTER ENGINE
+ * Üretilen sprite sheet'lerin titremesini engellemek için koordinat sabitleme komutları eklendi.
  */
-export const generateExerciseVectorData = async (exercise: Partial<Exercise>): Promise<string> => {
-  try {
-    const apiKey = await ensureApiKey();
-    const ai = new GoogleGenAI({ apiKey });
-    
-    const prompt = `
-    GENERATE A PROFESSIONAL CLINICAL SVG WORKSTATION DATA FOR: "${exercise.titleTr || exercise.title}".
-    
-    SVG REQUIREMENTS:
-    1. Dimensions: 1000x1000.
-    2. Groups (Mandatory IDs): 
-       - <g id="skeleton"> (Bone structure lines)
-       - <g id="muscles"> (Agonist muscle highlights, color: #06B6D4)
-       - <g id="skin-outline"> (Overall body silhouette)
-       - <g id="joint-pivot"> (Small circles at rotation points)
-    3. Style: Ultra-clean medical illustration. Pure black background or transparent.
-    4. Format: Return valid XML/SVG. No Markdown.
-    
-    The SVG must be logically segmented so I can manipulate it via GSAP code.
-    `;
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-    });
-    
-    return response.text || "";
-  } catch (err) {
-    console.error("AVM Engine Error", err);
-    return "";
-  }
-};
-
 export const generateExerciseVisual = async (exercise: Partial<Exercise>, style: string, customDirective?: string): Promise<{ url: string, frameCount: number, layout: 'grid-4x4' }> => {
   try {
     const apiKey = await ensureApiKey();
     const ai = new GoogleGenAI({ apiKey });
     const totalFrames = 16;
-    const fullPrompt = `4x4 SPRITE SHEET: "${exercise.titleTr || exercise.title}". Style: ${style}. Pure Black Background. 16 frames in 4x4 grid. No text.`;
+    
+    // AVM v3.0 STABILITY PROTOCOL PROMPT
+    const fullPrompt = `
+      ULTRA-REALISTIC 4K MEDICAL ANATOMICAL 3D RENDER SPRITE SHEET. 
+      Grid: 4x4 (16 sequential frames). 
+      Subject: Real human body performing "${exercise.titleTr || exercise.title}". 
+      
+      STABILITY RULES:
+      1. PERFECTLY CENTERED: The subject's center of mass must remain at the EXACT SAME COORDINATE in every frame. 
+      2. STATIC CAMERA: Do not rotate or move the camera. 
+      3. CONSISTENT SCALE: The human figure must not shrink or grow between frames.
+      4. CINEMATIC LIGHTING: Professional studio medical lighting, dark moody atmosphere.
+      5. PURE BLACK BACKGROUND (#000000).
+      6. HIGH DEFINITION: Visible muscle fibers, realistic skin texture, and clear joint movements.
+      
+      No text, no watermarks, just the grid.
+      Additional context: ${customDirective || exercise.description || ''}
+    `;
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image', 
       contents: { parts: [{ text: fullPrompt }] },
       config: { imageConfig: { aspectRatio: "1:1" } } 
     });
+
     if (response.candidates?.[0]?.content?.parts) {
       for (const part of response.candidates[0].content.parts) {
         if (part.inlineData) {
@@ -75,38 +61,60 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
     }
     throw new Error("Generation Failed");
   } catch (e) {
+    console.error("AVM Engine 3.0 Error:", e);
     return { url: '', frameCount: 0, layout: 'grid-4x4' };
+  }
+};
+
+export const generateExerciseVectorData = async (exercise: Partial<Exercise>): Promise<string> => {
+  try {
+    const apiKey = await ensureApiKey();
+    const ai = new GoogleGenAI({ apiKey });
+    
+    const prompt = `
+    GENERATE CLINICAL SVG ANATOMICAL OVERLAY FOR: "${exercise.titleTr || exercise.title}".
+    Requirement: Return ONLY the SVG XML code. Transparent background. 
+    IDs for manipulation: #skeleton, #muscles_highlight, #joint_axes.
+    High professional medical quality.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+    });
+    
+    return response.text || "";
+  } catch (err) {
+    return "";
   }
 };
 
 export const generateExerciseRealVideo = async (exercise: Partial<Exercise>, customPrompt?: string): Promise<string> => {
   const apiKey = await ensureApiKey();
   const ai = new GoogleGenAI({ apiKey });
-  const prompt = `Clinical medical 3D animation: ${exercise.titleTr || exercise.title}. High-end render.`;
-  let op = await ai.models.generateVideos({ model: 'veo-3.1-fast-generate-preview', prompt, config: { resolution: '720p', aspectRatio: '16:9' } });
-  while (!op.done) { await new Promise(r => setTimeout(r, 5000)); op = await ai.operations.getVideosOperation({ operation: op }); }
+  const prompt = `Hyper-realistic medical 3D film, cinematic quality: ${exercise.titleTr || exercise.title}. Real human model, slow motion, professional lighting, black background.`;
+  let op = await ai.models.generateVideos({ model: 'veo-3.1-fast-generate-preview', prompt, config: { resolution: '1080p', aspectRatio: '16:9' } });
+  while (!op.done) { await new Promise(r => setTimeout(r, 10000)); op = await ai.operations.getVideosOperation({ operation: op }); }
   return op.response?.generatedVideos?.[0]?.video?.uri ? `${op.response.generatedVideos[0].video.uri}&key=${apiKey}` : "";
 };
 
-// ... Standard clinical functions
 export const generateExerciseData = async (title: string): Promise<Partial<Exercise>> => {
   const apiKey = await ensureApiKey();
   const ai = new GoogleGenAI({ apiKey });
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
-    contents: `Fizyoterapi egzersiz verisi: "${title}". JSON dön.`,
+    contents: `Physiotherapy exercise clinical data for: "${title}". Return JSON format.`,
     config: { responseMimeType: "application/json" }
   });
   return JSON.parse(response.text || "{}");
 };
 
-// Added missing optimizeExerciseData function to fix the error in DosageEngineModule.tsx
 export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: string): Promise<Partial<Exercise>> => {
     const apiKey = await ensureApiKey();
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `Egzersiz: ${JSON.stringify(exercise)}. Hedef: ${goal}. Dozaj optimizasyonu yap (sets, reps, tempo, restPeriod, targetRpe). JSON dön.`,
+        contents: `Exercise: ${JSON.stringify(exercise)}. Goal: ${goal}. Optimize sets, reps, tempo. JSON return.`,
         config: { responseMimeType: "application/json" }
     });
     return JSON.parse(response.text || "{}");
@@ -117,7 +125,7 @@ export const runClinicalConsultation = async (t:string, i?:string, h?:TreatmentH
     const ai = new GoogleGenAI({ apiKey });
     const r = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `Analiz: ${t}. JSON PatientProfile dön.`,
+        contents: `Clinical Analysis: ${t}. Return JSON PatientProfile.`,
         config: { responseMimeType: "application/json" }
     });
     return JSON.parse(r.text || "null");
@@ -128,7 +136,7 @@ export const runAdaptiveAdjustment = async (p: PatientProfile, f: ProgressReport
     const ai = new GoogleGenAI({ apiKey });
     const r = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `Profil: ${JSON.stringify(p)}. Güncelle JSON dön.`,
+        contents: `Profile: ${JSON.stringify(p)}. Feedback: ${JSON.stringify(f)}. Update JSON.`,
         config: { responseMimeType: "application/json" }
     });
     return JSON.parse(r.text || "{}");
@@ -137,7 +145,7 @@ export const runAdaptiveAdjustment = async (p: PatientProfile, f: ProgressReport
 export const generateExerciseTutorial = async (t: string) => {
     const apiKey = await ensureApiKey();
     const ai = new GoogleGenAI({ apiKey });
-    const sr = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: `Egzersiz: ${t}. Script JSON dön.`, config: { responseMimeType: "application/json" } });
+    const sr = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: `Tutorial script for: ${t}. JSON return.`, config: { responseMimeType: "application/json" } });
     const sd = JSON.parse(sr.text || "{}");
     const ar = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",

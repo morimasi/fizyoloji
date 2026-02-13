@@ -174,7 +174,8 @@ const FilterBtn = ({ active, onClick, label }: any) => (
   </button>
 );
 
-const UserCard = ({ user, onEdit, onDelete, therapists }: { user: User, onEdit: () => void, onDelete: () => void, therapists: User[] }) => {
+// Fixed UserCard by typing it as React.FC and updating onDelete type to handle async functions
+const UserCard: React.FC<{ user: User, onEdit: () => void, onDelete: () => void | Promise<void>, therapists: User[] }> = ({ user, onEdit, onDelete, therapists }) => {
   const isTherapist = user.role === 'Therapist';
   const assignedTherapist = therapists.find(t => t.id === user.assignedTherapistId);
 
@@ -182,7 +183,7 @@ const UserCard = ({ user, onEdit, onDelete, therapists }: { user: User, onEdit: 
     <div className={`group relative p-6 rounded-[2rem] border transition-all hover:-translate-y-1 ${isTherapist ? 'bg-slate-900/40 border-slate-800 hover:border-cyan-500/30' : 'bg-slate-900/20 border-slate-800 hover:border-emerald-500/30'}`}>
        <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <button onClick={onEdit} className="p-2 bg-slate-950 rounded-lg text-slate-400 hover:text-white border border-slate-800"><Edit size={14} /></button>
-          <button onClick={onDelete} className="p-2 bg-rose-500/10 rounded-lg text-rose-500 hover:bg-rose-500 hover:text-white border border-rose-500/20"><Trash2 size={14} /></button>
+          <button onClick={() => onDelete()} className="p-2 bg-rose-500/10 rounded-lg text-rose-500 hover:bg-rose-500 hover:text-white border border-rose-500/20"><Trash2 size={14} /></button>
        </div>
 
        <div className="flex items-center gap-4 mb-6">
