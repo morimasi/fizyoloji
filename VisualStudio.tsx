@@ -21,28 +21,29 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedStyle, setSelectedStyle] = useState<string>('Medical-Vector');
   const [previewUrl, setPreviewUrl] = useState(exercise.visualUrl || exercise.videoUrl || '');
-  const [isMotionActive, setIsMotionActive] = useState(false); // Playback state
+  const [isMotionActive, setIsMotionActive] = useState(false); 
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
-  const [currentFrame, setCurrentFrame] = useState(0); // 0 = Start (Left), 1 = End (Right)
+  const [currentFrame, setCurrentFrame] = useState(0); // 0 = Sol (Start), 1 = Sağ (End)
 
-  // Animasyon döngüsü (Sprite Engine)
+  // VECTOR PUPPETRY ENGINE (CSS Animation Logic)
   useEffect(() => {
     let interval: any;
     if (isMotionActive && previewUrl) {
       interval = setInterval(() => {
+        // Kareler arasında geçiş yap (0 -> 1 -> 0)
         setCurrentFrame(prev => (prev === 0 ? 1 : 0));
-      }, 1000 / playbackSpeed); // Hız kontrolü
+      }, 1000 / playbackSpeed); 
     } else {
-      setCurrentFrame(0); // Durdurunca başa dön
+      setCurrentFrame(0); // Durdurunca başlangıç pozisyonuna dön
     }
     return () => clearInterval(interval);
   }, [isMotionActive, previewUrl, playbackSpeed]);
 
   const styles = [
-    { id: 'Medical-Vector', icon: PlayCircle, label: 'Vector Flow', desc: 'Anatomik Hareket', isSprite: true },
-    { id: 'X-Ray-Lottie', icon: Scan, label: 'X-Ray Sim', desc: 'İskelet Analizi', isSprite: true },
-    { id: 'Cinematic-GIF', icon: Repeat, label: 'Canlı GIF', desc: 'Gerçekçi Döngü', isSprite: true },
-    { id: 'Clinical-Slide', icon: GalleryHorizontalEnd, label: 'Klinik Slayt', desc: 'Statik Anlatım', isSprite: false }
+    { id: 'Medical-Vector', icon: PlayCircle, label: 'Vector Flow', desc: 'Anatomik Vektör', isSprite: true },
+    { id: 'X-Ray-Lottie', icon: Scan, label: 'X-Ray Ghost', desc: 'İskelet Analizi', isSprite: true },
+    { id: 'Cinematic-GIF', icon: Repeat, label: 'Canlı Foto', desc: 'Gerçekçi Döngü', isSprite: true },
+    { id: 'Clinical-Slide', icon: GalleryHorizontalEnd, label: 'Klinik Slayt', desc: 'Statik Diyagram', isSprite: false }
   ];
 
   const handleGenerate = async () => {
@@ -50,13 +51,14 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
     setIsGenerating(true);
     setIsMotionActive(false);
     try {
+      // Gemini 2.5 Flash Image Modelini Çağırır
       const url = await generateExerciseVisual(exercise, selectedStyle);
       if (url) {
         setPreviewUrl(url);
         const styleObj = styles.find(s => s.id === selectedStyle);
         // Sprite modundaysa Motion olarak işaretle
         onVisualGenerated(url, selectedStyle, styleObj?.isSprite); 
-        if (styleObj?.isSprite) setIsMotionActive(true); // Otomatik başlat
+        if (styleObj?.isSprite) setIsMotionActive(true); 
       }
     } finally {
       setIsGenerating(false);
@@ -89,7 +91,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
             </div>
             <div>
                <h4 className="font-black text-2xl uppercase italic text-white tracking-tighter">Genesis <span className="text-cyan-400">Studio</span></h4>
-               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Sprite Animation Engine v2.0</p>
+               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Gemini 3 Flash Engine</p>
             </div>
           </div>
 
@@ -106,7 +108,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                 >
                   <div className="flex justify-between w-full">
                      <style.icon size={20} className={`${selectedStyle === style.id ? 'animate-pulse' : ''}`} />
-                     {style.isSprite && <span className="text-[8px] font-black bg-slate-800 px-2 py-0.5 rounded text-emerald-400">HAREKETLİ</span>}
+                     {style.isSprite && <span className="text-[8px] font-black bg-slate-800 px-2 py-0.5 rounded text-emerald-400">SPRITE</span>}
                   </div>
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-widest">{style.label}</p>
@@ -127,12 +129,12 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
               {isGenerating ? (
                 <>
                   <Loader2 className="animate-spin" size={20} />
-                  <span className="animate-pulse">RENDER ALINIYOR...</span>
+                  <span className="animate-pulse">GEMINI 2.5 FLASH RENDER...</span>
                 </>
               ) : (
                 <>
                   <Zap size={20} fill="currentColor" />
-                  CANLI İÇERİK ÜRET
+                  CANLI SPRITE ÜRET
                 </>
               )}
             </button>
@@ -146,7 +148,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
         </div>
       </div>
 
-      {/* PREVIEW PLAYER (ULTRA VIEW) */}
+      {/* PREVIEW PLAYER (VECTOR PUPPETRY VIEW) */}
       <div className="xl:col-span-7">
         <div className="relative w-full aspect-video bg-slate-950 rounded-[3rem] border border-slate-800 flex flex-col overflow-hidden shadow-2xl group">
           
@@ -155,34 +157,34 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
              {previewUrl ? (
                 <div className="absolute inset-0 flex items-center justify-center">
                    {/* 
-                      SPRITE LOGIC:
-                      Resim aslında çok geniş (Örn: 2000x1000). Sol taraf Başlangıç, Sağ taraf Bitiş.
-                      Biz container'da sadece yarısını gösteriyoruz.
-                      'currentFrame' 0 ise sola, 1 ise sağa kaydırıyoruz.
+                      SPRITE LOGIC (Vector Puppetry):
+                      Gemini 16:9 oranında yan yana iki kare üretti.
+                      Burada CSS ile viewport'u daraltıp (width: 200%), sadece tek kareyi gösteriyoruz.
+                      'left' pozisyonunu değiştirerek animasyon yapıyoruz.
                    */}
                    {isSpriteMode ? (
                       <div className="relative w-full h-full overflow-hidden">
                          <img 
                            src={previewUrl} 
-                           className="absolute h-full max-w-none object-cover transition-transform duration-300 ease-in-out"
+                           className="absolute h-full max-w-none object-cover transition-transform duration-500 ease-in-out"
                            style={{ 
-                             width: '200%', // Genişlik 2 katı çünkü 2 kare var
-                             left: currentFrame === 0 ? '0%' : '-100%' // Kaydırma işlemi
+                             width: '200%', // Resim 2 kare içerdiği için genişlik %200
+                             left: currentFrame === 0 ? '0%' : '-100%' // Kare kaydırma
                            }}
                          />
                          
-                         {/* Motion Blur Ghosting Effect for Smoothness */}
+                         {/* Motion Blur / Ghosting Effect (Daha akıcı geçiş hissi için) */}
                          <img 
                            src={previewUrl} 
-                           className="absolute h-full max-w-none object-cover opacity-20 blur-md pointer-events-none mix-blend-screen"
+                           className="absolute h-full max-w-none object-cover opacity-10 blur-lg pointer-events-none mix-blend-screen"
                            style={{ 
                              width: '200%',
-                             left: currentFrame === 0 ? '-100%' : '0%' // Tam tersi kareyi silik göster
+                             left: currentFrame === 0 ? '-100%' : '0%' // Zıt kareyi silik göster
                            }}
                          />
 
                          {/* Frame Indicator */}
-                         <div className="absolute top-6 left-6 flex gap-1">
+                         <div className="absolute top-6 left-6 flex gap-1 z-10">
                             <div className={`w-2 h-2 rounded-full ${currentFrame === 0 ? 'bg-cyan-500 shadow-[0_0_10px_cyan]' : 'bg-slate-700'}`} />
                             <div className={`w-2 h-2 rounded-full ${currentFrame === 1 ? 'bg-cyan-500 shadow-[0_0_10px_cyan]' : 'bg-slate-700'}`} />
                          </div>
@@ -194,15 +196,15 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
              ) : (
                <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-700 opacity-50">
                   <Film size={48} className="mb-4" />
-                  <p className="text-[10px] font-black uppercase tracking-widest">Sahne Boş</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest">Vektör Alanı Boş</p>
                </div>
              )}
 
              {/* Recording Overlay */}
              {isMotionActive && (
-               <div className="absolute top-6 right-6 flex items-center gap-2">
+               <div className="absolute top-6 right-6 flex items-center gap-2 z-10">
                   <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse shadow-[0_0_15px_red]" />
-                  <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">REC</span>
+                  <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">LIVE RENDER</span>
                </div>
              )}
           </div>
@@ -219,7 +221,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
 
              <div className="flex-1 space-y-2">
                 <div className="flex justify-between text-[9px] font-black text-slate-500 uppercase tracking-widest">
-                   <span>Hız Kontrolü</span>
+                   <span>Hız Kontrolü (CSS Interpolation)</span>
                    <span>{playbackSpeed}x</span>
                 </div>
                 <div className="flex items-center gap-2 bg-slate-900 p-1 rounded-xl border border-slate-800">
@@ -254,7 +256,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
 
              <div className="w-[1px] h-10 bg-slate-800" />
 
-             {/* DOWNLOAD MODULE: Canlı olarak oluşturulan içeriği buraya aktarıyoruz */}
+             {/* DOWNLOAD MODULE */}
              {previewUrl && (
                  <ExerciseActions 
                     exercise={{ 

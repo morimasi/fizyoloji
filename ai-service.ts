@@ -4,8 +4,8 @@ import { PatientProfile, ProgressReport, Exercise, DetailedPainLog, TreatmentHis
 import { PhysioDB } from "./db-repository.ts";
 
 /**
- * PHYSIOCORE AI - ZERO-COST ANIMATION ENGINE (v6.1 Enhanced)
- * Uses Vector Puppetry & Browser Rendering instead of MP4 Generation.
+ * PHYSIOCORE AI - GEMINI 3 FLASH ENGINE (v7.0)
+ * Zero-Cost Vector Puppetry & Clinical Logic
  */
 
 export const ensureApiKey = async (): Promise<string> => {
@@ -20,10 +20,12 @@ export const ensureApiKey = async (): Promise<string> => {
   throw new Error("MISSING_API_KEY");
 };
 
+// Vektörel Kukla Motoru (Video yerine Sprite Üretir)
 export const generateExerciseVideo = async (exercise: Partial<Exercise>): Promise<string> => {
   return await generateExerciseVisual(exercise, 'Medical-Vector-Art');
 };
 
+// Klinik Muhakeme: Gemini 3 Flash
 export const runClinicalConsultation = async (
   text: string, 
   imageBase64?: string,
@@ -37,12 +39,13 @@ export const runClinicalConsultation = async (
   try {
     const apiKey = await ensureApiKey();
     const ai = new GoogleGenAI({ apiKey });
-    const prompt = `Sen kıdemli bir klinik uzmanısın. Ücretsiz model (Flash) optimizasyonuyla çalışıyorsun.
+    const prompt = `Sen kıdemli bir klinik uzmanısın.
     Girdi: "${text}"
-    Analiz et ve PatientProfile JSON döndür.`;
+    Hasta Geçmişi: ${JSON.stringify(history || [])}
+    Görevin: Girdiyi analiz et ve eksiksiz bir PatientProfile JSON nesnesi döndür.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash', 
+      model: 'gemini-3-flash-preview', 
       contents: {
         parts: [
           { text: prompt },
@@ -63,13 +66,14 @@ export const runClinicalConsultation = async (
   }
 };
 
+// Adaptif Düzenleme: Gemini 3 Flash
 export const runAdaptiveAdjustment = async (currentProfile: PatientProfile, feedback: ProgressReport): Promise<PatientProfile> => {
   try {
     const apiKey = await ensureApiKey();
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash', 
-      contents: `Feedback: ${JSON.stringify(feedback)}. Profil: ${JSON.stringify(currentProfile)}. JSON döndür.`,
+      model: 'gemini-3-flash-preview', 
+      contents: `Hasta Geri Bildirimi: ${JSON.stringify(feedback)}. Mevcut Profil: ${JSON.stringify(currentProfile)}. Tedavi planını güncelle ve JSON döndür.`,
       config: { responseMimeType: "application/json" }
     });
     return JSON.parse(response.text || "{}");
@@ -78,13 +82,12 @@ export const runAdaptiveAdjustment = async (currentProfile: PatientProfile, feed
   }
 };
 
-// ENHANCED OPTIMIZATION ENGINE
+// Dozaj Optimizasyonu: Gemini 3 Flash
 export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: string): Promise<Partial<Exercise>> => {
   try {
     const apiKey = await ensureApiKey();
     const ai = new GoogleGenAI({ apiKey });
     
-    // Periyodizasyon mantığı için prompt güçlendirildi
     const prompt = `
       Sen Kıdemli bir Spor Fizyoterapistisin.
       GÖREV: Aşağıdaki egzersizi "${goal}" klinik hedefine göre optimize et.
@@ -95,21 +98,16 @@ export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: st
       {
         "sets": number,
         "reps": number,
-        "tempo": string (Format: "E-P-C", örn "3-1-3" veya "4-0-1"),
+        "tempo": string (Format: "E-P-C", örn "3-1-3"),
         "restPeriod": number (saniye),
-        "targetRpe": number (1-10 arası Borg skalası),
-        "frequency": string (örn: "Günde 2 kez" veya "Haftada 3 gün"),
-        "biomechanics": string (Bu hedef için neden bu parametrelerin seçildiğini anlatan kısa klinik not)
+        "targetRpe": number (1-10 Borg),
+        "frequency": string,
+        "biomechanics": string (Kısa klinik rasyonel)
       }
-      
-      KURALLAR:
-      - Hipertrofi için: 3-4 set, 8-12 tekrar, 3-0-1 tempo, RPE 8.
-      - Güç için: 3-5 set, 3-5 tekrar, Patlayıcı tempo (X-0-X), RPE 9.
-      - Mobilite için: Yavaş tempo, tam ROM.
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
       config: { responseMimeType: "application/json" }
     });
@@ -120,44 +118,42 @@ export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: st
   }
 };
 
+// GÖRSEL MOTOR: Gemini 2.5 Flash Image (Sprite Sheet Mode)
 export const generateExerciseVisual = async (exercise: Partial<Exercise>, style: string): Promise<string> => {
   try {
     const apiKey = await ensureApiKey();
     const ai = new GoogleGenAI({ apiKey });
     
-    let stylePrompt = "";
-    let aspectRatio = "1:1";
-
+    // VECTOR PUPPETRY PROMPT ENGINEERING
+    // Tek bir geniş resimde (16:9) iki kare (Başlangıç ve Bitiş) istiyoruz.
+    let stylePrompt = "Create a wide aspect ratio image (16:9) split into exactly two equal panels side-by-side. ";
+    
     switch (style) {
         case 'Medical-Vector':
-            stylePrompt = "TWO PANEL SPRITE SHEET (Side by Side). LEFT PANEL: Start Position. RIGHT PANEL: End Position. Style: Medical Vector Art, clean neon blue lines on dark background. Show muscle contraction clearly.";
-            aspectRatio = "16:9";
+            stylePrompt += "Style: Minimalist Medical Vector Art on dark slate background. Neon cyan lines for muscles. Clean, flat design.";
             break;
         case 'X-Ray-Lottie':
-            stylePrompt = "TWO PANEL SPRITE SHEET (Side by Side). LEFT PANEL: Start Position. RIGHT PANEL: End Position. Style: X-Ray Skeleton, glowing bones, transparent body. Highlight active joints.";
-            aspectRatio = "16:9";
+            stylePrompt += "Style: Glowing X-Ray skeleton. Bones are visible and glowing blue. Muscles are semi-transparent holograms.";
             break;
         case 'Cinematic-GIF':
-            stylePrompt = "TWO PANEL SPRITE SHEET (Side by Side). LEFT PANEL: Start Pose. RIGHT PANEL: Peak Action Pose. Style: Photorealistic 8k, dramatic lighting, professional physiotherapy studio environment.";
-            aspectRatio = "16:9";
-            break;
-        case 'Clinical-Slide':
-            stylePrompt = "Instructional Diagram. Split screen showing Start vs End position clearly labeled with arrows.";
-            aspectRatio = "16:9";
+            stylePrompt += "Style: Photorealistic 8k, dramatic studio lighting, professional athlete model.";
             break;
         default:
-            stylePrompt = "Medical Illustration: High fidelity, professional clinic style, centered composition.";
+            stylePrompt += "Style: Professional clinical medical illustration.";
     }
 
-    const fullPrompt = `Create a professional physiotherapy visual for: "${exercise.titleTr || exercise.title}". 
-    PROMPT: ${stylePrompt}
-    Context: Clinical rehabilitation guide. 
-    Important: If asking for TWO PANELS, ensure strict separation between left and right side for animation processing.`;
+    const fullPrompt = `${stylePrompt}
+    SUBJECT: Physiotherapy exercise "${exercise.titleTr || exercise.title}".
+    
+    LEFT PANEL: Show the STARTING position of the movement.
+    RIGHT PANEL: Show the ENDING position (peak contraction).
+    
+    IMPORTANT: Ensure characters are aligned so they can be animated by switching frames. Do not add text labels inside the image.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
+      model: 'gemini-2.5-flash-image', // Hızlı ve Görsel Odaklı
       contents: { parts: [{ text: fullPrompt }] },
-      config: { imageConfig: { aspectRatio: aspectRatio } }
+      config: { imageConfig: { aspectRatio: "16:9" } }
     });
     
     if (response.candidates?.[0]?.content?.parts) {
@@ -172,7 +168,7 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
   }
 };
 
-// ENHANCED DATA GENERATOR
+// KLİNİK VERİ ÜRETİCİ: Gemini 3 Flash
 export const generateExerciseData = async (exerciseName: string): Promise<Partial<Exercise>> => {
   try {
     const apiKey = await ensureApiKey();
@@ -188,20 +184,20 @@ export const generateExerciseData = async (exerciseName: string): Promise<Partia
       {
         "title": "${exerciseName}",
         "titleTr": "Türkçe Tıbbi Karşılığı",
-        "description": "Hastanın anlayacağı dilde adım adım, net talimatlar.",
-        "biomechanics": "Kinesiyolojik analiz (Eklem hareketleri, kas aktivasyon paternleri).",
-        "primaryMuscles": ["Major Agonist 1", "Major Agonist 2"],
-        "secondaryMuscles": ["Stabilizörler", "Sinerjistler"],
-        "icdCode": "En uygun ICD-10 Kodu (örn M54.5)",
-        "safetyFlags": ["Kontrendikasyon 1", "Risk Faktörü 2"],
+        "description": "Hastanın anlayacağı dilde adım adım talimatlar.",
+        "biomechanics": "Kinesiyolojik analiz.",
+        "primaryMuscles": ["Agonist 1", "Agonist 2"],
+        "secondaryMuscles": ["Stabilizörler"],
+        "icdCode": "ICD-10 Kodu (örn M54.5)",
+        "safetyFlags": ["Kontrendikasyonlar"],
         "rehabPhase": "Sub-Akut",
-        "movementPlane": "Sagittal/Frontal/Transverse",
+        "movementPlane": "Sagittal",
         "equipment": ["Gerekli ekipmanlar"]
       }
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
       config: { responseMimeType: "application/json" }
     });
@@ -211,24 +207,27 @@ export const generateExerciseData = async (exerciseName: string): Promise<Partia
   }
 };
 
+// SESLİ REHBER: Gemini 3 Flash (Script) + Gemini 2.5 Flash TTS (Audio)
 export const generateExerciseTutorial = async (exerciseTitle: string): Promise<ExerciseTutorial | null> => {
   try {
     const apiKey = await ensureApiKey();
     const ai = new GoogleGenAI({ apiKey });
 
+    // 1. Script Generation
     const scriptPrompt = `
       Create a rhythmic breathing and movement script for: "${exerciseTitle}".
       Format: JSON { "bpm": 60, "script": [{ "step": 1, "text": "...", "duration": 3000, "animation": "hold" }] }
     `;
 
     const scriptResponse = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: scriptPrompt,
       config: { responseMimeType: "application/json" }
     });
 
     const scriptData = JSON.parse(scriptResponse.text || "{}");
 
+    // 2. Audio Generation
     const ttsText = `Guide for ${exerciseTitle}. ${scriptData.script.map((s: any) => s.text).join(' ')}`;
     const audioResponse = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
