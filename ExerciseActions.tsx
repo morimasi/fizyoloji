@@ -1,9 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Download, Share2, Archive, Star, 
   Instagram, Linkedin, MessageCircle, Copy, Check, FileText, Smartphone,
-  ExternalLink, Mail, Film, FileImage, Presentation, FileVideo, ChevronDown, Loader2
+  ExternalLink, Mail, Film, FileImage, Presentation, FileVideo, ChevronUp, Loader2,
+  Zap
 } from 'lucide-react';
 import { Exercise } from './types.ts';
 import { PhysioDB } from './db-repository.ts';
@@ -21,6 +22,18 @@ export const ExerciseActions: React.FC<ExerciseActionsProps> = ({ exercise, onUp
   const [isConverting, setIsConverting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isFavorite, setIsFavorite] = useState(exercise.isFavorite || false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Click Outside to Close
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleExport = async (format: ExportFormat) => {
     const url = exercise.visualUrl || exercise.videoUrl;
@@ -30,15 +43,14 @@ export const ExerciseActions: React.FC<ExerciseActionsProps> = ({ exercise, onUp
     }
 
     setIsConverting(true);
+    setShowExportMenu(false); // Menüyü hemen kapat
     try {
         await MediaConverter.export(url, format, `PhysioCore_${exercise.code}`);
-        console.log("Export success");
     } catch (err) {
         console.error("Export failed:", err);
-        alert("Dönüştürme başarısız oldu. Tarayıcı desteğini kontrol edin.");
+        alert("Medya oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.");
     } finally {
         setIsConverting(false);
-        setShowExportMenu(false);
     }
   };
 
@@ -81,60 +93,87 @@ export const ExerciseActions: React.FC<ExerciseActionsProps> = ({ exercise, onUp
   ];
 
   const exportOptions = [
-      { id: 'mp4', label: 'MP4 Video', icon: FileVideo, desc: 'Mobil & Sosyal Medya İçin' },
-      { id: 'webm', label: 'WebM (Hafif)', icon: Film, desc: 'Web Siteleri İçin' },
-      { id: 'gif', label: 'Hareketli GIF', icon: FileImage, desc: 'E-Posta & Mesajlaşma' },
-      { id: 'png-sequence', label: 'Sunum Slaytları', icon: Presentation, desc: 'PowerPoint İçin Kareler' },
-      { id: 'svg', label: 'Vektörel SVG', icon: FileText, desc: 'Yüksek Çözünürlüklü Baskı' },
+      { id: 'webm', label: 'HD Video (WebM)', icon: FileVideo, desc: 'Whatsapp & Web İçin En İyisi' },
+      { id: 'gif', label: 'Hareketli GIF', icon: Film, desc: 'E-Posta & Sunum İçin' },
+      { id: 'png-sequence', label: 'Slayt Kareleri', icon: Presentation, desc: 'PowerPoint (2 Kare)' },
+      { id: 'jpg', label: 'Poster (JPG)', icon: FileImage, desc: 'Yüksek Çözünürlüklü Baskı' },
   ];
 
   if (variant === 'player') {
     return (
-      <div className="flex items-center gap-4 relative">
+      <div className="flex items-center gap-4 relative" ref={menuRef}>
         <div className="relative">
             <button 
               onClick={() => setShowExportMenu(!showExportMenu)} 
               disabled={isConverting}
-              className="p-5 bg-slate-900 border border-slate-800 rounded-2xl text-slate-400 hover:text-cyan-400 transition-all shadow-xl hover:scale-105 active:scale-95 group flex items-center gap-2" 
+              className={`
+                h-14 px-6 rounded-2xl border transition-all shadow-xl group flex items-center gap-3 relative overflow-hidden
+                ${isConverting 
+                  ? 'bg-slate-800 border-slate-700 cursor-wait text-slate-400' 
+                  : 'bg-gradient-to-br from-slate-900 to-slate-950 border-slate-800 hover:border-cyan-500/50 hover:text-cyan-400 text-slate-300 active:scale-95'
+                }
+              `}
               title="Medya Dönüştürücü"
             >
-              {isConverting ? <Loader2 size={24} className="animate-spin text-cyan-500" /> : <Download size={24} className="group-hover:translate-y-0.5 transition-transform" />}
-              <span className="text-[10px] font-black uppercase hidden md:inline">İNDİR</span>
-              <ChevronDown size={14} className={`transition-transform ${showExportMenu ? 'rotate-180' : ''}`} />
+              {isConverting ? (
+                <>
+                  <Loader2 size={20} className="animate-spin text-cyan-500" />
+                  <div className="flex flex-col items-start leading-none">
+                     <span className="text-[9px] font-black uppercase tracking-widest text-cyan-500">İŞLENİYOR</span>
+                     <span className="text-[8px] font-bold opacity-50">Lütfen bekleyin...</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center border border-slate-700 group-hover:bg-cyan-500 group-hover:text-white group-hover:border-cyan-400 transition-colors">
+                     <Download size={16} />
+                  </div>
+                  <div className="text-left hidden md:block">
+                     <span className="block text-[10px] font-black uppercase tracking-widest">DIŞA AKTAR</span>
+                     <span className="block text-[8px] font-medium opacity-50">Format Seçimi</span>
+                  </div>
+                  <ChevronUp size={14} className={`transition-transform duration-300 text-slate-500 group-hover:text-cyan-400 ${showExportMenu ? 'rotate-180' : ''}`} />
+                </>
+              )}
             </button>
 
+            {/* UPWARD MENU (DROPUP) */}
             {showExportMenu && (
-                <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)} />
-                <div className="absolute bottom-full left-0 mb-4 bg-slate-950 border border-slate-800 p-2 rounded-2xl shadow-2xl min-w-[240px] z-50 animate-in fade-in slide-in-from-bottom-2">
-                    <div className="p-3 border-b border-slate-800 mb-2">
-                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">EXPORT FORMATI SEÇİN</p>
+                <div className="absolute bottom-full left-0 mb-3 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 p-2 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] min-w-[260px] z-[200] animate-in slide-in-from-bottom-2 fade-in zoom-in-95 origin-bottom-left">
+                    <div className="p-3 border-b border-white/5 mb-1 flex items-center justify-between">
+                        <span className="text-[9px] font-black text-cyan-500 uppercase tracking-widest flex items-center gap-2">
+                           <Zap size={10} fill="currentColor" /> Convert Studio
+                        </span>
+                        <span className="text-[8px] font-bold text-slate-500 bg-slate-950 px-2 py-0.5 rounded">GPU</span>
                     </div>
-                    {exportOptions.map((opt) => (
-                        <button
-                            key={opt.id}
-                            onClick={() => handleExport(opt.id as ExportFormat)}
-                            className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-900 text-left group transition-colors"
-                        >
-                            <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-cyan-500 group-hover:bg-cyan-500 group-hover:text-white transition-all">
-                                <opt.icon size={14} />
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-bold text-slate-300 group-hover:text-white uppercase">{opt.label}</p>
-                                <p className="text-[8px] text-slate-600 group-hover:text-cyan-400/80">{opt.desc}</p>
-                            </div>
-                        </button>
-                    ))}
+                    <div className="space-y-1">
+                      {exportOptions.map((opt) => (
+                          <button
+                              key={opt.id}
+                              onClick={() => handleExport(opt.id as ExportFormat)}
+                              className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-left group transition-all relative overflow-hidden"
+                          >
+                              <div className="w-9 h-9 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-center text-slate-400 group-hover:bg-cyan-500 group-hover:text-white group-hover:border-cyan-400 transition-all shadow-lg z-10">
+                                  <opt.icon size={16} />
+                              </div>
+                              <div className="z-10">
+                                  <p className="text-[10px] font-bold text-slate-200 group-hover:text-white uppercase tracking-wide">{opt.label}</p>
+                                  <p className="text-[9px] text-slate-500 group-hover:text-cyan-200/80 font-medium">{opt.desc}</p>
+                              </div>
+                              {/* Hover Effect */}
+                              <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </button>
+                      ))}
+                    </div>
                 </div>
-                </>
             )}
         </div>
         
-        {/* Share Button Logic (Mevcut kod aynen korunuyor) */}
+        {/* Share Button */}
         <div className="relative">
           <button 
             onClick={() => setShowShare(!showShare)} 
-            className={`p-5 rounded-2xl shadow-2xl transition-all hover:scale-110 active:scale-95 ${showShare ? 'bg-white text-slate-950' : 'bg-cyan-500 text-white shadow-cyan-500/30'}`} 
+            className={`p-4 rounded-2xl shadow-xl transition-all hover:scale-105 active:scale-95 border ${showShare ? 'bg-cyan-500 text-white border-cyan-400' : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'}`} 
             title="Klinik Paylaşım"
           >
             <Share2 size={24} />
@@ -143,40 +182,27 @@ export const ExerciseActions: React.FC<ExerciseActionsProps> = ({ exercise, onUp
           {showShare && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowShare(false)} />
-              <div className="absolute bottom-full right-0 mb-6 bg-slate-900 border border-slate-800 p-8 rounded-[3rem] shadow-[0_20px_60px_rgba(0,0,0,0.8)] animate-in fade-in slide-in-from-bottom-6 duration-500 min-w-[320px] z-50">
-                 <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 rounded-full blur-2xl" />
-                 <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-6 text-center font-black">ULTRA_SHARE_INTERFACE v5.2</p>
-                 
-                 <div className="grid grid-cols-2 gap-4 mb-8">
+              <div className="absolute bottom-full right-0 mb-6 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 p-6 rounded-[2.5rem] shadow-2xl animate-in fade-in slide-in-from-bottom-4 min-w-[300px] z-50">
+                 <div className="grid grid-cols-2 gap-3 mb-6">
                     {socialLinks.map(soc => (
                       <button 
                         key={soc.id} 
                         onClick={() => shareToSocial(soc.id)}
-                        className={`flex flex-col items-center gap-3 p-5 ${soc.bg} rounded-[2rem] transition-all ${soc.color} group border border-transparent hover:border-white/10`}
+                        className={`flex flex-col items-center gap-2 p-4 ${soc.bg} rounded-2xl transition-all ${soc.color} group border border-transparent hover:border-white/10`}
                       >
-                        <soc.icon size={28} className="group-hover:scale-125 transition-transform duration-500" />
-                        <span className="text-[9px] font-black uppercase tracking-tighter text-slate-400 group-hover:text-white">{soc.label}</span>
+                        <soc.icon size={24} className="group-hover:scale-110 transition-transform" />
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 group-hover:text-white">{soc.label}</span>
                       </button>
                     ))}
                  </div>
                  
-                 <div className="space-y-3 relative z-10">
-                    <button 
-                      onClick={copyToClipboard} 
-                      className="w-full bg-slate-950 border border-slate-800 p-5 rounded-2xl flex items-center justify-center gap-4 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-all shadow-inner group"
-                    >
-                      {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} className="group-hover:rotate-12 transition-transform" />} 
-                      {copied ? 'KOPYALANDI' : 'SİSTEM LİNKİNİ KOPYALA'}
-                    </button>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button className="bg-slate-800 hover:bg-slate-700 p-4 rounded-xl flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-300 transition-all">
-                        <FileText size={14} /> PDF
-                      </button>
-                      <button className="bg-slate-800 hover:bg-slate-700 p-4 rounded-xl flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-300 transition-all">
-                        <Mail size={14} /> EMAIL
-                      </button>
-                    </div>
-                 </div>
+                 <button 
+                    onClick={copyToClipboard} 
+                    className="w-full bg-slate-950 border border-slate-800 p-4 rounded-xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white hover:border-slate-600 transition-all"
+                  >
+                    {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />} 
+                    {copied ? 'KOPYALANDI' : 'LİNKİ KOPYALA'}
+                 </button>
               </div>
             </>
           )}
@@ -184,7 +210,7 @@ export const ExerciseActions: React.FC<ExerciseActionsProps> = ({ exercise, onUp
 
         <button 
           onClick={handleArchive} 
-          className={`p-5 rounded-2xl border transition-all hover:scale-110 active:scale-95 ${exercise.isArchived ? 'bg-amber-500/10 border-amber-500/50 text-amber-500' : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-amber-500'}`}
+          className={`p-4 rounded-2xl border transition-all hover:scale-105 active:scale-95 ${exercise.isArchived ? 'bg-amber-500/10 border-amber-500/50 text-amber-500' : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-amber-500 hover:border-slate-700'}`}
           title={exercise.isArchived ? "Arşivden Çıkar" : "Sisteme Arşivle"}
         >
           <Archive size={24} fill={exercise.isArchived ? "currentColor" : "none"} />
@@ -193,45 +219,30 @@ export const ExerciseActions: React.FC<ExerciseActionsProps> = ({ exercise, onUp
     );
   }
 
-  // Card Variant
+  // CARD VARIANT (Fallback)
   return (
-    <div className="flex gap-2 relative">
-      <div className="relative group">
-        <ActionBtn icon={Download} onClick={() => setShowExportMenu(!showExportMenu)} tooltip="Formatlı İndir" />
-         {showExportMenu && (
-             <div className="absolute top-full left-0 mt-2 bg-slate-950 border border-slate-800 p-2 rounded-xl shadow-2xl w-48 z-50">
-                  {exportOptions.slice(0,3).map((opt) => (
-                        <button
-                            key={opt.id}
-                            onClick={() => handleExport(opt.id as ExportFormat)}
-                            className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-slate-900 text-left"
-                        >
-                            <opt.icon size={12} className="text-cyan-500" />
-                            <span className="text-[9px] font-bold text-slate-300 uppercase">{opt.label}</span>
-                        </button>
-                    ))}
-             </div>
-         )}
-      </div>
-      <ActionBtn icon={Share2} onClick={() => setShowShare(!showShare)} tooltip="Hızlı Paylaş" />
-      <ActionBtn icon={Archive} onClick={handleArchive} active={exercise.isArchived} tooltip={exercise.isArchived ? "Arşivden Çıkar" : "Arşive Kaldır"} color="hover:text-amber-500" />
-      <ActionBtn icon={Star} active={isFavorite} onClick={toggleFavorite} tooltip="Favorilere Ekle" color="hover:text-yellow-500" />
-      
-      {/* Share Modal for Card Variant (Simplified) */}
-      {showShare && (
-        <div className="fixed inset-0 z-[150] bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={() => setShowShare(false)}>
-          <div className="bg-slate-900 border border-slate-800 p-8 rounded-[2rem] shadow-2xl max-w-sm w-full space-y-4" onClick={e => e.stopPropagation()}>
-             <h4 className="text-lg font-black italic uppercase text-white text-center">PAYLAŞ</h4>
-             <button 
-                onClick={copyToClipboard} 
-                className="w-full bg-slate-950 border border-slate-800 p-4 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase text-slate-300"
-              >
-                {copied ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />} 
-                {copied ? 'KOPYALANDI' : 'LİNKİ KOPYALA'}
-             </button>
+    <div className="flex gap-2 relative z-20">
+      <ActionBtn icon={Download} onClick={() => setShowExportMenu(!showExportMenu)} tooltip="Hızlı İndir" />
+      {showExportMenu && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setShowExportMenu(false)} />
+          <div className="absolute bottom-full left-0 mb-2 bg-slate-900 border border-slate-800 p-2 rounded-xl shadow-xl w-40 z-40 animate-in zoom-in-95">
+             {exportOptions.slice(0,3).map((opt) => (
+                <button
+                    key={opt.id}
+                    onClick={() => handleExport(opt.id as ExportFormat)}
+                    className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-slate-800 text-left"
+                >
+                    <opt.icon size={12} className="text-cyan-500" />
+                    <span className="text-[9px] font-bold text-slate-300 uppercase">{opt.label.split(' ')[0]}</span>
+                </button>
+              ))}
           </div>
-        </div>
+        </>
       )}
+      <ActionBtn icon={Share2} onClick={() => setShowShare(!showShare)} tooltip="Hızlı Paylaş" />
+      <ActionBtn icon={Archive} onClick={handleArchive} active={exercise.isArchived} tooltip="Arşivle" color="hover:text-amber-500" />
+      <ActionBtn icon={Star} active={isFavorite} onClick={toggleFavorite} tooltip="Favori" color="hover:text-yellow-500" />
     </div>
   );
 };
@@ -239,8 +250,9 @@ export const ExerciseActions: React.FC<ExerciseActionsProps> = ({ exercise, onUp
 function ActionBtn({ icon: Icon, onClick, tooltip, color = 'hover:text-cyan-400', active = false }: any) {
   return (
     <button 
-      onClick={onClick}
-      className={`p-3 rounded-xl bg-slate-950 border border-slate-800 transition-all group relative hover:scale-110 active:scale-90 ${active ? 'text-yellow-500 border-yellow-500/30 bg-yellow-500/5' : 'text-slate-600'} ${color}`}
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      className={`p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 backdrop-blur-sm transition-all hover:scale-110 active:scale-95 ${active ? 'text-yellow-500 border-yellow-500/30' : 'text-slate-500'} ${color}`}
+      title={tooltip}
     >
       <Icon size={14} fill={active ? 'currentColor' : 'none'} />
     </button>

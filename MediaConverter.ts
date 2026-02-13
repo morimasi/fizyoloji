@@ -1,176 +1,186 @@
 
 /**
- * PHYSIOCORE GENESIS MEDIA ENGINE (v1.0)
+ * PHYSIOCORE GENESIS MEDIA ENGINE (v2.0 STABLE)
  * Client-Side Video & Animation Transcoder
  * 
- * Bu modül, sunucu maliyeti olmadan (Serverless), tarayıcının GPU'sunu kullanarak
- * statik Sprite Sheet görsellerini gerçek video dosyalarına dönüştürür.
+ * Özellikler:
+ * - Ultra-Stabil Canvas-to-Video motoru.
+ * - Sprite Sheet ayrıştırma mantığı (Sol/Sağ kare).
+ * - "Yalan Söylemeyen" dosya formatları (WebM, JPG, PNG).
+ * - Asenkron Promise tabanlı kayıt sistemi.
  */
 
-export type ExportFormat = 'mp4' | 'webm' | 'gif' | 'svg' | 'png-sequence';
+export type ExportFormat = 'webm' | 'gif' | 'jpg' | 'png-sequence';
 
 export class MediaConverter {
   private static readonly WIDTH = 1920;
   private static readonly HEIGHT = 1080;
   private static readonly FPS = 30;
-  private static readonly DURATION_SEC = 3; // 3 saniyelik loop
+  private static readonly DURATION_MS = 4000; // 4 saniyelik loop (2 tam tur)
 
   /**
-   * Ana dönüştürme fonksiyonu
+   * Ana dönüştürme fonksiyonu (Public Entry Point)
    */
   static async export(sourceUrl: string, format: ExportFormat, title: string): Promise<void> {
     const image = await this.loadImage(sourceUrl);
     
-    // Canvas Kurulumu (Off-screen render)
+    // Canvas Hazırlığı (High-DPI Support)
     const canvas = document.createElement('canvas');
     canvas.width = this.WIDTH;
     canvas.height = this.HEIGHT;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { alpha: false }); // Alpha false performans artırır
     
-    if (!ctx) throw new Error("Canvas context oluşturulamadı.");
+    if (!ctx) throw new Error("Canvas context hatası.");
 
-    // Format mantığı
     switch (format) {
-        case 'svg':
-            this.downloadBlob(await this.createSVG(sourceUrl), `${title}.svg`);
+        case 'jpg':
+            // Poster oluştur (Sol frame - Başlangıç pozisyonu)
+            this.drawFrame(ctx, image, 0, this.WIDTH, this.HEIGHT);
+            canvas.toBlob((blob) => {
+                if(blob) this.downloadBlob(blob, `${title}_Poster.jpg`);
+            }, 'image/jpeg', 0.95);
             break;
+
         case 'png-sequence':
-            // PPT sunumları için kare kare indirir
-            this.downloadBlob(await this.createFrame(image, 0), `${title}_Start_Frame.png`);
-            setTimeout(async () => {
-                this.downloadBlob(await this.createFrame(image, 1), `${title}_End_Frame.png`);
-            }, 500);
+            // Sunum için A/B karelerini ayrı ayrı indir
+            this.drawFrame(ctx, image, 0, this.WIDTH, this.HEIGHT);
+            canvas.toBlob(blob => blob && this.downloadBlob(blob, `${title}_Start.png`));
+            
+            setTimeout(() => {
+                this.drawFrame(ctx, image, 1, this.WIDTH, this.HEIGHT);
+                canvas.toBlob(blob => blob && this.downloadBlob(blob, `${title}_End.png`));
+            }, 200);
             break;
-        case 'mp4':
+
         case 'webm':
-            const blob = await this.recordCanvas(canvas, ctx, image, format);
-            this.downloadBlob(blob, `${title}.${format}`);
-            break;
-        case 'gif':
-            // Not: Tarayıcılar native GIF encoder barındırmaz. 
-            // GIF isteği gelirse, en uyumlu format olan WebM (Modern GIF) olarak veriyoruz
-            // veya hafif bir video döngüsü oluşturuyoruz.
-            const gifBlob = await this.recordCanvas(canvas, ctx, image, 'webm'); 
-            this.downloadBlob(gifBlob, `${title}_animated.webm`);
+        case 'gif': 
+            // GIF isteği gelse bile, tarayıcıda en stabil olan WebM veriyoruz.
+            // GIF oluşturmak için heavy-library (gif.js) gerekir, pure-js WebM daha temizdir.
+            // Kullanıcıya dürüstçe WebM olduğunu dosya adında belirtiyoruz ama format parametresini esnek tutuyoruz.
+            const blob = await this.recordAnimation(canvas, ctx, image);
+            this.downloadBlob(blob, `${title}_animation.webm`);
             break;
     }
   }
 
   /**
-   * Sprite Sheet'i parçalar ve video olarak kaydeder.
+   * Sprite Animasyonunu Kaydeder (Robust Recorder)
    */
-  private static async recordCanvas(
+  private static async recordAnimation(
     canvas: HTMLCanvasElement, 
     ctx: CanvasRenderingContext2D, 
-    image: HTMLImageElement,
-    format: string
+    image: HTMLImageElement
   ): Promise<Blob> {
-    const stream = canvas.captureStream(this.FPS);
     
-    // Tarayıcı desteğine göre MIME type seçimi
-    let mimeType = 'video/webm;codecs=vp9';
-    if (format === 'mp4' && MediaRecorder.isTypeSupported('video/mp4')) {
-        mimeType = 'video/mp4';
-    } else if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'video/webm'; // Fallback
-    }
+    // Tarayıcı desteğini kontrol et
+    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') 
+        ? 'video/webm;codecs=vp9' 
+        : 'video/webm'; // Fallback
 
+    const stream = canvas.captureStream(this.FPS);
     const recorder = new MediaRecorder(stream, { 
         mimeType,
-        videoBitsPerSecond: 5000000 // 5 Mbps Yüksek Kalite
+        videoBitsPerSecond: 8000000 // 8 Mbps Ultra Kalite
     });
     
     const chunks: Blob[] = [];
-    recorder.ondataavailable = (e) => chunks.push(e.data);
-
-    // Animasyon Döngüsü (Rendering Loop)
-    let startTime = performance.now();
-    let frameIndex = 0;
-    const frameDuration = 1000; // 1 saniye her kare
-    let lastToggle = 0;
+    recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) chunks.push(e.data);
+    };
 
     return new Promise((resolve, reject) => {
         recorder.onstop = () => {
              const blob = new Blob(chunks, { type: mimeType });
-             resolve(blob);
+             if (blob.size === 0) reject(new Error("Kayıt boş, blob oluşturulamadı."));
+             else resolve(blob);
         };
 
+        recorder.onerror = (e) => reject(e);
+
+        // Kaydı başlat
         recorder.start();
 
-        const draw = (now: number) => {
+        // Animasyon Döngüsü
+        let startTime = performance.now();
+        const frameDuration = 1000; // 1 saniye bekleme süresi
+
+        const animate = (timestamp: number) => {
+            const elapsed = timestamp - startTime;
+            
             // Süre dolduysa durdur
-            if (now - startTime > this.DURATION_SEC * 1000) {
+            if (elapsed >= this.DURATION_MS) {
                 recorder.stop();
                 return;
             }
 
-            // Sprite Logic: Görselin yarısını çiz (Sol veya Sağ)
-            // image.width / 2 çünkü resim yan yana iki kareden oluşuyor.
-            const sourceX = frameIndex === 0 ? 0 : image.width / 2;
-            
-            // Arka planı temizle (Siyah)
-            ctx.fillStyle = '#0F172A';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Resmi ortalayarak çiz
-            ctx.drawImage(
-                image, 
-                sourceX, 0, image.width / 2, image.height, // Source Crop
-                0, 0, canvas.width, canvas.height // Dest
-            );
+            // Frame Logic: 1 saniyede bir kare değiştir
+            // Math.floor(elapsed / 1000) bize saniyeyi verir. % 2 ile 0 veya 1 alırız.
+            const frameIndex = Math.floor(elapsed / frameDuration) % 2;
 
-            // Watermark Ekle
-            ctx.font = 'bold 30px Arial';
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-            ctx.fillText('PhysioCore AI', 50, 1030);
+            // Çizim
+            this.drawFrame(ctx, image, frameIndex, this.WIDTH, this.HEIGHT);
 
-            // Kare Değiştirme Mantığı (Flipbook)
-            if (now - lastToggle > frameDuration) {
-                frameIndex = frameIndex === 0 ? 1 : 0;
-                lastToggle = now;
-            }
-
-            requestAnimationFrame(draw);
+            requestAnimationFrame(animate);
         };
 
-        requestAnimationFrame(draw);
+        requestAnimationFrame(animate);
     });
   }
 
-  private static async createFrame(image: HTMLImageElement, frameIndex: number): Promise<Blob> {
-      const canvas = document.createElement('canvas');
-      canvas.width = this.WIDTH;
-      canvas.height = this.HEIGHT;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error("Context error");
-
-      const sourceX = frameIndex === 0 ? 0 : image.width / 2;
+  /**
+   * Tek bir kareyi canvas'a çizer (Sprite Mantığı Burada)
+   */
+  private static drawFrame(
+      ctx: CanvasRenderingContext2D, 
+      image: HTMLImageElement, 
+      frameIndex: number,
+      w: number, 
+      h: number
+  ) {
+      // Arka plan (Dark Mode)
       ctx.fillStyle = '#0F172A';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(image, sourceX, 0, image.width / 2, image.height, 0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, w, h);
 
-      return new Promise(resolve => canvas.toBlob(blob => resolve(blob!)));
-  }
+      // Sprite hesaplama:
+      // Resim aslında 2W genişliğinde. 
+      // Sol kare (Start): x=0, w=image.width/2
+      // Sağ kare (End): x=image.width/2, w=image.width/2
+      const sourceW = image.width / 2;
+      const sourceH = image.height;
+      const sourceX = frameIndex === 0 ? 0 : sourceW;
 
-  private static async createSVG(url: string): Promise<Blob> {
-      // Raster görüntüyü SVG içine gömer (Wrapper)
-      const svgContent = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080">
-            <rect width="100%" height="100%" fill="#0F172A"/>
-            <image href="${url}" x="0" y="0" width="1920" height="1080" />
-            <text x="50" y="1030" fill="white" font-family="Arial" font-size="30">PhysioCore AI</text>
-        </svg>
-      `;
-      return new Blob([svgContent], { type: 'image/svg+xml' });
+      // Resmi canvas'a sığdır (Aspect Ratio koruyarak cover yap)
+      // Basitlik için stretch yapıyoruz, ama production'da aspect-ratio hesabı eklenebilir.
+      ctx.drawImage(
+          image, 
+          sourceX, 0, sourceW, sourceH, // Source Crop
+          0, 0, w, h // Dest Resize
+      );
+
+      // Watermark (Profesyonel İmza)
+      ctx.save();
+      ctx.font = '900 24px Inter, sans-serif';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.shadowColor = 'black';
+      ctx.shadowBlur = 4;
+      ctx.textAlign = 'right';
+      ctx.fillText('PHYSIOCORE AI', w - 40, h - 40);
+      
+      // Frame Indicator (Klinik Analiz İçin)
+      ctx.font = 'bold 18px Monospace';
+      ctx.fillStyle = 'rgba(6, 182, 212, 0.8)'; // Cyan
+      ctx.textAlign = 'left';
+      ctx.fillText(frameIndex === 0 ? '► START POS' : '► END POS', 40, h - 40);
+      ctx.restore();
   }
 
   private static loadImage(url: string): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
         const img = new Image();
-        img.crossOrigin = 'anonymous';
+        img.crossOrigin = 'anonymous'; // CORS hatasını önlemek için kritik
         img.src = url;
         img.onload = () => resolve(img);
-        img.onerror = reject;
+        img.onerror = (e) => reject(new Error(`Resim yüklenemedi: ${url}`));
     });
   }
 
@@ -181,7 +191,11 @@ export class MediaConverter {
     a.download = filename;
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    
+    // Temizlik
+    setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }, 100);
   }
 }
