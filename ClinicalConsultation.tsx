@@ -7,7 +7,7 @@ import {
   Flame, Wind, Cpu, Sparkles, MessageSquare,
   Thermometer, Info, Save, X, Search, HeartPulse,
   Mic, MicOff, Settings2, ShieldAlert, Layers,
-  Terminal, Database, Radio, Gauge, Crosshair
+  Terminal, Database, Radio, Gauge, Crosshair, Key
 } from 'lucide-react';
 import { runClinicalConsultation } from './ai-service.ts';
 import { PatientProfile, RiskLevel } from './types.ts';
@@ -26,6 +26,7 @@ export const ClinicalConsultation: React.FC<ConsultationProps> = ({ onAnalysisCo
   const [focusArea, setFocusArea] = useState<string[]>([]);
   const [clinicalDirectives, setClinicalDirectives] = useState<string>('');
   const [expertMode, setExpertMode] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -39,41 +40,44 @@ export const ClinicalConsultation: React.FC<ConsultationProps> = ({ onAnalysisCo
   ];
 
   const handleStartAnalysis = async () => {
+    setError(null);
     const aistudio = (window as any).aistudio;
     
-    // API Key Check & Prompt
-    if (aistudio && !(await aistudio.hasSelectedApiKey())) {
-        await aistudio.openSelectKey();
-        // Proceeding anyway to mitigate race conditions as per rules
-    }
-
-    setIsAnalyzing(true);
-    setStep(2);
-
     try {
-      const promptEnhancement = `
-        STRATEGY: ${riskPreference} approach. 
-        AREAS: ${focusArea.join(', ')}. 
-        EXPERT DIRECTIVES: ${clinicalDirectives}.
-        MODE: ${expertMode ? 'Advanced Clinical Reasoning' : 'Standard'}.
-        INPUT: ${userInput}
-      `;
-      
-      const result = await runClinicalConsultation(promptEnhancement, selectedImage || undefined);
-      if (result) {
-        onAnalysisComplete(result);
-      }
+        // API Key Check
+        const hasKey = aistudio ? await aistudio.hasSelectedApiKey() : !!process.env.API_KEY;
+        if (!hasKey || !process.env.API_KEY) {
+            if (aistudio) await aistudio.openSelectKey();
+            else throw new Error("API_KEY_MISSING");
+        }
+
+        setIsAnalyzing(true);
+        setStep(2);
+
+        const promptEnhancement = `
+          STRATEGY: ${riskPreference} approach. 
+          AREAS: ${focusArea.join(', ')}. 
+          EXPERT DIRECTIVES: ${clinicalDirectives}.
+          MODE: ${expertMode ? 'Advanced Clinical Reasoning' : 'Standard'}.
+          INPUT: ${userInput}
+        `;
+        
+        const result = await runClinicalConsultation(promptEnhancement, selectedImage || undefined);
+        if (result) {
+          onAnalysisComplete(result);
+        }
     } catch (err: any) {
-      console.error("Analysis Failed", err);
-      
-      if (err.message?.includes("Requested entity was not found") || err.message?.includes("API_KEY_MISSING")) {
-         if (aistudio) await aistudio.openSelectKey();
-      } else {
-         alert("Klinik analiz başlatılamadı. Lütfen API anahtarınızı kontrol edin.");
-      }
-      setStep(1);
+        console.error("Analysis Failed", err);
+        setStep(1);
+        
+        if (err.message?.includes("API_KEY_MISSING") || err.message?.includes("must be set") || err.message?.includes("Requested entity was not found")) {
+            setError("Klinik analiz için geçerli bir API Anahtarı seçilmelidir.");
+            if (aistudio) await aistudio.openSelectKey();
+        } else {
+            setError(`Sistem Hatası: ${err.message || 'Analiz başlatılamadı'}`);
+        }
     } finally {
-      setIsAnalyzing(false);
+        setIsAnalyzing(false);
     }
   };
 
@@ -96,6 +100,18 @@ export const ClinicalConsultation: React.FC<ConsultationProps> = ({ onAnalysisCo
          <div className={`flex-1 h-[1px] mx-8 ${step >= 3 ? 'bg-gradient-to-r from-blue-500 to-emerald-500' : 'bg-slate-800'}`} />
          <StepNode active={step >= 3} current={step === 3} label="KLİNİK REÇETE" icon={Save} />
       </div>
+
+      {error && (
+          <div className="bg-rose-500/10 border border-rose-500/20 p-6 rounded-[2rem] flex items-center justify-between animate-in slide-in-from-top-4 duration-300">
+             <div className="flex items-center gap-4 text-rose-500">
+                <AlertTriangle size={24} />
+                <span className="text-xs font-black uppercase tracking-widest">{error}</span>
+             </div>
+             <button onClick={() => (window as any).aistudio?.openSelectKey()} className="flex items-center gap-2 px-6 py-2 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest">
+                <Key size={14} /> ANAHTARI GÜNCELLE
+             </button>
+          </div>
+      )}
 
       {step === 1 && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
@@ -151,28 +167,6 @@ export const ClinicalConsultation: React.FC<ConsultationProps> = ({ onAnalysisCo
                     )}
                  </div>
               </div>
-              <div className="bg-slate-900/40 border border-slate-800 rounded-[3.5rem] p-10 space-y-8 relative overflow-hidden">
-                 <div className="flex items-center justify-between">
-                    <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-3">
-                       <Target size={16} className="text-cyan-500" /> Odak Bölgeleri
-                    </h4>
-                 </div>
-                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {areas.map(a => (
-                       <button 
-                         key={a.id}
-                         onClick={() => setFocusArea(prev => prev.includes(a.id) ? prev.filter(x => x !== a.id) : [...prev, a.id])}
-                         className={`flex items-center gap-4 p-5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${
-                           focusArea.includes(a.id) 
-                             ? 'bg-cyan-500 border-cyan-400 text-white shadow-xl' 
-                             : 'bg-slate-950 border-slate-800 text-slate-500 hover:border-slate-600'
-                         }`}
-                       >
-                          <a.icon size={20} /> {a.label}
-                       </button>
-                    ))}
-                 </div>
-              </div>
            </div>
 
            <div className="lg:col-span-4 space-y-8">
@@ -182,25 +176,6 @@ export const ClinicalConsultation: React.FC<ConsultationProps> = ({ onAnalysisCo
                     <div className="flex items-center gap-4">
                        <Microscope size={28} />
                        <h3 className="text-sm font-black uppercase tracking-[0.2em]">AI Expert Deck</h3>
-                    </div>
-                    <button onClick={() => setExpertMode(!expertMode)} className={`p-2 rounded-xl transition-all border ${expertMode ? 'bg-cyan-500 text-white border-cyan-400' : 'bg-slate-900 text-slate-600 border-slate-800'}`}>
-                       <Terminal size={18} />
-                    </button>
-                 </div>
-                 <div className="space-y-8 relative z-10">
-                    <div className="space-y-4">
-                       <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><Gauge size={14} /> Rehabilitasyon Agresifliği</label>
-                       <div className="grid grid-cols-3 gap-2 bg-slate-900 p-2 rounded-[1.5rem] border border-slate-800">
-                          {['Conservative', 'Balanced', 'Aggressive'].map(opt => (
-                             <button key={opt} onClick={() => setRiskPreference(opt as any)} className={`py-3 rounded-xl text-[9px] font-black uppercase tracking-tighter transition-all ${riskPreference === opt ? 'bg-slate-800 text-cyan-400 shadow-lg border border-white/5' : 'text-slate-600 hover:text-slate-400'}`}>
-                                {opt === 'Conservative' ? 'KORUMACI' : opt === 'Balanced' ? 'DENGELİ' : 'PERFORMANS'}
-                             </button>
-                          ))}
-                       </div>
-                    </div>
-                    <div className="space-y-4">
-                       <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><Settings2 size={14} /> Klinik Direktifler</label>
-                       <textarea value={clinicalDirectives} onChange={(e) => setClinicalDirectives(e.target.value)} placeholder="AI'ya özel rasyonel..." className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-6 text-xs font-bold text-slate-400 h-36 outline-none focus:border-cyan-500/30 shadow-inner" />
                     </div>
                  </div>
                  <button 
@@ -236,11 +211,6 @@ export const ClinicalConsultation: React.FC<ConsultationProps> = ({ onAnalysisCo
                     </div>
                  </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-16 border-t border-slate-800/50">
-                 <ProcessStage label="Radyoloji Analizi" active={true} progress={100} icon={Crosshair} />
-                 <ProcessStage label="Klinik Mapping" active={true} progress={65} icon={Target} />
-                 <ProcessStage label="Dozaj Motoru" active={false} progress={0} icon={Activity} />
-              </div>
            </div>
         </div>
       )}
@@ -261,16 +231,4 @@ const StepNode = ({ active, current, label, icon: Icon }: any) => (
 
 const LoadingPulse = ({ delay }: { delay: string }) => (
   <div className="w-3 h-3 bg-cyan-500 rounded-full animate-bounce shadow-[0_0_15px_rgba(6,182,212,0.8)]" style={{ animationDelay: delay }} />
-);
-
-const ProcessStage = ({ label, active, progress, icon: Icon }: { label: string, active: boolean, progress: number, icon: any }) => (
-  <div className={`p-8 rounded-[2.5rem] border-2 transition-all duration-1000 group relative overflow-hidden ${active ? 'bg-slate-900/50 border-cyan-500/30' : 'bg-slate-950 border-slate-800 opacity-40'}`}>
-     {active && (
-        <div className="absolute bottom-0 left-0 h-1 bg-cyan-500 transition-all duration-1000 shadow-[0_0_10px_rgba(6,182,212,1)]" style={{ width: `${progress}%` }} />
-     )}
-     <div className="flex flex-col items-center gap-4">
-        <Icon size={32} className={`${active ? 'text-cyan-400 animate-pulse' : 'text-slate-700'}`} />
-        <span className={`text-[11px] font-black uppercase tracking-[0.2em] ${active ? 'text-white' : 'text-slate-700'}`}>{label}</span>
-     </div>
-  </div>
 );
