@@ -1,6 +1,6 @@
 
 // @google/genai ve React yönergelerine uygun olarak ErrorBoundary sınıfı düzeltildi.
-import React, { useState, useRef, useEffect, ErrorInfo, ReactNode } from 'react';
+import React, { Component, useState, useRef, useEffect, ErrorInfo, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { 
   Activity, 
@@ -36,8 +36,8 @@ import { ManagementHub } from './ManagementHub.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// Fix: Corrected ErrorBoundary by explicitly inheriting from React.Component with typed props and state to ensure members like this.state and this.props are recognized.
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fix: Corrected ErrorBoundary by explicitly importing and extending Component with typed props and state to resolve property access errors for this.state and this.props.
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };

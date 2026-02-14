@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Exercise } from './types.ts';
 import { optimizeExerciseData } from './ai-service.ts';
+import { ensureApiKey } from './ai-core.ts';
 
 interface DosageEngineModuleProps {
   data: Partial<Exercise>;
@@ -35,12 +36,10 @@ export const DosageEngineModule: React.FC<DosageEngineModuleProps> = ({ data, on
 
   const handleOptimize = async () => {
     const aistudio = (window as any).aistudio;
-    if (aistudio && !(await aistudio.hasSelectedApiKey())) {
-        await aistudio.openSelectKey();
-    }
-
-    setIsOptimizing(true);
+    
     try {
+      await ensureApiKey();
+      setIsOptimizing(true);
       const optimized = await optimizeExerciseData(data, optimizationGoal);
       onUpdate({ ...data, ...optimized, isPersonalized: true });
     } catch (err: any) {

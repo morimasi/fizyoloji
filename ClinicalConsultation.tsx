@@ -10,6 +10,7 @@ import {
   Terminal, Database, Radio, Gauge, Crosshair, Key
 } from 'lucide-react';
 import { runClinicalConsultation } from './ai-service.ts';
+import { ensureApiKey } from './ai-core.ts';
 import { PatientProfile, RiskLevel } from './types.ts';
 
 interface ConsultationProps {
@@ -45,11 +46,7 @@ export const ClinicalConsultation: React.FC<ConsultationProps> = ({ onAnalysisCo
     
     try {
         // API Key Check
-        const hasKey = aistudio ? await aistudio.hasSelectedApiKey() : !!process.env.API_KEY;
-        if (!hasKey || !process.env.API_KEY) {
-            if (aistudio) await aistudio.openSelectKey();
-            else throw new Error("API_KEY_MISSING");
-        }
+        await ensureApiKey();
 
         setIsAnalyzing(true);
         setStep(2);
@@ -171,7 +168,7 @@ export const ClinicalConsultation: React.FC<ConsultationProps> = ({ onAnalysisCo
 
            <div className="lg:col-span-4 space-y-8">
               <div className="bg-slate-950 border border-slate-800 rounded-[3.5rem] p-10 space-y-10 shadow-2xl relative overflow-hidden group">
-                 <div className="absolute top-0 right-0 w-40 h-40 bg-cyan-500/5 rounded-full blur-[60px] -mr-20 -mt-20" />
+                 <div className="absolute top-0 right-0 w-40 h-40 bg-cyan-500/5 rounded-full blur-[80px] -mr-20 -mt-20" />
                  <div className="flex items-center justify-between text-cyan-500 relative z-10">
                     <div className="flex items-center gap-4">
                        <Microscope size={28} />

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Exercise } from './types.ts';
 import { generateExerciseData } from './ai-service.ts';
+import { ensureApiKey } from './ai-core.ts';
 
 interface ClinicalDataModuleProps {
   data: Partial<Exercise>;
@@ -20,12 +21,10 @@ export const ClinicalDataModule: React.FC<ClinicalDataModuleProps> = ({ data, on
     if (!data.title) return;
 
     const aistudio = (window as any).aistudio;
-    if (aistudio && !(await aistudio.hasSelectedApiKey())) {
-        await aistudio.openSelectKey();
-    }
-
-    setIsAiProcessing(true);
+    
     try {
+      await ensureApiKey();
+      setIsAiProcessing(true);
       const result = await generateExerciseData(data.title);
       onUpdate({
         ...data,
