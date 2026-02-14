@@ -2,17 +2,14 @@
 import { GoogleGenAI } from "@google/genai";
 
 /**
- * PHYSIOCORE AI CORE MODULE - v6.5 RESILIENCE ENGINE
- * API Key ve SDK Yönetimi
+ * PHYSIOCORE AI CORE MODULE - v7.0 DIAGNOSTIC ENGINE
+ * API Key, Billing ve Quota yönetimi için geliştirilmiş katman.
  */
 
 export const getAI = () => {
-  // process.env.API_KEY'in Vercel/Vite ortamında bazen undefined olabildiği 
-  // durumlar için güvenli okuma.
   const apiKey = (typeof process !== 'undefined' ? process.env?.API_KEY : null) || (window as any).API_KEY;
   
   if (!apiKey || apiKey === "undefined" || apiKey === "") {
-    // Hata fırlatmak yerine null döndürerek üst katmanın ensureApiKey'i tetiklemesini sağlıyoruz
     return null;
   }
 
@@ -20,40 +17,51 @@ export const getAI = () => {
 };
 
 /**
- * Merkezi API Anahtarı Doğrulama ve Kurtarma Protokolü.
- * Eğer anahtar yoksa seçim penceresini açar.
+ * API Anahtarının sadece varlığını değil, geçerliliğini de denetleyen protokol.
  */
 export const ensureApiKey = async (): Promise<string> => {
   const aistudio = (window as any).aistudio;
   const currentKey = (typeof process !== 'undefined' ? process.env?.API_KEY : null) || (window as any).API_KEY;
 
-  if (!currentKey || currentKey === "undefined") {
+  if (!currentKey || currentKey === "undefined" || currentKey === "") {
+    console.warn("[PhysioCore] API Key saptanmadı veya boş. Seçim penceresi açılıyor...");
     if (aistudio) {
-      console.warn("[PhysioCore] API Key saptanmadı, seçim penceresi açılıyor...");
       await aistudio.openSelectKey();
-      // Yarış durumunu önlemek için yönerge gereği başarılı varsayıyoruz.
       return process.env.API_KEY || "";
-    } else {
-      throw new Error("API_KEY_MISSING");
     }
+    throw new Error("API_KEY_MISSING");
   }
   
   return currentKey;
 };
 
 /**
- * Global Hata Yakalayıcı: "Requested entity was not found" hatası durumunda 
- * anahtar seçimini tekrar tetikler.
+ * Global Hata Yönetimi: Billing ve Quota hatalarını ayrıştırır.
  */
 export const handleAiError = async (err: any) => {
   const aistudio = (window as any).aistudio;
-  const errorMessage = err?.message || String(err);
+  const errorStr = JSON.stringify(err);
+  const msg = err?.message || String(err);
   
-  if (errorMessage.includes("Requested entity was not found") || errorMessage.includes("API_KEY_MISSING")) {
-    console.error("[PhysioCore] Kritik API Hatası: Anahtar geçersiz veya eksik.");
+  console.group("PhysioCore AI Teşhis Raporu");
+  console.error("Hata Detayı:", msg);
+  console.groupEnd();
+
+  // 1. API Key Geçersiz veya Silinmiş (Requested entity was not found)
+  if (msg.includes("Requested entity was not found") || msg.includes("API_KEY_INVALID")) {
     if (aistudio) {
+      alert("Kritik: Mevcut API Anahtarı geçersiz. Lütfen faturalandırması aktif olan yeni bir anahtar seçin.");
       await aistudio.openSelectKey();
     }
+  } 
+  // 2. Billing / Quota Sorunu (429 Too Many Requests veya Billing not enabled)
+  else if (msg.includes("Quota") || msg.includes("429") || msg.includes("billing")) {
+    alert("Klinik Uyarı: Google Cloud projenizde faturalandırma sınırı veya kota aşımı saptandı. Lütfen GCP Console üzerinden 'Pay-as-you-go' durumunu kontrol edin.");
   }
-  throw err; // Hatayı UI katmanına ilet
+  // 3. Genel Key Eksikliği
+  else if (msg.includes("API_KEY_MISSING")) {
+    if (aistudio) await aistudio.openSelectKey();
+  }
+
+  throw err;
 };

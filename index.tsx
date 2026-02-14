@@ -20,10 +20,11 @@ import {
   ShieldCheck,
   Info,
   Key,
-  Settings
+  Settings,
+  CreditCard
 } from 'lucide-react';
 import { AppTab, PatientProfile, Exercise, ProgressReport } from './types.ts';
-import { runAdaptiveAdjustment } from './ai-service.ts';
+import { runAdaptiveAdjustment, ensureApiKey } from './ai-service.ts';
 import { ExerciseStudio } from './ExerciseStudio.tsx';
 import { ExercisePlayer } from './ExercisePlayer.tsx';
 import { ProgressTracker } from './ProgressTracker.tsx';
@@ -36,8 +37,8 @@ import { ManagementHub } from './ManagementHub.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// Fix: 'state' ve 'props' erişim hatalarını çözmek için React.Component'den türetilme ve state tipi açıkça sınıf içerisinde tanımlandı.
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Component importu kullanılarak kalıtım hatası düzeltildi
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false };
 
   constructor(props: ErrorBoundaryProps) {
@@ -60,6 +61,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
+    // Correctly using this.props.children from the Generic class
     return this.props.children;
   }
 }
@@ -68,7 +70,7 @@ export default function PhysioCoreApp() {
   const [activeTab, setActiveTab] = useState<AppTab>('consultation');
   const [patientData, setPatientData] = useState<PatientProfile | null>(null);
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
-  const [hasKey, setHasKey] = useState(true);
+  const [keyStatus, setKeyStatus] = useState<'Checking' | 'Valid' | 'Missing'>('Checking');
   
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [painScore, setPainScore] = useState(5);
@@ -81,8 +83,11 @@ export default function PhysioCoreApp() {
       if (profile) setPatientData(profile);
       
       const aistudio = (window as any).aistudio;
-      if (aistudio?.hasSelectedApiKey) {
-        setHasKey(await aistudio.hasSelectedApiKey());
+      if (aistudio) {
+        const hasKey = await aistudio.hasSelectedApiKey();
+        setKeyStatus(hasKey ? 'Valid' : 'Missing');
+      } else {
+        setKeyStatus(process.env.API_KEY ? 'Valid' : 'Missing');
       }
     };
     init();
@@ -92,7 +97,7 @@ export default function PhysioCoreApp() {
     const aistudio = (window as any).aistudio;
     if (aistudio?.openSelectKey) {
       await aistudio.openSelectKey();
-      setHasKey(true);
+      setKeyStatus('Valid');
     }
   };
 
@@ -106,12 +111,9 @@ export default function PhysioCoreApp() {
     if (!patientData) return;
     const aistudio = (window as any).aistudio;
     
-    if (aistudio && !(await aistudio.hasSelectedApiKey())) {
-        await aistudio.openSelectKey();
-    }
-
-    const report: ProgressReport = { date: new Date().toISOString(), painScore, completionRate: 100, feedback: userComment };
     try {
+      await ensureApiKey();
+      const report: ProgressReport = { date: new Date().toISOString(), painScore, completionRate: 100, feedback: userComment };
       const updated = await runAdaptiveAdjustment(patientData, report);
       setPatientData(updated);
       await PhysioDB.saveProfile(updated);
@@ -119,9 +121,6 @@ export default function PhysioCoreApp() {
       setActiveTab('progress');
     } catch (err: any) {
       console.error("Feedback Adjustment Error", err);
-      if (err.message?.includes("Requested entity was not found") || err.message?.includes("API_KEY_MISSING")) {
-         if (aistudio) await aistudio.openSelectKey();
-      }
     }
   };
 
@@ -134,7 +133,7 @@ export default function PhysioCoreApp() {
           </div>
           <div>
             <h1 className="font-inter font-black text-xl tracking-tighter italic uppercase">PHYSIOCORE <span className="text-cyan-400">AI</span></h1>
-            <p className="text-[8px] font-mono text-slate-500 uppercase tracking-widest font-black">Genesis Expert v6.0</p>
+            <p className="text-[8px] font-mono text-slate-500 uppercase tracking-widest font-black">Genesis Expert v7.0</p>
           </div>
         </div>
         
@@ -148,16 +147,20 @@ export default function PhysioCoreApp() {
         </nav>
 
         <div className="flex items-center gap-4">
-           {!hasKey && (
-             <button onClick={handleOpenKeySelection} className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 transition-colors">
-                <Key size={14} className="text-amber-500" />
-                <span className="text-[9px] font-black uppercase text-amber-500 tracking-widest">API KEY SEÇİN</span>
+           {keyStatus !== 'Valid' ? (
+             <button onClick={handleOpenKeySelection} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 transition-all animate-pulse">
+                <Key size={14} className="text-rose-500" />
+                <span className="text-[9px] font-black uppercase text-rose-500 tracking-widest">KEY EKSİK</span>
              </button>
+           ) : (
+             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 group cursor-help" title="Billing Aktif Proje">
+                <ShieldCheck size={14} className="text-emerald-500" />
+                <span className="text-[9px] font-black uppercase text-emerald-400 tracking-widest">SİSTEM HAZIR</span>
+             </div>
            )}
-           <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-[9px] font-black uppercase text-white tracking-widest">SİSTEM AKTİF</span>
-           </div>
+           <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="p-2 bg-slate-800 rounded-lg text-slate-500 hover:text-white transition-colors">
+              <CreditCard size={16} />
+           </a>
         </div>
       </header>
 
