@@ -17,31 +17,26 @@ export const DosageEngineModule: React.FC<DosageEngineModuleProps> = ({ data, on
   const [optimizationGoal, setOptimizationGoal] = useState('Maksimum Mobilite');
   const [isOptimizing, setIsOptimizing] = useState(false);
 
-  // Derived Metrics Calculation
   const sets = data.sets || 0;
   const reps = data.reps || 0;
   const tempo = data.tempo || '3-1-3';
   
-  // Parse tempo to calculate Time Under Tension (TUT)
-  // Assuming format "Eccentric-Pause-Concentric" e.g. "3-1-3" -> 7 seconds per rep
   const calculateTutPerRep = (tempoStr: string) => {
     const parts = tempoStr.split('-').map(Number);
     if (parts.length >= 3 && !parts.some(isNaN)) {
         return parts.reduce((a, b) => a + b, 0);
     }
-    return 4; // Default average
+    return 4;
   };
 
   const tutPerRep = calculateTutPerRep(tempo);
   const totalTut = sets * reps * tutPerRep;
-  const volumeLoad = sets * reps; // Without weight, just reps volume
+  const volumeLoad = sets * reps;
 
   const handleOptimize = async () => {
-    // PRE-FLIGHT CHECK
-    if (!process.env.API_KEY) {
-        const aistudio = (window as any).aistudio;
-        if (aistudio) await aistudio.openSelectKey();
-        return;
+    const aistudio = (window as any).aistudio;
+    if (aistudio && !(await aistudio.hasSelectedApiKey())) {
+        await aistudio.openSelectKey();
     }
 
     setIsOptimizing(true);
@@ -49,28 +44,23 @@ export const DosageEngineModule: React.FC<DosageEngineModuleProps> = ({ data, on
       const optimized = await optimizeExerciseData(data, optimizationGoal);
       onUpdate({ ...data, ...optimized, isPersonalized: true });
     } catch (err: any) {
-      if (err.message === "API_KEY_MISSING" || err.message?.includes("API key") || err.message?.includes("Requested entity was not found")) {
-         console.warn("[DosageEngine] API Key missing, prompting user.");
-         const aistudio = (window as any).aistudio;
+      console.error("Optimization Failed", err);
+      if (err.message?.includes("Requested entity was not found") || err.message?.includes("API_KEY_MISSING")) {
          if (aistudio) await aistudio.openSelectKey();
       } else {
-         console.error("Optimization Failed", err);
-         alert("Optimizasyon başarısız: " + (err.message || "Bilinmeyen hata"));
+         alert("Optimizasyon başarısız. Lütfen tekrar deneyin.");
       }
     } finally {
       setIsOptimizing(false);
     }
   };
 
-  // Helper to update specific fields
   const updateField = (field: keyof Exercise, value: any) => {
     onUpdate({ ...data, [field]: value });
   };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-       
-       {/* AI Periodization Header */}
        <div className="flex flex-col md:flex-row items-center gap-6 bg-slate-900/60 p-6 rounded-[2.5rem] border border-cyan-500/20">
           <div className="w-16 h-16 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg shadow-cyan-500/20">
              <Zap size={32} fill="currentColor" />
@@ -103,21 +93,15 @@ export const DosageEngineModule: React.FC<DosageEngineModuleProps> = ({ data, on
        </div>
 
        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
-          {/* CONTROL DECK */}
           <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-             
-             {/* Primary Variables */}
              <div className="bg-slate-900/40 border border-slate-800 p-8 rounded-[2rem] space-y-6">
                 <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                    <Settings2 size={16} /> Temel Değişkenler
                 </h3>
-                
                 <div className="grid grid-cols-2 gap-6">
                    <ControlKnob label="Set Sayısı" value={sets} onChange={v => updateField('sets', v)} min={1} max={10} icon={Layers} />
                    <ControlKnob label="Tekrar" value={reps} onChange={v => updateField('reps', v)} min={1} max={50} icon={Repeat} />
                 </div>
-
                 <div className="pt-6 border-t border-slate-800 space-y-4">
                    <div className="flex justify-between items-center">
                       <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2"><History size={12}/> Tempo (E-P-C)</label>
@@ -143,12 +127,10 @@ export const DosageEngineModule: React.FC<DosageEngineModuleProps> = ({ data, on
                 </div>
              </div>
 
-             {/* Intensity & Load */}
              <div className="bg-slate-900/40 border border-slate-800 p-8 rounded-[2rem] space-y-6">
                 <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                    <Gauge size={16} /> Şiddet & Yüklenme
                 </h3>
-
                 <div className="space-y-6">
                    <div className="space-y-2">
                       <div className="flex justify-between text-[10px] font-black text-slate-500 uppercase">
@@ -166,13 +148,7 @@ export const DosageEngineModule: React.FC<DosageEngineModuleProps> = ({ data, on
                         className="w-full h-2 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-current text-slate-500"
                         style={{ background: 'linear-gradient(to right, #10b981, #f59e0b, #ef4444)' }}
                       />
-                      <div className="flex justify-between text-[8px] text-slate-600 font-bold uppercase">
-                         <span>Çok Hafif</span>
-                         <span>Orta</span>
-                         <span>Maksimal</span>
-                      </div>
                    </div>
-
                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex items-center gap-4">
                       <div className="p-3 bg-slate-900 rounded-lg text-slate-400"><Scale size={18}/></div>
                       <div>
@@ -189,41 +165,16 @@ export const DosageEngineModule: React.FC<DosageEngineModuleProps> = ({ data, on
              </div>
           </div>
 
-          {/* CALCULATED METRICS (Live Output) */}
           <div className="lg:col-span-4 space-y-6">
              <div className="bg-slate-950 border border-slate-800 p-8 rounded-[2.5rem] relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl -mr-16 -mt-16" />
                 <h3 className="text-sm font-black text-emerald-500 uppercase tracking-widest flex items-center gap-2 mb-6">
                    <BarChart3 size={16} /> Motor Çıktısı
                 </h3>
-                
                 <div className="space-y-6">
-                   <MetricRow 
-                     label="Toplam Hacim (Set x Tekrar)" 
-                     value={volumeLoad} 
-                     unit="Reps" 
-                     icon={Layers} 
-                   />
-                   <MetricRow 
-                     label="TUT (Time Under Tension)" 
-                     value={totalTut} 
-                     unit="Sn" 
-                     icon={Timer} 
-                     highlight
-                   />
-                   <MetricRow 
-                     label="Tahmini Seans Süresi" 
-                     value={Math.ceil((totalTut + ((sets - 1) * (data.restPeriod || 60))) / 60)} 
-                     unit="Dk" 
-                     icon={Clock} 
-                   />
-                </div>
-
-                <div className="mt-8 pt-6 border-t border-slate-800">
-                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Metabolik Etki Tahmini</p>
-                   <p className="text-xs font-medium text-slate-300 italic leading-relaxed">
-                      {totalTut > 120 ? "Endurans ve metabolik stres odaklı." : totalTut > 60 ? "Hipertrofi ve mekanik gerilim aralığı." : "Nöral aktivasyon ve güç odaklı."}
-                   </p>
+                   <MetricRow label="Toplam Hacim" value={volumeLoad} unit="Reps" icon={Layers} />
+                   <MetricRow label="TUT" value={totalTut} unit="Sn" icon={Timer} highlight />
+                   <MetricRow label="Tahmini Seans" value={Math.ceil((totalTut + ((sets - 1) * (data.restPeriod || 60))) / 60)} unit="Dk" icon={Clock} />
                 </div>
              </div>
           </div>
@@ -234,22 +185,11 @@ export const DosageEngineModule: React.FC<DosageEngineModuleProps> = ({ data, on
 
 const ControlKnob = ({ label, value, onChange, min, max, icon: Icon }: any) => (
   <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex flex-col items-center justify-center gap-3 relative overflow-hidden group hover:border-cyan-500/30 transition-all">
-     <div className="absolute inset-0 bg-cyan-500/5 translate-y-full group-hover:translate-y-0 transition-transform" />
      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest z-10">{label}</span>
      <div className="flex items-center gap-4 z-10">
-        <button 
-          onClick={() => onChange(Math.max(min, value - 1))}
-          className="w-8 h-8 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-colors font-bold"
-        >
-           -
-        </button>
+        <button onClick={() => onChange(Math.max(min, value - 1))} className="w-8 h-8 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white font-bold">-</button>
         <span className="text-3xl font-black text-white italic tracking-tighter w-12 text-center">{value}</span>
-        <button 
-          onClick={() => onChange(Math.min(max, value + 1))}
-          className="w-8 h-8 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-colors font-bold"
-        >
-           +
-        </button>
+        <button onClick={() => onChange(Math.min(max, value + 1))} className="w-8 h-8 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white font-bold">+</button>
      </div>
   </div>
 );

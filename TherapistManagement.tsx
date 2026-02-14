@@ -25,11 +25,9 @@ export const TherapistManagement = ({ isAdminOverride = false }: { isAdminOverri
   const [aiIntensity, setAiIntensity] = useState(75);
 
   const generateAiTasks = async () => {
-    // PRE-FLIGHT CHECK
-    if (!process.env.API_KEY) {
-        const aistudio = (window as any).aistudio;
-        if (aistudio) await aistudio.openSelectKey();
-        return;
+    const aistudio = (window as any).aistudio;
+    if (aistudio && !(await aistudio.hasSelectedApiKey())) {
+        await aistudio.openSelectKey();
     }
 
     setIsGenerating(true);
@@ -43,13 +41,11 @@ export const TherapistManagement = ({ isAdminOverride = false }: { isAdminOverri
       const newTasks = JSON.parse(response.text || "[]");
       setTasks(prev => [...prev, ...newTasks.map((t: any) => ({ ...t, id: Date.now().toString() + Math.random(), status: 'Pending' }))]);
     } catch (err: any) {
-      if (err.message === "API_KEY_MISSING" || err.message?.includes("API key") || err.message?.includes("Requested entity was not found")) {
-         console.warn("[TherapistTasks] API Key missing, prompting user.");
-         const aistudio = (window as any).aistudio;
+      console.error("AI Task Gen Error", err);
+      if (err.message?.includes("Requested entity was not found") || err.message?.includes("API_KEY_MISSING")) {
          if (aistudio) await aistudio.openSelectKey();
       } else {
-         console.error("AI Task Gen Error", err);
-         alert("AI Görev listesi oluşturulamadı: " + (err.message || "Bilinmeyen hata"));
+         alert("AI Görev listesi oluşturulamadı. Lütfen API anahtarınızı kontrol edin.");
       }
     } finally {
       setIsGenerating(false);
@@ -61,11 +57,8 @@ export const TherapistManagement = ({ isAdminOverride = false }: { isAdminOverri
   return (
     <>
       <div className="xl:col-span-8 space-y-8 animate-in slide-in-from-left-6 duration-700">
-         
-         {/* 1. INTERACTIVE TASK COMMANDER */}
          <div className="bg-slate-900/40 border border-slate-800 rounded-[3rem] p-10 space-y-8 shadow-2xl relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-[80px] -mr-32 -mt-32" />
-            
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
                <div>
                   <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-3">
@@ -112,7 +105,6 @@ export const TherapistManagement = ({ isAdminOverride = false }: { isAdminOverri
             </div>
          </div>
 
-         {/* 2. AI ASSISTANT NEURAL TUNING */}
          <div className="bg-slate-900/40 border border-slate-800 rounded-[3rem] p-10 space-y-10 shadow-2xl">
             <div className="flex justify-between items-center">
                <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-3">
@@ -157,7 +149,6 @@ export const TherapistManagement = ({ isAdminOverride = false }: { isAdminOverri
       </div>
 
       <div className="xl:col-span-4 space-y-8 animate-in slide-in-from-right-6 duration-700">
-         {/* 3. PERFORMANCE HUD */}
          <div className="bg-slate-950 border border-slate-800 rounded-[3rem] p-10 space-y-8 shadow-2xl relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
             <div className="flex items-center gap-4 text-emerald-400">
@@ -182,7 +173,6 @@ export const TherapistManagement = ({ isAdminOverride = false }: { isAdminOverri
             </div>
          </div>
 
-         {/* 4. SUPERVISOR LOGS */}
          <div className="bg-slate-900/40 border border-slate-800 rounded-[3rem] p-10 space-y-6 shadow-2xl">
             <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] flex items-center gap-2">
                <Terminal size={14} /> Global Audit Log

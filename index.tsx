@@ -1,6 +1,6 @@
 
 // @google/genai ve React yönergelerine uygun olarak ErrorBoundary sınıfı düzeltildi.
-import React, { useState, useRef, useEffect, ErrorInfo, ReactNode } from 'react';
+import React, { useState, useRef, useEffect, ErrorInfo, ReactNode, Component } from 'react';
 import { createRoot } from 'react-dom/client';
 import { 
   Activity, 
@@ -36,23 +36,15 @@ import { ManagementHub } from './ManagementHub.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-/**
- * Hata Yakalayıcı (Error Boundary) - TypeScript 'props' hatasını gidermek için 
- * React.Component jenerik sınıfı açıkça kullanıldı.
- */
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fix: Corrected inheritance and removed redundant constructor to fix 'props' not existing on type ErrorBoundary error
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false };
-
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-  }
 
   static getDerivedStateFromError(_error: Error): ErrorBoundaryState { return { hasError: true }; }
   
   componentDidCatch(error: Error, errorInfo: ErrorInfo) { console.error("CRASH:", error, errorInfo); }
   
   render() {
-    // Fix: this.props artık React.Component üzerinden doğru şekilde miras alınıyor.
     const { children } = this.props;
     if (this.state.hasError) {
       return (
@@ -80,7 +72,6 @@ export default function PhysioCoreApp() {
   const [userComment, setUserComment] = useState('');
 
   useEffect(() => {
-    // DB Initialization: Seed verileri yükler
     const init = async () => {
       await PhysioDB.initializeDB();
       const profile = PhysioDB.getProfile();
@@ -110,6 +101,12 @@ export default function PhysioCoreApp() {
 
   const submitFeedback = async () => {
     if (!patientData) return;
+    const aistudio = (window as any).aistudio;
+    
+    if (aistudio && !(await aistudio.hasSelectedApiKey())) {
+        await aistudio.openSelectKey();
+    }
+
     const report: ProgressReport = { date: new Date().toISOString(), painScore, completionRate: 100, feedback: userComment };
     try {
       const updated = await runAdaptiveAdjustment(patientData, report);
@@ -118,9 +115,9 @@ export default function PhysioCoreApp() {
       setShowFeedbackModal(false);
       setActiveTab('progress');
     } catch (err: any) {
-      if (err.message === "API_KEY_MISSING" || err.message?.includes("Requested entity was not found")) {
-        const aistudio = (window as any).aistudio;
-        if (aistudio) await aistudio.openSelectKey();
+      console.error("Feedback Adjustment Error", err);
+      if (err.message?.includes("Requested entity was not found") || err.message?.includes("API_KEY_MISSING")) {
+         if (aistudio) await aistudio.openSelectKey();
       }
     }
   };
@@ -134,7 +131,7 @@ export default function PhysioCoreApp() {
           </div>
           <div>
             <h1 className="font-inter font-black text-xl tracking-tighter italic uppercase">PHYSIOCORE <span className="text-cyan-400">AI</span></h1>
-            <p className="text-[8px] font-mono text-slate-500 uppercase tracking-widest font-black">Genesis Expert v6.0 • CDSS Module</p>
+            <p className="text-[8px] font-mono text-slate-500 uppercase tracking-widest font-black">Genesis Expert v6.0</p>
           </div>
         </div>
         
@@ -149,10 +146,7 @@ export default function PhysioCoreApp() {
 
         <div className="flex items-center gap-4">
            {!hasKey && (
-             <button 
-               onClick={handleOpenKeySelection}
-               className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 transition-colors"
-             >
+             <button onClick={handleOpenKeySelection} className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 transition-colors">
                 <Key size={14} className="text-amber-500" />
                 <span className="text-[9px] font-black uppercase text-amber-500 tracking-widest">API KEY SEÇİN</span>
              </button>
@@ -160,9 +154,6 @@ export default function PhysioCoreApp() {
            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-[9px] font-black uppercase text-white tracking-widest">SİSTEM AKTİF</span>
-           </div>
-           <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center border border-slate-700">
-             <UserIcon size={18} className="text-slate-400" />
            </div>
         </div>
       </header>

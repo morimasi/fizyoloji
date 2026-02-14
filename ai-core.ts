@@ -7,8 +7,7 @@ import { GoogleGenAI } from "@google/genai";
  * Following guidelines: Initialize with direct process.env.API_KEY reference.
  */
 export const getAI = () => {
-  if (!process.env.API_KEY) {
-    throw new Error("API_KEY_MISSING");
-  }
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // Manuel throw kaldırıldı, SDK'nın hata fırlatması veya platformun 
+  // anahtarı enjekte etmesi bekleniyor.
+  return new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
 };
