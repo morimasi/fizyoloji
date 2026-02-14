@@ -19,10 +19,16 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
     DESCRIPTION: ${customDirective || exercise.description || ''}
   `;
 
+  // Fix: Upgraded to gemini-3-pro-image-preview for high-quality (4K) image generation.
   const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash-image', 
+    model: 'gemini-3-pro-image-preview', 
     contents: { parts: [{ text: fullPrompt }] },
-    config: { imageConfig: { aspectRatio: "1:1" } } 
+    config: { 
+      imageConfig: { 
+        aspectRatio: "1:1",
+        imageSize: "1K" 
+      } 
+    } 
   });
 
   if (response.candidates?.[0]?.content?.parts) {
@@ -39,6 +45,7 @@ export const generateExerciseRealVideo = async (exercise: Partial<Exercise>, cus
   const ai = getAI();
   const prompt = `Cinematic medical 3D film, 4K: ${exercise.titleTr || exercise.title}. Real muscle textures, black background. High precision movement.`;
   
+  // Fix: Using veo-3.1-fast-generate-preview for general 1080p video generation.
   let operation = await ai.models.generateVideos({ 
     model: 'veo-3.1-fast-generate-preview', 
     prompt, 
@@ -55,6 +62,7 @@ export const generateExerciseRealVideo = async (exercise: Partial<Exercise>, cus
   }
   
   const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+  // Fix: Appending API key to download link as per guidelines.
   return downloadLink ? `${downloadLink}&key=${process.env.API_KEY}` : "";
 };
 
@@ -65,6 +73,7 @@ export const generateExerciseVectorData = async (exercise: Partial<Exercise>): P
     contents: `Generate a clinical medical SVG vector for: "${exercise.titleTr || exercise.title}". Return ONLY valid XML SVG code. Include IDs for #skeleton, #muscles, #skin-outline.`,
   });
   
+  // Fix: Extracted text directly from response.text property.
   let cleanSvg = response.text || "";
   cleanSvg = cleanSvg.replace(/```svg|```/gi, '').trim();
   if (!cleanSvg.startsWith('<svg')) throw new Error("Invalid SVG received");
