@@ -6,7 +6,7 @@ import {
   Edit3, CheckCircle2, AlertCircle, TrendingUp, 
   Settings2, Wand2, Terminal, Info
 } from 'lucide-react';
-import { getAI, ensureApiKey } from './ai-core.ts';
+import { getAI } from './ai-core.ts';
 
 interface ClinicalTask {
   id: string;
@@ -26,10 +26,12 @@ export const TherapistManagement = ({ isAdminOverride = false }: { isAdminOverri
 
   const generateAiTasks = async () => {
     const aistudio = (window as any).aistudio;
-    
+    if (aistudio && !(await aistudio.hasSelectedApiKey())) {
+        await aistudio.openSelectKey();
+    }
+
+    setIsGenerating(true);
     try {
-      await ensureApiKey();
-      setIsGenerating(true);
       const ai = getAI();
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',

@@ -6,7 +6,7 @@ import {
   Zap, Wand2, Sparkles, AlertTriangle, ShieldCheck,
   FastForward, Wind, MousePointer2, Box, Layers,
   ChevronRight, Activity, Gauge, Eye, EyeOff, Save,
-  Maximize2, Share2, Rocket, AlertCircle, RefreshCw, Key
+  Maximize2, Share2, Rocket, AlertCircle, RefreshCw
 } from 'lucide-react';
 import { Exercise } from './types.ts';
 import { generateExerciseVisual, generateExerciseRealVideo, generateExerciseVectorData } from './ai-service.ts';
@@ -23,68 +23,61 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
   const [previewUrl, setPreviewUrl] = useState(exercise.visualUrl || exercise.videoUrl || '');
   const [svgContent, setSvgContent] = useState<string>(exercise.vectorData || '');
   const [error, setError] = useState<string | null>(null);
+  const [currentFrame, setCurrentFrame] = useState(0);
   const [activeLayers, setActiveLayers] = useState({ skeleton: true, muscles: true, skin: true, HUD: true });
 
   const handleGenerate = async () => {
     setError(null);
     const aistudio = (window as any).aistudio;
+    if (aistudio && !(await aistudio.hasSelectedApiKey())) {
+        await aistudio.openSelectKey();
+    }
 
-    // 1. Proaktif API Key Kontrolü
+    setIsGenerating(true);
+
     try {
-        const hasKey = aistudio ? await aistudio.hasSelectedApiKey() : !!process.env.API_KEY;
-        if (!hasKey || !process.env.API_KEY) {
-            if (aistudio) {
-                await aistudio.openSelectKey();
-                // Kullanıcı seçim yaptıktan sonra process.env.API_KEY güncellenecektir.
-                // Yarış durumunu önlemek için devam ediyoruz.
-            } else {
-                throw new Error("API_KEY_MISSING");
-            }
-        }
-
-        setIsGenerating(true);
-
-        if (renderMode === 'video') {
-            const url = await generateExerciseRealVideo(exercise, exercise.description);
-            if (!url) throw new Error("Video üretilemedi.");
-            setPreviewUrl(url);
-            onVisualGenerated(url, 'VEO-Premium', true, 1, 'video');
-        } 
-        else if (renderMode === 'vector') {
-            const svg = await generateExerciseVectorData(exercise);
-            setSvgContent(svg);
-            setPreviewUrl('vector_mode');
-            onVisualGenerated(svg, 'AVM-Genesis', false, 0, 'vector');
-        } 
-        else {
-            const result = await generateExerciseVisual(exercise, 'Cinematic-Grid', exercise.description);
-            setPreviewUrl(result.url);
-            onVisualGenerated(result.url, 'AVM-Sprite', true, result.frameCount, result.layout);
-        }
-        
-        if (exercise.id) {
-            const currentEx = await PhysioDB.getExercises();
-            const target = currentEx.find(e => e.id === exercise.id);
-            if (target) {
-                await PhysioDB.updateExercise({
-                    ...target,
-                    visualUrl: renderMode !== 'vector' ? previewUrl : undefined,
-                    vectorData: renderMode === 'vector' ? svgContent : undefined,
-                    isMotion: renderMode !== 'vector'
-                } as Exercise);
-            }
-        }
+      if (renderMode === 'video') {
+        const url = await generateExerciseRealVideo(exercise, exercise.description);
+        if (!url) throw new Error("Video üretilemedi.");
+        setPreviewUrl(url);
+        onVisualGenerated(url, 'VEO-Premium', true, 1, 'video');
+      } 
+      else if (renderMode === 'vector') {
+        const svg = await generateExerciseVectorData(exercise);
+        setSvgContent(svg);
+        setPreviewUrl('vector_mode');
+        onVisualGenerated(svg, 'AVM-Genesis', false, 0, 'vector'); // SVG content passed as url here
+      } 
+      else {
+        const result = await generateExerciseVisual(exercise, 'Cinematic-Grid', exercise.description);
+        setPreviewUrl(result.url);
+        onVisualGenerated(result.url, 'AVM-Sprite', true, result.frameCount, result.layout);
+      }
+      
+      // Kayıt Katmanı: Üretilen her görseli kalıcı kütüphaneye işle
+      if (exercise.id) {
+         const currentEx = await PhysioDB.getExercises();
+         const target = currentEx.find(e => e.id === exercise.id);
+         if (target) {
+            await PhysioDB.updateExercise({
+               ...target,
+               visualUrl: renderMode !== 'vector' ? previewUrl : undefined,
+               vectorData: renderMode === 'vector' ? svgContent : undefined,
+               isMotion: renderMode !== 'vector'
+            } as Exercise);
+         }
+      }
+      
     } catch (err: any) {
-        console.error("Generation failed:", err);
-        // 2. Hata Yakalama ve Kullanıcı Yönlendirme
-        if (err.message?.includes("API_KEY_MISSING") || err.message?.includes("must be set") || err.message?.includes("Requested entity was not found")) {
-            setError("Lütfen üretimi başlatmak için geçerli bir API Anahtarı seçin.");
-            if (aistudio) await aistudio.openSelectKey();
-        } else {
-            setError(`Üretim hatası: ${err.message || 'Bilinmeyen bir sorun oluştu'}`);
-        }
+      console.error("Generation failed:", err);
+      if (err.message?.includes("Requested entity was not found") || err.message?.includes("API_KEY_MISSING")) {
+        if (aistudio) await aistudio.openSelectKey();
+        setError("Lütfen geçerli bir API Anahtarı seçin.");
+      } else {
+        setError(`Üretim hatası: ${err.message || 'Bilinmeyen bir sorun oluştu'}`);
+      }
     } finally {
-        setIsGenerating(false);
+      setIsGenerating(false);
     }
   };
 
@@ -104,18 +97,6 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
             </div>
           </div>
 
-          {error && (
-              <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-start gap-3">
-                  <AlertCircle className="text-rose-500 shrink-0" size={16} />
-                  <div>
-                    <p className="text-[10px] text-rose-200 font-bold uppercase italic leading-relaxed">{error}</p>
-                    <button onClick={() => (window as any).aistudio?.openSelectKey()} className="mt-2 text-[9px] font-black text-cyan-400 uppercase tracking-widest flex items-center gap-1 hover:underline">
-                        <Key size={10} /> ANAHTAR SEÇİN
-                    </button>
-                  </div>
-              </div>
-          )}
-
           <div className="space-y-4 mb-8">
              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><Box size={12} /> Render Engine</label>
              <div className="flex bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
@@ -123,6 +104,21 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                 <button onClick={() => setRenderMode('video')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${renderMode === 'video' ? 'bg-cyan-500 text-white shadow-xl' : 'text-slate-500'}`}>VEO (Video)</button>
              </div>
           </div>
+
+          <div className="space-y-3 mb-8">
+             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><Layers size={12} /> Katmanlar</label>
+             <div className="grid grid-cols-2 gap-2">
+                <LayerToggle label="Skeleton" active={activeLayers.skeleton} onClick={() => setActiveLayers({...activeLayers, skeleton: !activeLayers.skeleton})} />
+                <LayerToggle label="Muscles" active={activeLayers.muscles} onClick={() => setActiveLayers({...activeLayers, muscles: !activeLayers.muscles})} />
+             </div>
+          </div>
+
+          {error && (
+              <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-start gap-3">
+                  <AlertCircle className="text-rose-500 shrink-0" size={16} />
+                  <p className="text-[10px] text-rose-200 font-bold uppercase italic leading-relaxed">{error}</p>
+              </div>
+          )}
 
           <button 
             onClick={handleGenerate}
@@ -177,3 +173,12 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
     </div>
   );
 };
+
+const LayerToggle = ({ label, active, onClick }: { label: string, active: boolean, onClick: () => void }) => (
+  <button 
+    onClick={onClick}
+    className={`px-4 py-2.5 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-between ${active ? 'bg-slate-800 border-cyan-500 text-cyan-400 shadow-lg' : 'bg-slate-950 border-slate-800 text-slate-600'}`}
+  >
+    {label} {active ? <Eye size={12}/> : <EyeOff size={12}/>}
+  </button>
+);
