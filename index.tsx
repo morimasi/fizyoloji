@@ -36,8 +36,8 @@ import { ManagementHub } from './ManagementHub.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// Fix: Corrected inheritance and added constructor with super(props) to ensure 'this.props' is available and correctly typed.
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fix: Corrected inheritance by using 'Component' directly from named imports to ensure 'state' and 'props' properties are correctly recognized by TypeScript.
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
