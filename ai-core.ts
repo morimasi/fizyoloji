@@ -2,65 +2,53 @@
 import { GoogleGenAI } from "@google/genai";
 
 /**
- * PHYSIOCORE AI CORE MODULE - v7.0 DIAGNOSTIC ENGINE
- * API Key, Billing ve Quota yönetimi için geliştirilmiş katman.
+ * PHYSIOCORE AI CORE MODULE - v7.5 DIRECT INJECTION
+ * API Key yönetimi için basitleştirilmiş ve dayanıklı yapı.
  */
 
 export const getAI = () => {
-  const apiKey = (typeof process !== 'undefined' ? process.env?.API_KEY : null) || (window as any).API_KEY;
-  
-  if (!apiKey || apiKey === "undefined" || apiKey === "") {
-    return null;
-  }
-
+  // Yönerge: process.env.API_KEY doğrudan kullanılmalıdır.
+  // Boşluk kontrolü SDK seviyesinde yapılacak, biz engel olmayacağız.
+  const apiKey = process.env.API_KEY;
   return new GoogleGenAI({ apiKey });
 };
 
 /**
- * API Anahtarının sadece varlığını değil, geçerliliğini de denetleyen protokol.
+ * Kullanıcı etkileşimi öncesi anahtar kontrolü.
  */
-export const ensureApiKey = async (): Promise<string> => {
+export const ensureApiKey = async (): Promise<void> => {
   const aistudio = (window as any).aistudio;
-  const currentKey = (typeof process !== 'undefined' ? process.env?.API_KEY : null) || (window as any).API_KEY;
-
-  if (!currentKey || currentKey === "undefined" || currentKey === "") {
-    console.warn("[PhysioCore] API Key saptanmadı veya boş. Seçim penceresi açılıyor...");
-    if (aistudio) {
-      await aistudio.openSelectKey();
-      return process.env.API_KEY || "";
-    }
-    throw new Error("API_KEY_MISSING");
-  }
   
-  return currentKey;
+  if (aistudio) {
+    const hasKey = await aistudio.hasSelectedApiKey();
+    if (!hasKey) {
+      console.warn("[PhysioCore] API Key seçilmemiş, seçim penceresi açılıyor...");
+      await aistudio.openSelectKey();
+    }
+  }
 };
 
 /**
- * Global Hata Yönetimi: Billing ve Quota hatalarını ayrıştırır.
+ * Global Hata Yönetimi: Faturalandırma ve Geçersiz Anahtar durumlarını yakalar.
  */
 export const handleAiError = async (err: any) => {
   const aistudio = (window as any).aistudio;
-  const errorStr = JSON.stringify(err);
   const msg = err?.message || String(err);
   
-  console.group("PhysioCore AI Teşhis Raporu");
-  console.error("Hata Detayı:", msg);
+  console.group("PhysioCore AI Diagnostic");
+  console.error("SDK Error:", msg);
   console.groupEnd();
 
-  // 1. API Key Geçersiz veya Silinmiş (Requested entity was not found)
-  if (msg.includes("Requested entity was not found") || msg.includes("API_KEY_INVALID")) {
+  // "Requested entity was not found" genelde anahtarın silindiğini veya projenin bulunamadığını gösterir.
+  if (msg.includes("Requested entity was not found") || msg.includes("API key not valid")) {
     if (aistudio) {
-      alert("Kritik: Mevcut API Anahtarı geçersiz. Lütfen faturalandırması aktif olan yeni bir anahtar seçin.");
+      alert("Seçili API Anahtarı geçersiz veya süresi dolmuş. Lütfen yeni bir anahtar seçin.");
       await aistudio.openSelectKey();
     }
   } 
-  // 2. Billing / Quota Sorunu (429 Too Many Requests veya Billing not enabled)
-  else if (msg.includes("Quota") || msg.includes("429") || msg.includes("billing")) {
-    alert("Klinik Uyarı: Google Cloud projenizde faturalandırma sınırı veya kota aşımı saptandı. Lütfen GCP Console üzerinden 'Pay-as-you-go' durumunu kontrol edin.");
-  }
-  // 3. Genel Key Eksikliği
-  else if (msg.includes("API_KEY_MISSING")) {
-    if (aistudio) await aistudio.openSelectKey();
+  // Billing hataları
+  else if (msg.includes("billing") || msg.includes("Quota") || msg.includes("429")) {
+    alert("Kritik: Google Cloud projenizde faturalandırma (Billing) aktif olmayabilir veya kota dolmuş olabilir. Lütfen 'ai.google.dev/gemini-api/docs/billing' adresini kontrol edin.");
   }
 
   throw err;

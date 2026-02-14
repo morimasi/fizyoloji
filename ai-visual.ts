@@ -10,7 +10,6 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
   try {
     await ensureApiKey();
     const ai = getAI();
-    if (!ai) throw new Error("API_KEY_MISSING");
 
     const totalFrames = 16;
     const fullPrompt = `
@@ -32,14 +31,12 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
       } 
     });
 
-    if (response.candidates?.[0]?.content?.parts) {
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
-            return { url: `data:image/png;base64,${part.inlineData.data}`, frameCount: totalFrames, layout: 'grid-4x4' };
-        }
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) {
+          return { url: `data:image/png;base64,${part.inlineData.data}`, frameCount: totalFrames, layout: 'grid-4x4' };
       }
     }
-    throw new Error("Titan MTS Generation Failed");
+    throw new Error("Görsel verisi alınamadı.");
   } catch (err) {
     return await handleAiError(err);
   }
@@ -49,7 +46,6 @@ export const generateExerciseRealVideo = async (exercise: Partial<Exercise>, cus
   try {
     await ensureApiKey();
     const ai = getAI();
-    if (!ai) throw new Error("API_KEY_MISSING");
 
     const prompt = `Cinematic medical 3D film, 4K: ${exercise.titleTr || exercise.title}. Real muscle textures, black background. High precision movement.`;
     
@@ -69,8 +65,8 @@ export const generateExerciseRealVideo = async (exercise: Partial<Exercise>, cus
     }
     
     const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-    const key = process.env.API_KEY;
-    return downloadLink ? `${downloadLink}&key=${key}` : "";
+    const apiKey = process.env.API_KEY;
+    return downloadLink ? `${downloadLink}&key=${apiKey}` : "";
   } catch (err) {
     return await handleAiError(err);
   }
@@ -80,16 +76,14 @@ export const generateExerciseVectorData = async (exercise: Partial<Exercise>): P
   try {
     await ensureApiKey();
     const ai = getAI();
-    if (!ai) throw new Error("API_KEY_MISSING");
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
-      contents: `Generate a clinical medical SVG vector for: "${exercise.titleTr || exercise.title}". Return ONLY valid XML SVG code. Include IDs for #skeleton, #muscles, #skin-outline.`,
+      contents: `Generate a clinical medical SVG vector for: "${exercise.titleTr || exercise.title}". Return ONLY valid XML SVG code.`,
     });
     
     let cleanSvg = response.text || "";
     cleanSvg = cleanSvg.replace(/```svg|```/gi, '').trim();
-    if (!cleanSvg.startsWith('<svg')) throw new Error("Invalid SVG received");
     return cleanSvg;
   } catch (err) {
     return await handleAiError(err);

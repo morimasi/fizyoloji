@@ -11,7 +11,6 @@ export const generateExerciseTutorial = async (t: string) => {
   try {
     await ensureApiKey();
     const ai = getAI();
-    if (!ai) throw new Error("API_KEY_MISSING");
 
     const sr = await ai.models.generateContent({ 
       model: 'gemini-3-flash-preview', 
@@ -43,7 +42,6 @@ export const generateExerciseData = async (title: string): Promise<Partial<Exerc
   try {
     await ensureApiKey();
     const ai = getAI();
-    if (!ai) throw new Error("API_KEY_MISSING");
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
@@ -60,7 +58,6 @@ export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: st
   try {
     await ensureApiKey();
     const ai = getAI();
-    if (!ai) throw new Error("API_KEY_MISSING");
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
