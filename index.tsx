@@ -39,12 +39,22 @@ import { ManagementHub } from './ManagementHub.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// ErrorBoundary class updated to correctly inherit from Component with generics to resolve 'props' accessibility issues.
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = { hasError: false };
-  constructor(props: ErrorBoundaryProps) { super(props); }
-  static getDerivedStateFromError(_error: Error): ErrorBoundaryState { return { hasError: true }; }
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) { console.error("CRASH:", error, errorInfo); }
+// Fixed ErrorBoundary to correctly handle props by extending React.Component with proper generics.
+// This resolves the 'Property props does not exist on type ErrorBoundary' TypeScript error.
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(_error: Error): ErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("CRASH:", error, errorInfo);
+  }
+
   render() {
     if (this.state.hasError) {
       return (
@@ -58,6 +68,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
+
     return this.props.children;
   }
 }
