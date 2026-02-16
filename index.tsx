@@ -1,5 +1,4 @@
 
-// @google/genai ve React yönergelerine uygun olarak ErrorBoundary sınıfı düzeltildi.
 import React, { useState, useRef, useEffect, ErrorInfo, ReactNode, Component } from 'react';
 import { createRoot } from 'react-dom/client';
 import { 
@@ -36,7 +35,6 @@ import { ManagementHub } from './ManagementHub.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// Fix: Corrected inheritance by using 'Component' directly from named imports to ensure 'state' and 'props' properties are correctly recognized by TypeScript.
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
@@ -81,7 +79,12 @@ export default function PhysioCoreApp() {
       
       const aistudio = (window as any).aistudio;
       if (aistudio?.hasSelectedApiKey) {
-        setHasKey(await aistudio.hasSelectedApiKey());
+        const keyExists = await aistudio.hasSelectedApiKey();
+        setHasKey(keyExists);
+        if (!keyExists) {
+            await aistudio.openSelectKey();
+            setHasKey(true);
+        }
       }
     };
     init();
@@ -103,12 +106,6 @@ export default function PhysioCoreApp() {
 
   const submitFeedback = async () => {
     if (!patientData) return;
-    const aistudio = (window as any).aistudio;
-    
-    if (aistudio && !(await aistudio.hasSelectedApiKey())) {
-        await aistudio.openSelectKey();
-    }
-
     const report: ProgressReport = { date: new Date().toISOString(), painScore, completionRate: 100, feedback: userComment };
     try {
       const updated = await runAdaptiveAdjustment(patientData, report);
@@ -118,8 +115,8 @@ export default function PhysioCoreApp() {
       setActiveTab('progress');
     } catch (err: any) {
       console.error("Feedback Adjustment Error", err);
-      if (err.message?.includes("Requested entity was not found") || err.message?.includes("API_KEY_MISSING")) {
-         if (aistudio) await aistudio.openSelectKey();
+      if (err.message?.includes("API_KEY_MISSING") || err.message?.includes("Requested entity was not found")) {
+         await handleOpenKeySelection();
       }
     }
   };

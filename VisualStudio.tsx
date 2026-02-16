@@ -23,12 +23,13 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
   const [previewUrl, setPreviewUrl] = useState(exercise.visualUrl || exercise.videoUrl || '');
   const [svgContent, setSvgContent] = useState<string>(exercise.vectorData || '');
   const [error, setError] = useState<string | null>(null);
-  const [currentFrame, setCurrentFrame] = useState(0);
   const [activeLayers, setActiveLayers] = useState({ skeleton: true, muscles: true, skin: true, HUD: true });
 
   const handleGenerate = async () => {
     setError(null);
     const aistudio = (window as any).aistudio;
+    
+    // Proactive check
     if (aistudio && !(await aistudio.hasSelectedApiKey())) {
         await aistudio.openSelectKey();
     }
@@ -46,31 +47,16 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
         const svg = await generateExerciseVectorData(exercise);
         setSvgContent(svg);
         setPreviewUrl('vector_mode');
-        onVisualGenerated(svg, 'AVM-Genesis', false, 0, 'vector'); // SVG content passed as url here
+        onVisualGenerated(svg, 'AVM-Genesis', false, 0, 'vector'); 
       } 
       else {
         const result = await generateExerciseVisual(exercise, 'Cinematic-Grid', exercise.description);
         setPreviewUrl(result.url);
         onVisualGenerated(result.url, 'AVM-Sprite', true, result.frameCount, result.layout);
       }
-      
-      // Kayıt Katmanı: Üretilen her görseli kalıcı kütüphaneye işle
-      if (exercise.id) {
-         const currentEx = await PhysioDB.getExercises();
-         const target = currentEx.find(e => e.id === exercise.id);
-         if (target) {
-            await PhysioDB.updateExercise({
-               ...target,
-               visualUrl: renderMode !== 'vector' ? previewUrl : undefined,
-               vectorData: renderMode === 'vector' ? svgContent : undefined,
-               isMotion: renderMode !== 'vector'
-            } as Exercise);
-         }
-      }
-      
     } catch (err: any) {
       console.error("Generation failed:", err);
-      if (err.message?.includes("Requested entity was not found") || err.message?.includes("API_KEY_MISSING")) {
+      if (err.message?.includes("Requested entity was not found") || err.message?.includes("API_KEY_MISSING") || err.message?.includes("API Key must be set")) {
         if (aistudio) await aistudio.openSelectKey();
         setError("Lütfen geçerli bir API Anahtarı seçin.");
       } else {

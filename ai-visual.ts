@@ -5,20 +5,14 @@ import { Exercise } from "./types.ts";
 
 /**
  * PHYSIOCORE VISUAL PRODUCTION ENGINE
- * Slayt, Video ve 4K Klinik Render
+ * Models: gemini-2.5-flash-image, veo-3.1-fast-generate-preview
  */
 
 export const generateExerciseVisual = async (exercise: Partial<Exercise>, style: string, customDirective?: string): Promise<{ url: string, frameCount: number, layout: 'grid-4x4' }> => {
-  const ai = getAI();
+  const ai = getAI(); // getAI checks for process.env.API_KEY internally
   const totalFrames = 16;
   
-  const fullPrompt = `
-    PROFESSIONAL MEDICAL 3D RENDER SPRITE SHEET (4x4 GRID). 
-    FOR CLINICAL SLIDESHOW. 
-    SUBJECT: Human anatomy performing "${exercise.titleTr || exercise.title}". 
-    STYLE: Photorealistic clinical render, cyan active muscles, black background. 
-    DETAIL: High anatomical precision.
-  `;
+  const fullPrompt = `PROFESSIONAL MEDICAL 3D RENDER SPRITE SHEET (4x4 GRID). SUBJECT: Human anatomy performing "${exercise.titleTr || exercise.title}". STYLE: Clinical neon muscles, dark background.`;
 
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image', 
@@ -37,8 +31,12 @@ export const generateExerciseVisual = async (exercise: Partial<Exercise>, style:
 };
 
 export const generateExerciseRealVideo = async (exercise: Partial<Exercise>, customPrompt?: string): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const prompt = `Medical 3D animation: "${exercise.titleTr || exercise.title}" movement for physical therapy training. Cinematic quality, slow motion.`;
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) throw new Error("API_KEY_MISSING");
+
+  // CRITICAL: Fresh instance for Veo models as per guidelines
+  const ai = new GoogleGenAI({ apiKey });
+  const prompt = `Cinematic medical 3D animation: "${exercise.titleTr || exercise.title}" exercise. High resolution, anatomical precision.`;
   
   let operation = await ai.models.generateVideos({ 
     model: 'veo-3.1-fast-generate-preview', 
@@ -56,14 +54,14 @@ export const generateExerciseRealVideo = async (exercise: Partial<Exercise>, cus
   }
   
   const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-  return downloadLink ? `${downloadLink}&key=${process.env.API_KEY}` : "";
+  return downloadLink ? `${downloadLink}&key=${apiKey}` : "";
 };
 
 export const generateExerciseVectorData = async (exercise: Partial<Exercise>): Promise<string> => {
   const ai = getAI();
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: [{ parts: [{ text: `Generate raw SVG code for: "${exercise.titleTr || exercise.title}". Minimalist medical icon style. Return ONLY XML.` }] }],
+    contents: [{ parts: [{ text: `Generate minimalist medical SVG XML code for: "${exercise.titleTr || exercise.title}". RETURN RAW SVG ONLY.` }] }],
   });
   
   let cleanSvg = response.text || "";
