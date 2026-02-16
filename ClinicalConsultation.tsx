@@ -7,9 +7,9 @@ import {
   Flame, Wind, Cpu, Sparkles, MessageSquare,
   Thermometer, Info, Save, X, Search, HeartPulse,
   Mic, MicOff, Settings2, ShieldAlert, Layers,
-  Terminal, Database, Radio, Gauge, Crosshair
+  Terminal, Database, Radio, Gauge, Crosshair, RefreshCw
 } from 'lucide-react';
-import { runClinicalConsultation } from './ai-service.ts';
+import { runClinicalConsultation, ensureApiKey } from './ai-service.ts';
 import { PatientProfile, RiskLevel } from './types.ts';
 
 interface ConsultationProps {
@@ -39,13 +39,9 @@ export const ClinicalConsultation: React.FC<ConsultationProps> = ({ onAnalysisCo
   ];
 
   const handleStartAnalysis = async () => {
-    const aistudio = (window as any).aistudio;
-    
-    // API Key Check & Prompt
-    if (aistudio && !(await aistudio.hasSelectedApiKey())) {
-        await aistudio.openSelectKey();
-        // Proceeding anyway to mitigate race conditions as per rules
-    }
+    // 1. API Anahtarı Guard
+    const ok = await ensureApiKey();
+    if (!ok) return;
 
     setIsAnalyzing(true);
     setStep(2);
@@ -66,10 +62,11 @@ export const ClinicalConsultation: React.FC<ConsultationProps> = ({ onAnalysisCo
     } catch (err: any) {
       console.error("Analysis Failed", err);
       
+      // Eğer anahtar hatası döndüyse diyaloğu tekrar zorla
       if (err.message?.includes("Requested entity was not found") || err.message?.includes("API_KEY_MISSING")) {
-         if (aistudio) await aistudio.openSelectKey();
+        await (window as any).aistudio?.openSelectKey();
       } else {
-         alert("Klinik analiz başlatılamadı. Lütfen API anahtarınızı kontrol edin.");
+         alert("Klinik analiz sırasında bir hata oluştu. Lütfen girdileri kontrol edip tekrar deneyin.");
       }
       setStep(1);
     } finally {
@@ -151,28 +148,6 @@ export const ClinicalConsultation: React.FC<ConsultationProps> = ({ onAnalysisCo
                     )}
                  </div>
               </div>
-              <div className="bg-slate-900/40 border border-slate-800 rounded-[3.5rem] p-10 space-y-8 relative overflow-hidden">
-                 <div className="flex items-center justify-between">
-                    <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-3">
-                       <Target size={16} className="text-cyan-500" /> Odak Bölgeleri
-                    </h4>
-                 </div>
-                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {areas.map(a => (
-                       <button 
-                         key={a.id}
-                         onClick={() => setFocusArea(prev => prev.includes(a.id) ? prev.filter(x => x !== a.id) : [...prev, a.id])}
-                         className={`flex items-center gap-4 p-5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${
-                           focusArea.includes(a.id) 
-                             ? 'bg-cyan-500 border-cyan-400 text-white shadow-xl' 
-                             : 'bg-slate-950 border-slate-800 text-slate-500 hover:border-slate-600'
-                         }`}
-                       >
-                          <a.icon size={20} /> {a.label}
-                       </button>
-                    ))}
-                 </div>
-              </div>
            </div>
 
            <div className="lg:col-span-4 space-y-8">
@@ -197,10 +172,6 @@ export const ClinicalConsultation: React.FC<ConsultationProps> = ({ onAnalysisCo
                              </button>
                           ))}
                        </div>
-                    </div>
-                    <div className="space-y-4">
-                       <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><Settings2 size={14} /> Klinik Direktifler</label>
-                       <textarea value={clinicalDirectives} onChange={(e) => setClinicalDirectives(e.target.value)} placeholder="AI'ya özel rasyonel..." className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-6 text-xs font-bold text-slate-400 h-36 outline-none focus:border-cyan-500/30 shadow-inner" />
                     </div>
                  </div>
                  <button 
@@ -236,11 +207,6 @@ export const ClinicalConsultation: React.FC<ConsultationProps> = ({ onAnalysisCo
                     </div>
                  </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-16 border-t border-slate-800/50">
-                 <ProcessStage label="Radyoloji Analizi" active={true} progress={100} icon={Crosshair} />
-                 <ProcessStage label="Klinik Mapping" active={true} progress={65} icon={Target} />
-                 <ProcessStage label="Dozaj Motoru" active={false} progress={0} icon={Activity} />
-              </div>
            </div>
         </div>
       )}
@@ -261,16 +227,4 @@ const StepNode = ({ active, current, label, icon: Icon }: any) => (
 
 const LoadingPulse = ({ delay }: { delay: string }) => (
   <div className="w-3 h-3 bg-cyan-500 rounded-full animate-bounce shadow-[0_0_15px_rgba(6,182,212,0.8)]" style={{ animationDelay: delay }} />
-);
-
-const ProcessStage = ({ label, active, progress, icon: Icon }: { label: string, active: boolean, progress: number, icon: any }) => (
-  <div className={`p-8 rounded-[2.5rem] border-2 transition-all duration-1000 group relative overflow-hidden ${active ? 'bg-slate-900/50 border-cyan-500/30' : 'bg-slate-950 border-slate-800 opacity-40'}`}>
-     {active && (
-        <div className="absolute bottom-0 left-0 h-1 bg-cyan-500 transition-all duration-1000 shadow-[0_0_10px_rgba(6,182,212,1)]" style={{ width: `${progress}%` }} />
-     )}
-     <div className="flex flex-col items-center gap-4">
-        <Icon size={32} className={`${active ? 'text-cyan-400 animate-pulse' : 'text-slate-700'}`} />
-        <span className={`text-[11px] font-black uppercase tracking-[0.2em] ${active ? 'text-white' : 'text-slate-700'}`}>{label}</span>
-     </div>
-  </div>
 );

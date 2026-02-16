@@ -7,7 +7,7 @@ import {
   CheckCircle2, AlertTriangle, RefreshCw, Key, Settings, Microscope
 } from 'lucide-react';
 import { AppTab, PatientProfile, Exercise, ProgressReport } from './types.ts';
-import { runAdaptiveAdjustment } from './ai-service.ts';
+import { runAdaptiveAdjustment, ensureApiKey } from './ai-service.ts';
 import { ExerciseStudio } from './ExerciseStudio.tsx';
 import { ExercisePlayer } from './ExercisePlayer.tsx';
 import { ProgressTracker } from './ProgressTracker.tsx';
@@ -21,21 +21,17 @@ import { ClinicalEBMHub } from './ClinicalEBMHub.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// Fixed: Using React.Component explicitly to resolve property existence errors for 'state' and 'props' in TypeScript
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    // Fixed: Initializing state with proper type context to resolve line 29 error
     this.state = { hasError: false };
   }
 
   static getDerivedStateFromError(_error: Error): ErrorBoundaryState { return { hasError: true }; }
   
-  // Standard React lifecycle method
   componentDidCatch(error: Error, errorInfo: ErrorInfo) { console.error("CRASH:", error, errorInfo); }
   
   render() {
-    // Fixed: Accessing state with proper inference to resolve line 39 error
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-12 text-center">
@@ -47,7 +43,6 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
-    // Fixed: Accessing props with proper inference to resolve line 51 error
     return this.props.children;
   }
 }
@@ -72,6 +67,7 @@ export default function PhysioCoreApp() {
         if (profile) setPatientData(profile);
       } catch (e) { console.error("DB Init Failed", e); }
       finally { setIsDbLoading(false); }
+      
       const aistudio = (window as any).aistudio;
       if (aistudio?.hasSelectedApiKey) {
         const keyExists = await aistudio.hasSelectedApiKey();
@@ -82,15 +78,13 @@ export default function PhysioCoreApp() {
   }, []);
 
   const handleOpenKeySelection = async () => {
-    const aistudio = (window as any).aistudio;
-    if (aistudio?.openSelectKey) {
-      await aistudio.openSelectKey();
-      setHasKey(true);
-    }
+    await ensureApiKey();
+    setHasKey(true);
   };
 
   const submitFeedback = async () => {
     if (!patientData) return;
+    await ensureApiKey(); // AI öncesi guard
     const report: ProgressReport = { date: new Date().toISOString(), painScore, completionRate: 100, feedback: userComment };
     try {
       const updated = await runAdaptiveAdjustment(patientData, report);
@@ -100,7 +94,9 @@ export default function PhysioCoreApp() {
       setActiveTab('progress');
     } catch (err: any) {
       console.error(err);
-      if (err.message?.includes("API_KEY_MISSING")) await handleOpenKeySelection();
+      if (err.message?.includes("API_KEY_MISSING") || err.message?.includes("Requested entity was not found")) {
+        await handleOpenKeySelection();
+      }
     }
   };
 
@@ -111,13 +107,12 @@ export default function PhysioCoreApp() {
       <header className="sticky top-0 z-50 glass-panel border-b border-white/5 px-8 py-4 flex justify-between items-center">
         <div className="flex items-center gap-4 cursor-pointer" onClick={() => setActiveTab('consultation')}>
           <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center"><Activity className="text-white" size={24} /></div>
-          <div><h1 className="font-inter font-black text-xl tracking-tighter italic uppercase">PHYSIOCORE <span className="text-cyan-400">AI</span></h1><p className="text-[8px] font-mono text-slate-500 uppercase font-black">Phase 4: Pro EBM Hub</p></div>
+          <div><h1 className="font-inter font-black text-xl tracking-tighter italic uppercase">PHYSIOCORE <span className="text-cyan-400">AI</span></h1><p className="text-[8px] font-mono text-slate-500 uppercase font-black">Genesis Pro Edition</p></div>
         </div>
         
         <nav className="hidden xl:flex bg-slate-900/50 p-1 rounded-xl border border-white/5 overflow-x-auto no-scrollbar">
           <NavBtn active={activeTab === 'consultation'} onClick={() => setActiveTab('consultation')} icon={Stethoscope} label="GÖRÜŞME" />
           <NavBtn active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={LayoutDashboard} label="PANEL" />
-          {/* Fixed syntax error: added missing closing parenthesis in onClick setActiveTab call */}
           <NavBtn active={activeTab === 'ebm'} onClick={() => setActiveTab('ebm')} icon={Microscope} label="EBM & SEVK" />
           <NavBtn active={activeTab === 'progress'} onClick={() => setActiveTab('progress')} icon={TrendingUp} label="TAKİP" />
           <NavBtn active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={Users} label="KADRO" />
@@ -126,13 +121,26 @@ export default function PhysioCoreApp() {
         </nav>
 
         <div className="flex items-center gap-4">
-           {!hasKey && <button onClick={handleOpenKeySelection} className="p-2 text-amber-500 border border-amber-500/30 rounded-lg animate-pulse"><Key size={20}/></button>}
-           <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+           {!hasKey && (
+             <button 
+               onClick={handleOpenKeySelection} 
+               className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/30 text-amber-500 rounded-xl text-[9px] font-black uppercase tracking-widest animate-pulse hover:bg-amber-500/20 transition-all"
+             >
+                <Key size={14} /> Anahtar Seçiniz
+             </button>
+           )}
+           <div className={`w-2 h-2 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)] ${hasKey ? 'bg-emerald-500' : 'bg-slate-700'}`} />
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto p-8 pb-20">
-        {activeTab === 'consultation' && <ClinicalConsultation onAnalysisComplete={(res) => { setPatientData(res); PhysioDB.saveProfile(res); setActiveTab('dashboard'); }} />}
+        {activeTab === 'consultation' && (
+          <ClinicalConsultation onAnalysisComplete={(res) => { 
+            setPatientData(res); 
+            PhysioDB.saveProfile(res); 
+            setActiveTab('dashboard'); 
+          }} />
+        )}
         {activeTab === 'dashboard' && <Dashboard profile={patientData} onExerciseSelect={setSelectedExercise} />}
         {activeTab === 'ebm' && <ClinicalEBMHub />}
         {activeTab === 'progress' && <ProgressTracker profile={patientData} />}
