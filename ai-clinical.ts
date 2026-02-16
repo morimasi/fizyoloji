@@ -1,56 +1,22 @@
 
 import { getAI, isApiKeyError } from "./ai-core.ts";
-import { GoogleGenAI, Type } from "@google/genai";
+import { Type } from "@google/genai";
 import { PatientProfile, ProgressReport } from "./types.ts";
 import { ClinicalRules } from "./ClinicalRules.ts";
 
 /**
- * PHYSIOCORE CLINICAL REASONING ENGINE v9.1 (Safety & Key Awareness)
+ * PHYSIOCORE CLINICAL REASONING ENGINE v9.5
+ * Adheres to Blueprint Section 5 Strategy
  */
-
-export const runClinicalEBMSearch = async (query: string) => {
-  const ai = getAI();
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: [{ parts: [{ text: `Aşağıdaki klinik soru için Kanıta Dayalı Tıp (EBM) protokollerini araştır ve profesyonel bir fizyoterapist diliyle yanıtla: ${query}` }] }],
-    config: {
-      tools: [{ googleSearch: {} }],
-    },
-  });
-
-  const text = response.text;
-  const links = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-  return { text, links };
-};
-
-export const findNearbyClinics = async (lat: number, lng: number, specialty: string = "fizyoterapi") => {
-  const ai = getAI();
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [{ parts: [{ text: `Şu koordinatlardaki en iyi ${specialty} kliniklerini bul: Latitude ${lat}, Longitude ${lng}` }] }],
-    config: {
-      tools: [{ googleMaps: {} }],
-      toolConfig: {
-        retrievalConfig: {
-          latLng: { latitude: lat, longitude: lng }
-        }
-      }
-    },
-  });
-
-  const text = response.text;
-  const clinics = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-  return { text, clinics };
-};
 
 const patientProfileSchema = {
   type: Type.OBJECT,
   properties: {
-    user_id: { type: Type.STRING },
     diagnosisSummary: { type: Type.STRING },
     riskLevel: { type: Type.STRING },
     status: { type: Type.STRING },
     rehabPhase: { type: Type.STRING },
+    involvedSegments: { type: Type.ARRAY, items: { type: Type.STRING } },
     suggestedPlan: {
       type: Type.ARRAY,
       items: {
@@ -59,12 +25,11 @@ const patientProfileSchema = {
           id: { type: Type.STRING },
           code: { type: Type.STRING },
           title: { type: Type.STRING },
-          difficulty: { type: Type.NUMBER },
+          titleTr: { type: Type.STRING },
           sets: { type: Type.NUMBER },
           reps: { type: Type.NUMBER },
-          description: { type: Type.STRING },
           biomechanics: { type: Type.STRING },
-          clinicalNote: { type: Type.STRING }
+          description: { type: Type.STRING }
         }
       }
     },
@@ -72,6 +37,7 @@ const patientProfileSchema = {
       type: Type.OBJECT,
       properties: {
         summary: { type: Type.STRING },
+        clinicalNote: { type: Type.STRING },
         recoveryTrajectory: { type: Type.NUMBER }
       }
     }
@@ -81,14 +47,15 @@ const patientProfileSchema = {
 export const runClinicalConsultation = async (text: string, imageData?: string) => {
   try {
     const ai = getAI();
-    const systemPrompt = `Sen Senior Klinik Fizyoterapistsin. 
-      HIZLI ANALİZ PROTOKOLÜ:
-      1. Ağrı > 7 ise: Sadece izometrik/stabilizasyon odaklı planla.
-      2. Dozaj Formülü: Tekrar sayısı = 15 - ağrıSkoru (min 5).
-      3. Anatomik Seviye: Patoloji bölgesini (örn: L4-L5) belirle.
-      4. Yanıtı mutlaka JSON formatında döndür.`;
+    // Blueprint Section 5 personası
+    const systemPrompt = `GÖREV: Senior Klinik Direktör ve Fizyoterapist.
+      KURAL SETİ (Blueprint v3.0):
+      1. Patoloji Seviyesi Belirle: (L4-L5, C5-C6 vb.)
+      2. Dozaj Motoru: Tekrar sayısı = 15 - ağrıSkoru.
+      3. Güvenlik Filtresi: Disk hernisi saptarsan fleksiyon içeren egzersizlerden kaçın.
+      4. Çıktı: Sadece geçerli bir JSON objesi döndür.`;
 
-    const parts: any[] = [{ text: `${systemPrompt}\n\nGirdi: ${text}` }];
+    const parts: any[] = [{ text: `${systemPrompt}\n\nKlinik Girdi: ${text}` }];
     
     if (imageData) {
       const base64Data = imageData.split(',')[1] || imageData;
@@ -101,15 +68,14 @@ export const runClinicalConsultation = async (text: string, imageData?: string) 
       config: { 
         responseMimeType: "application/json",
         responseSchema: patientProfileSchema,
-        temperature: 0.1
+        temperature: 0.2
       }
     });
     
     return JSON.parse(response.text);
   } catch (err) {
     if (isApiKeyError(err)) {
-       const aistudio = (window as any).aistudio;
-       if (aistudio?.openSelectKey) await aistudio.openSelectKey();
+       await (window as any).aistudio?.openSelectKey();
     }
     throw err;
   }
@@ -118,16 +84,16 @@ export const runClinicalConsultation = async (text: string, imageData?: string) 
 export const runAdaptiveAdjustment = async (p: PatientProfile, f: ProgressReport) => {
   try {
     const ai = getAI();
-    const calculatedReps = ClinicalRules.calculateDynamicReps(f.painScore);
+    const dynamicReps = ClinicalRules.calculateDynamicReps(f.painScore);
     
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: [{ parts: [{ 
-        text: `GÜNCELLEME PROTOKOLÜ:
-        Mevcut: ${JSON.stringify(p)}
-        Geri Bildirim: ${JSON.stringify(f)}
-        Kural: Tekrar sayısını ${calculatedReps} olarak güncelle.
-        Zorluk Ayarı: Ağrı arttıysa -1, azaldıysa +1.` 
+        text: `ADAPTİF REÇETE GÜNCELLEMESİ:
+        Mevcut Profil: ${JSON.stringify(p)}
+        Yeni Geri Bildirim: ${JSON.stringify(f)}
+        Zorunlu Tekrar Sayısı: ${dynamicReps}
+        GÖREV: Hastanın iyileşme hızını (recoveryTrajectory) güncelle ve programı adapte et.` 
       }] }],
       config: { 
         responseMimeType: "application/json",
@@ -137,8 +103,69 @@ export const runAdaptiveAdjustment = async (p: PatientProfile, f: ProgressReport
     return JSON.parse(response.text);
   } catch (err) {
     if (isApiKeyError(err)) {
-       const aistudio = (window as any).aistudio;
-       if (aistudio?.openSelectKey) await aistudio.openSelectKey();
+       await (window as any).aistudio?.openSelectKey();
+    }
+    throw err;
+  }
+};
+
+/**
+ * Kanıta Dayalı Tıp (EBM) Araştırması - Google Search Grounding Kullanımı
+ */
+export const runClinicalEBMSearch = async (query: string) => {
+  try {
+    const ai = getAI();
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: query,
+      config: {
+        tools: [{ googleSearch: {} }],
+      },
+    });
+
+    const links = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    return {
+      text: response.text || "Aradığınız kriterlere uygun güncel literatür verisi bulunamadı.",
+      links: links
+    };
+  } catch (err) {
+    if (isApiKeyError(err)) {
+       await (window as any).aistudio?.openSelectKey();
+    }
+    throw err;
+  }
+};
+
+/**
+ * Yakın Kliniklerin Bulunması - Google Maps Grounding Kullanımı
+ */
+export const findNearbyClinics = async (latitude: number, longitude: number) => {
+  try {
+    const ai = getAI();
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: "Bana en yakın ve puanı yüksek olan fizik tedavi ve rehabilitasyon kliniklerini listele.",
+      config: {
+        tools: [{ googleMaps: {} }],
+        toolConfig: {
+          retrievalConfig: {
+            latLng: {
+              latitude,
+              longitude
+            }
+          }
+        }
+      },
+    });
+
+    const clinics = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    return {
+      text: response.text || "Yakınınızda sevk edilebilecek aktif bir klinik bulunamadı.",
+      clinics: clinics
+    };
+  } catch (err) {
+    if (isApiKeyError(err)) {
+       await (window as any).aistudio?.openSelectKey();
     }
     throw err;
   }

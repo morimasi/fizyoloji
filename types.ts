@@ -11,22 +11,17 @@ export type TherapistTab = 'dashboard' | 'patients' | 'intelligence' | 'settings
 
 export interface SyncMetadata {
   lastSyncedAt?: string;
-  isDirty: boolean; // Yerelde değişti ama sunucuya gitmedi
+  isDirty: boolean;
   version: number;
 }
 
 export interface ExerciseTutorial {
-  script: { text: string; duration: number }[];
+  script: { text: string; duration: number; type?: 'instruction' | 'motivation' | 'warning' }[];
   audioBase64: string | null;
   bpm: number;
 }
 
-export interface SyncInfo {
-  isSynced: boolean;
-  lastSyncDate: string;
-  downloadProgress: number;
-}
-
+/* Exercise interface updated with favorite, archived and sync status fields */
 export interface Exercise {
   id: string;
   code: string;
@@ -47,21 +42,53 @@ export interface Exercise {
   tempo: string;
   restPeriod: number;
   targetRpe: number;
-  frequency?: string;
   visualUrl?: string;
   videoUrl?: string;
   isMotion: boolean;
   visualStyle: VisualStyle;
   vectorData?: string;
   isPersonalized?: boolean;
-  isFavorite?: boolean;
-  isArchived?: boolean;
   movementPlane?: string;
   tutorialData?: ExerciseTutorial;
-  syncInfo?: SyncInfo;
   visualFrameCount?: number;
   visualLayout?: string;
-  _sync?: SyncMetadata; // Senkronizasyon metadatası
+  isFavorite?: boolean;
+  isArchived?: boolean;
+  syncInfo?: {
+    isSynced: boolean;
+    lastSyncDate: string;
+    downloadProgress: number;
+  };
+  _sync?: SyncMetadata;
+}
+
+/* PatientProfile interface updated with sync, treatment history and pain logs */
+export interface PatientProfile {
+  user_id: string;
+  diagnosisSummary: string;
+  icd10?: string;
+  riskLevel: RiskLevel;
+  status: PatientStatus;
+  rehabPhase: RehabPhase;
+  suggestedPlan: Exercise[];
+  progressHistory: ProgressReport[];
+  treatmentHistory?: TreatmentHistory[];
+  painLogs?: DetailedPainLog[];
+  physicalAssessment: {
+    rom: Record<string, number>;
+    strength: Record<string, number>;
+    posture: string;
+    recoveryTrajectory?: number;
+    involvedSegments?: string[]; // Örn: ["L4", "L5"]
+  };
+  latestInsight?: {
+    summary?: string;
+    clinicalNote?: string;
+    safetyAlert?: string;
+    recoveryTrajectory?: number;
+  };
+  _sync?: SyncMetadata;
+  syncStatus?: 'Synced' | 'Pending';
 }
 
 export interface ProgressReport {
@@ -73,65 +100,23 @@ export interface ProgressReport {
   clinicalFlags?: string[];
 }
 
-export interface DetailedPainLog {
-  id?: string;
-  date: string;
-  score: number;
-  quality: PainQuality;
-  location: string;
-  triggerFactors?: string;
-}
-
-export interface TreatmentHistory {
-  id?: string;
-  date: string;
-  procedure: string;
-  notes: string;
-}
-
-export interface PatientProfile {
-  user_id: string;
-  diagnosisSummary: string;
-  icd10?: string;
-  riskLevel: RiskLevel;
-  status: PatientStatus;
-  rehabPhase: RehabPhase;
-  suggestedPlan: Exercise[];
-  progressHistory: ProgressReport[];
-  treatmentHistory: TreatmentHistory[];
-  painLogs: DetailedPainLog[];
-  physicalAssessment: {
-    rom: Record<string, number>;
-    strength: Record<string, number>;
-    posture: string;
-    recoveryTrajectory?: number; // 0-100 percentage of recovery path
-  };
-  latestInsight?: {
-    summary?: string;
-    nextStep?: string;
-    recommendation?: string;
-    painTrendAnalysis?: string;
-    targetRecoveryDate?: string;
-  };
-  syncStatus: 'Synced' | 'Syncing' | 'Error';
-  _sync?: SyncMetadata;
-}
-
+/* Added missing User interface for staff and patient management */
 export interface User {
   id: string;
-  role: UserRole;
   fullName: string;
   email: string;
+  role: UserRole;
   phone?: string;
   avatarUrl?: string;
   createdAt: string;
-  assignedTherapistId?: string;
+  patientStatus?: PatientStatus;
   patientProfile?: PatientProfile;
   therapistProfile?: TherapistProfile;
-  patientStatus?: PatientStatus;
+  assignedTherapistId?: string;
   _sync?: SyncMetadata;
 }
 
+/* Added missing TherapistProfile interface */
 export interface TherapistProfile {
   specialization: string[];
   bio: string;
@@ -147,6 +132,7 @@ export interface TherapistProfile {
   };
 }
 
+/* Added missing Message interface for clinical chat */
 export interface Message {
   id: string;
   senderId: string;
@@ -154,4 +140,20 @@ export interface Message {
   text: string;
   timestamp: string;
   isRead: boolean;
+}
+
+/* Added missing DetailedPainLog interface */
+export interface DetailedPainLog {
+  date: string;
+  score: number;
+  location: string;
+  quality: PainQuality;
+  notes: string;
+}
+
+/* Added missing TreatmentHistory interface */
+export interface TreatmentHistory {
+  date: string;
+  treatment: string;
+  outcome: string;
 }
