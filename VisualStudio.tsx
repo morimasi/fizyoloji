@@ -5,14 +5,15 @@ import {
   MonitorPlay, Zap, Wand2, Sparkles, Rocket, 
   AlertCircle, RefreshCw, Video, Film, Timer, Box,
   Bone, Flame, Heart, Scan, User, Layers, ChevronLeft, ChevronRight,
-  Presentation, FileVideo, Cpu
+  Presentation, FileVideo, Cpu, Gift, Info
 } from 'lucide-react';
 import { Exercise } from './types.ts';
 import { generateExerciseVisual, generateExerciseVideo, generateVectorAnimation, AnatomicalLayer } from './ai-visual.ts';
+import { ensureApiKey, isApiKeyError } from './ai-core.ts';
+import { MediaConverter } from './MediaConverter.ts';
 
 interface VisualStudioProps {
   exercise: Partial<Exercise>;
-  // Fix: Updated onVisualGenerated signature to match ExerciseForm requirements and include optional metadata
   onVisualGenerated: (url: string, style: string, isMotion: boolean, frameCount: number, layout: string) => void;
 }
 
@@ -20,6 +21,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState<'image' | 'video' | 'vector' | 'slideshow'>('image');
   const [activeLayer, setActiveLayer] = useState<AnatomicalLayer>('full-body');
+  const [videoQuality, setVideoQuality] = useState<'fast' | 'pro'>('fast');
   const [previewUrl, setPreviewUrl] = useState(exercise.visualUrl || '');
   const [videoUrl, setVideoUrl] = useState(exercise.videoUrl || '');
   const [svgContent, setSvgContent] = useState<string>(exercise.vectorData || '');
@@ -32,33 +34,50 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
     { id: 'skeletal', label: 'İskelet', icon: Bone, color: 'text-slate-200' },
     { id: 'vascular', label: 'Damar Ağı', icon: Heart, color: 'text-blue-500' },
     { id: 'xray', label: 'X-Ray Görünüş', icon: Scan, color: 'text-cyan-400' }
-  ];
+  ] as const;
 
   const handleGenerate = async () => {
     setError(null);
+    
+    // API Key Guard
+    const ok = await ensureApiKey();
+    if (!ok) return;
+
     setIsGenerating(true);
     
     try {
       if (activeTab === 'image' || activeTab === 'slideshow') {
         const result = await generateExerciseVisual(exercise, activeLayer);
         setPreviewUrl(result.url);
-        // Fix: Pass all required arguments to onVisualGenerated to prevent "too few arguments" errors in callers
         onVisualGenerated(result.url, `Flash-${activeLayer}`, false, result.frameCount, result.layout);
       } else if (activeTab === 'video') {
-        const url = await generateExerciseVideo(exercise);
+        const url = await generateExerciseVideo(exercise, videoQuality);
         setVideoUrl(url);
-        // Fix: Pass all required arguments to onVisualGenerated with default values for video
-        onVisualGenerated(url, `Veo-Motion`, true, 24, 'single');
+        onVisualGenerated(url, `Veo-${videoQuality === 'pro' ? 'Ultra' : 'Fast'}`, true, 24, 'single');
       } else if (activeTab === 'vector') {
         const svg = await generateVectorAnimation(exercise);
         setSvgContent(svg);
-        // Fix: Pass all required arguments to onVisualGenerated with default values for vector
         onVisualGenerated(svg, 'Flash-Vector', false, 1, 'single');
       }
     } catch (err: any) {
-      setError(`Üretim Hatası: Lütfen bağlantınızı kontrol edin.`);
+      console.error("Üretim Hatası:", err);
+      if (isApiKeyError(err)) {
+        setError("Lütfen geçerli bir API Anahtarı seçin.");
+      } else {
+        setError(`Üretim Hatası: Lütfen bağlantınızı kontrol edin.`);
+      }
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleGifExport = async () => {
+    if (!videoUrl && !previewUrl) return;
+    try {
+      const source = activeTab === 'video' ? videoUrl : previewUrl;
+      await MediaConverter.export(source, 'gif', `PhysioCore_Dynamic_${exercise.code || 'Export'}`);
+    } catch (e) {
+      alert("GIF dönüşümü sırasında hata oluştu.");
     }
   };
 
@@ -74,21 +93,41 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
             </div>
             <div>
                <h4 className="font-black text-2xl uppercase italic text-white tracking-tighter">Flash <span className="text-cyan-400">Engine</span></h4>
-               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1 italic">Multimodal Production v11.0</p>
+               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1 italic">Multimodal Production v12.0</p>
             </div>
           </div>
 
           <div className="space-y-6 mb-10">
              <div className="flex bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
-                <button onClick={() => setActiveTab('image')} className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase transition-all ${activeTab === 'image' ? 'bg-cyan-500 text-white' : 'text-slate-500'}`}>GÖRSEL</button>
-                <button onClick={() => setActiveTab('video')} className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase transition-all ${activeTab === 'video' ? 'bg-cyan-500 text-white' : 'text-slate-500'}`}>VİDEO/GIF</button>
+                <button onClick={() => setActiveTab('image')} className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase transition-all ${activeTab === 'image' ? 'bg-cyan-500 text-white' : 'text-slate-500'}`}>SPRITE</button>
+                <button onClick={() => setActiveTab('video')} className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase transition-all ${activeTab === 'video' ? 'bg-cyan-500 text-white' : 'text-slate-500'}`}>VEO 3D</button>
                 <button onClick={() => setActiveTab('vector')} className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase transition-all ${activeTab === 'vector' ? 'bg-cyan-500 text-white' : 'text-slate-500'}`}>SVG</button>
-                <button onClick={() => setActiveTab('slideshow')} className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase transition-all ${activeTab === 'slideshow' ? 'bg-cyan-500 text-white' : 'text-slate-500'}`}>SLAYT</button>
              </div>
 
-             {activeTab !== 'vector' && activeTab !== 'video' && (
+             {activeTab === 'video' && (
+                <div className="space-y-3 animate-in slide-in-from-top-2">
+                   <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest px-1">Üretim Kalitesi</p>
+                   <div className="grid grid-cols-2 gap-2">
+                      <button 
+                        onClick={() => setVideoQuality('fast')}
+                        className={`py-3 rounded-xl border text-[9px] font-black uppercase transition-all ${videoQuality === 'fast' ? 'bg-slate-800 border-white/10 text-white' : 'bg-slate-950 border-slate-800 text-slate-500'}`}
+                      >
+                         KLİNİK (720p)
+                      </button>
+                      <button 
+                        onClick={() => setVideoQuality('pro')}
+                        className={`py-3 rounded-xl border text-[9px] font-black uppercase transition-all flex flex-col items-center justify-center gap-0.5 ${videoQuality === 'pro' ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-400' : 'bg-slate-950 border-slate-800 text-slate-500'}`}
+                      >
+                         <span>ULTRA (1080p)</span>
+                         <span className="text-[6px] opacity-60">PRO KEY GEREKLİ</span>
+                      </button>
+                   </div>
+                </div>
+             )}
+
+             {activeTab === 'image' && (
                 <div className="grid grid-cols-1 gap-2">
-                   <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-2 px-1">Anatomik Katman Seçimi</p>
+                   <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-2 px-1">Anatomik Katman</p>
                    {layers.map(layer => (
                       <button 
                         key={layer.id} 
@@ -113,68 +152,77 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
              disabled={isGenerating || !exercise.title} 
              className="w-full py-6 bg-gradient-to-r from-cyan-600 to-indigo-700 hover:from-cyan-500 hover:to-indigo-600 text-white rounded-[2rem] text-xs font-black uppercase tracking-widest shadow-2xl transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-30"
           >
-             {isGenerating ? <><Loader2 className="animate-spin" size={20} /> İŞLENİYOR...</> : <><Rocket size={20} /> FLASH ÜRETİMİ BAŞLAT</>}
+             {isGenerating ? <><Loader2 className="animate-spin" size={20} /> RENDER EDİLİYOR...</> : <><Rocket size={20} /> {activeTab === 'video' ? 'ULTRA VEO ÜRETİMİ' : 'FLASH ÜRETİMİ BAŞLAT'}</>}
           </button>
+          
+          <div className="mt-6 p-4 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex items-start gap-3">
+             <Info size={14} className="text-amber-500 shrink-0" />
+             <p className="text-[8px] text-slate-500 leading-relaxed italic">
+                {activeTab === 'video' ? "VEO 3.1 Pro motoru 1080p yüksek çözünürlüklü tıbbi simülasyonlar üretir. İşlem 1-2 dakika sürebilir." : "Flash motoru 16 fazlı klinik sprite sheet üretiminde uzmanlaşmıştır."}
+             </p>
+          </div>
         </div>
       </div>
 
       <div className="xl:col-span-8 space-y-6">
-        <div className="relative w-full aspect-square bg-slate-950 rounded-[4rem] border-4 border-slate-900 overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.8)]">
-          {activeTab === 'image' && previewUrl && (
-             <div className="w-full h-full relative">
-                <img src={previewUrl} className="w-full h-full object-contain" />
-                <div className="absolute top-8 right-8 bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 text-[9px] font-black text-cyan-400 uppercase tracking-widest">FLASH RENDER</div>
-             </div>
+        <div className="relative w-full aspect-square bg-slate-950 rounded-[4rem] border-4 border-slate-900 overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.8)] flex items-center justify-center">
+          {activeTab === 'video' && videoUrl && !isGenerating && (
+             <video src={videoUrl} autoPlay loop muted playsInline className="w-full h-full object-contain" />
           )}
 
-          {activeTab === 'video' && videoUrl && (
-             <video src={videoUrl} autoPlay loop muted className="w-full h-full object-contain" />
+          {activeTab === 'image' && previewUrl && !isGenerating && (
+             <img src={previewUrl} className="w-full h-full object-contain" />
           )}
 
-          {activeTab === 'vector' && svgContent && (
-             <div className="w-full h-full p-20 bg-slate-900 flex items-center justify-center" dangerouslySetInnerHTML={{ __html: svgContent }} />
+          {activeTab === 'vector' && svgContent && !isGenerating && (
+             <div className="w-full h-full p-20 flex items-center justify-center" dangerouslySetInnerHTML={{ __html: svgContent }} />
           )}
 
-          {activeTab === 'slideshow' && previewUrl && (
-             <div className="w-full h-full p-20 flex flex-col items-center justify-center relative bg-black">
-                <img src={previewUrl} className="w-full h-full object-contain opacity-80" />
-                <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-6 bg-slate-900/90 p-4 rounded-3xl border border-white/5 backdrop-blur-xl">
-                   <button onClick={() => setSlideIndex(prev => Math.max(0, prev-1))} className="p-3 text-slate-500 hover:text-white"><ChevronLeft/></button>
-                   <span className="text-xs font-black text-cyan-400 font-mono tracking-tighter uppercase">Faz: {slideIndex + 1} / 16</span>
-                   <button onClick={() => setSlideIndex(prev => Math.min(15, prev+1))} className="p-3 text-slate-500 hover:text-white"><ChevronRight/></button>
-                </div>
-             </div>
-          )}
-
-          {!previewUrl && !videoUrl && !svgContent && (
-            <div className="w-full h-full flex flex-col items-center justify-center text-slate-800">
-               <Box size={120} strokeWidth={0.5} className="opacity-10 mb-8" />
-               <p className="text-[11px] font-black uppercase tracking-[0.6em] opacity-20 italic">Awaiting Flash Directive</p>
+          {!previewUrl && !videoUrl && !svgContent && !isGenerating && (
+            <div className="text-center opacity-20">
+               <Box size={120} strokeWidth={0.5} className="mx-auto mb-8" />
+               <p className="text-[11px] font-black uppercase tracking-[0.6em] italic">Awaiting Directive</p>
             </div>
           )}
 
           {isGenerating && (
              <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-3xl flex flex-col items-center justify-center z-50">
-                <Loader2 className="animate-spin text-cyan-500 mb-8" size={64} />
-                <h4 className="text-2xl font-black italic tracking-[0.4em] text-white uppercase animate-pulse">Multimodal Üretim</h4>
-                <p className="text-[10px] text-slate-500 mt-4 uppercase font-bold tracking-widest italic">Flash & Veo motorları çalışıyor...</p>
+                <div className="relative">
+                   <Loader2 className="animate-spin text-cyan-500 mb-8" size={64} />
+                   <div className="absolute inset-0 bg-cyan-500/20 blur-2xl animate-pulse rounded-full" />
+                </div>
+                <h4 className="text-2xl font-black italic tracking-[0.4em] text-white uppercase">
+                   {videoQuality === 'pro' && activeTab === 'video' ? 'ULTRA 1080P' : 'RENDER'} <span className="text-cyan-400">ÜRETİLİYOR</span>
+                </h4>
+                <p className="text-[10px] text-slate-500 mt-4 uppercase font-bold tracking-widest italic animate-pulse">Sinematik Motor Devrede...</p>
+             </div>
+          )}
+
+          {(videoUrl || previewUrl) && !isGenerating && (
+             <div className="absolute bottom-10 right-10 animate-in zoom-in">
+                <button 
+                  onClick={handleGifExport}
+                  className="flex items-center gap-3 px-8 py-4 bg-slate-900/80 backdrop-blur-xl border border-white/10 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-cyan-500 transition-all shadow-2xl group"
+                >
+                   <Gift size={18} className="group-hover:rotate-12 transition-transform" /> DİNAMİK GIF İNDİR
+                </button>
              </div>
           )}
         </div>
         
         <div className="grid grid-cols-3 gap-4">
-           <PreviewCard icon={FileVideo} label="Veo Animation" desc="Dinamik GIF" />
-           <PreviewCard icon={Presentation} label="Slide Deck" desc="Klinik Analiz" />
-           <PreviewCard icon={Wand2} label="Anatomical SVG" desc="Vektörel Çizim" />
+           <PreviewCard icon={FileVideo} label="Dynamic Motion" desc="Veo 3.1 Pro" active={activeTab === 'video' && videoUrl !== ''} />
+           <PreviewCard icon={Presentation} label="Sprite Plate" desc="Flash v2.5" active={activeTab === 'image' && previewUrl !== ''} />
+           <PreviewCard icon={Wand2} label="Vector Kinematic" desc="Vektörel Çizim" active={activeTab === 'vector' && svgContent !== ''} />
         </div>
       </div>
     </div>
   );
 };
 
-const PreviewCard = ({ icon: Icon, label, desc }: any) => (
-  <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-[2rem] flex flex-col items-center text-center gap-3 hover:border-slate-700 transition-all cursor-pointer">
-     <Icon size={24} className="text-slate-500" />
+const PreviewCard = ({ icon: Icon, label, desc, active }: any) => (
+  <div className={`bg-slate-900/40 border p-6 rounded-[2rem] flex flex-col items-center text-center gap-3 transition-all ${active ? 'border-cyan-500/50 bg-slate-900/60 shadow-lg' : 'border-slate-800 opacity-60'}`}>
+     <Icon size={24} className={active ? 'text-cyan-400' : 'text-slate-500'} />
      <div>
         <p className="text-[9px] font-black text-white uppercase tracking-widest">{label}</p>
         <p className="text-[8px] text-slate-600 uppercase font-bold mt-1">{desc}</p>

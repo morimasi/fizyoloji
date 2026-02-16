@@ -4,8 +4,8 @@ import { getAI } from "./ai-core.ts";
 import { Exercise } from "./types.ts";
 
 /**
- * PHYSIOCORE VISUAL PRODUCTION ENGINE v11.0 (Flash & Veo Edition)
- * Optimized for speed and multimodal outputs without Pro overhead.
+ * PHYSIOCORE VISUAL PRODUCTION ENGINE v12.0 (Pro & Ultra Edition)
+ * Optimized for High-Quality Cinematic Motion Plates.
  */
 
 export type AnatomicalLayer = 'muscular' | 'skeletal' | 'vascular' | 'xray' | 'full-body';
@@ -28,7 +28,6 @@ export const generateExerciseVisual = async (
     Anatomy Layer: ${layerPrompts[layer]}. Biomechanics: ${exercise.biomechanics}. 
     Dark slate background, cinematic render. 16 distinct motion phases.`;
 
-  // Gemini Flash Image Model (Fast & Free Tier friendly)
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image', 
     contents: [{ parts: [{ text: prompt }] }],
@@ -52,26 +51,29 @@ export const generateExerciseVisual = async (
 };
 
 /**
- * Veo 3.1 Fast ile Akıcı Video/GIF Üretimi
+ * Veo 3.1 Pro/Fast ile Akıcı Video & GIF Üretimi
+ * @param quality 'fast' (720p) veya 'pro' (1080p, High Quality)
  */
-export const generateExerciseVideo = async (exercise: Partial<Exercise>): Promise<string> => {
+export const generateExerciseVideo = async (exercise: Partial<Exercise>, quality: 'fast' | 'pro' = 'fast'): Promise<string> => {
   const ai = getAI();
+  const modelName = quality === 'pro' ? 'veo-3.1-generate-preview' : 'veo-3.1-fast-generate-preview';
+  const resolution = quality === 'pro' ? '1080p' : '720p';
   
-  // Veo modeline özel video üretimi
   let operation = await ai.models.generateVideos({
-    model: 'veo-3.1-fast-generate-preview',
-    prompt: `Medical 3D animation of a human ${exercise.category} performing ${exercise.titleTr || exercise.title}. 
-             Focus on biomechanics: ${exercise.biomechanics}. Cinematic lighting, high frame rate, loopable.`,
+    model: modelName,
+    prompt: `Ultra-high definition medical 3D animation of a human body performing ${exercise.titleTr || exercise.title}. 
+             Detailed biomechanics: ${exercise.biomechanics}. Cinematic volumetric lighting, 4K texture feel, 
+             perfectly loopable, clinical dark background, slow motion clinical precision.`,
     config: {
       numberOfVideos: 1,
-      resolution: '720p',
+      resolution: resolution,
       aspectRatio: '1:1'
     }
   });
 
   while (!operation.done) {
-    await new Promise(resolve => setTimeout(resolve, 5000));
-    operation = await (ai as any).operations.getVideosOperation({ operation });
+    await new Promise(resolve => setTimeout(resolve, quality === 'pro' ? 15000 : 10000));
+    operation = await (ai as any).operations.getVideosOperation({ operation: operation });
   }
 
   const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
