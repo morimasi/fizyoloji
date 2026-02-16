@@ -2,24 +2,24 @@
 import { GoogleGenAI } from "@google/genai";
 
 /**
- * PHYSIOCORE AI CORE MODULE
- * API Key ve SDK Yönetimi
+ * PHYSIOCORE AI CORE MODULE v5.1
+ * SDK kurallarına göre dinamik anahtar yönetimi.
  */
 export const getAI = () => {
   const apiKey = process.env.API_KEY;
   
-  // Talimat gereği: Eğer anahtar yoksa veya geçersizse 
-  // "Requested entity was not found." fırlatılmalı.
+  // Eğer anahtar hiç yoksa veya string olarak "undefined" ise hata fırlatırız.
+  // Bu hata UI tarafında yakalanıp SelectKey diyaloğunu açacak.
   if (!apiKey || apiKey === "undefined" || apiKey === "") {
-    throw new Error("Requested entity was not found. (API_KEY_MISSING)");
+    throw new Error("Requested entity was not found.");
   }
   
+  // Kural: Her çağrıda yeni bir instance oluşturulmalıdır.
   return new GoogleGenAI({ apiKey });
 };
 
 /**
- * Gelen hatanın API anahtarı ile ilgili olup olmadığını kontrol eder.
- * API'den gelen JSON hata nesnelerini de string olarak tarar.
+ * Hatanın API anahtarı geçersizliği veya eksikliği ile ilgili olup olmadığını saptar.
  */
 export const isApiKeyError = (error: any): boolean => {
   if (!error) return false;
@@ -29,13 +29,12 @@ export const isApiKeyError = (error: any): boolean => {
     : (error.message || JSON.stringify(error));
 
   const expiredKeywords = [
-    "expired", 
-    "INVALID_ARGUMENT", 
-    "API_KEY_INVALID", 
-    "not found", 
-    "renew", 
-    "MISSING",
-    "API key"
+    "requested entity was not found", // Kritik hata metni
+    "api_key_missing",
+    "invalid_argument",
+    "unauthorized",
+    "401",
+    "403"
   ];
   
   return expiredKeywords.some(keyword => 
@@ -44,22 +43,22 @@ export const isApiKeyError = (error: any): boolean => {
 };
 
 /**
- * Kullanıcıdan API anahtarı seçmesini isteyen veya mevcut durumu kontrol eden guard.
+ * Kullanıcının anahtar seçim diyaloğunu açmasını sağlayan yardımcı.
  */
 export const ensureApiKey = async (): Promise<boolean> => {
   const aistudio = (window as any).aistudio;
-  if (!aistudio) return true;
+  if (!aistudio) return true; // Standalone modda varsayım
 
   try {
     const hasKey = await aistudio.hasSelectedApiKey();
     if (!hasKey) {
       await aistudio.openSelectKey();
-      // Yönerge kuralı: Seçim tetiklendiği anda başarılı varsayıp devam et.
+      // Kural: openSelectKey çağrıldığı an başarılı sayıp devam etmeliyiz.
       return true;
     }
     return true;
   } catch (e) {
-    console.error("Anahtar kontrol hatası", e);
+    console.error("API Key Guard Error:", e);
     return false;
   }
 };

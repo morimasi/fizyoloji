@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, ErrorInfo, ReactNode, Component } from 'react';
 import { createRoot } from 'react-dom/client';
 import { 
@@ -66,9 +67,10 @@ export default function PhysioCoreApp() {
     if (aistudio?.hasSelectedApiKey) {
       const keySelected = await aistudio.hasSelectedApiKey();
       setHasKey(keySelected);
-    } else {
-      setHasKey(true); // Standalone/Local dev varsayımı
+      return keySelected;
     }
+    setHasKey(true); 
+    return true;
   };
 
   useEffect(() => {
@@ -80,11 +82,15 @@ export default function PhysioCoreApp() {
       } catch (e) { console.error("DB Init Failed", e); }
       finally { setIsDbLoading(false); }
       
-      await checkKey();
+      const keyOk = await checkKey();
+      if (!keyOk) {
+        // Eğer anahtar yoksa başlangıçta bir kez sor
+        const aistudio = (window as any).aistudio;
+        if (aistudio?.openSelectKey) await aistudio.openSelectKey();
+      }
     };
     init();
 
-    // Anahtar değişikliğini izlemek için periyodik kontrol
     const interval = setInterval(checkKey, 5000);
     return () => clearInterval(interval);
   }, []);
@@ -93,13 +99,14 @@ export default function PhysioCoreApp() {
     const aistudio = (window as any).aistudio;
     if (aistudio?.openSelectKey) {
       await aistudio.openSelectKey();
-      setHasKey(true); // Seçim tetiklendiği an aktif kabul et
+      setHasKey(true);
     }
   };
 
   const submitFeedback = async () => {
     if (!patientData) return;
     
+    // İşlem öncesi anahtar zorunluluğu
     const ok = await ensureApiKey();
     if (!ok) return;
 
@@ -114,6 +121,8 @@ export default function PhysioCoreApp() {
       console.error("Optimization Failed", err);
       if (isApiKeyError(err)) {
         await handleKeySelect();
+      } else {
+        alert("İşlem sırasında bir hata oluştu. Lütfen bağlantınızı kontrol edin.");
       }
     }
   };

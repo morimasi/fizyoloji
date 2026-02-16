@@ -3,8 +3,13 @@ import { Canvas, useFrame, ThreeElements } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera, Stars, Float, Text, MeshDistortMaterial } from '@react-three/drei';
 import * as THREE from 'three';
 
-// Removed conflicting global JSX declarations. 
-// Standard HTML elements and Three elements are handled via the global JSX.IntrinsicElements definition in vite-env.d.ts.
+// Extend the global JSX namespace to include Three.js elements from @react-three/fiber
+// This resolves "Property 'mesh' does not exist on type 'JSX.IntrinsicElements'" errors.
+declare global {
+  namespace JSX {
+    interface IntrinsicElements extends ThreeElements {}
+  }
+}
 
 interface BoneProps {
   start: [number, number, number];

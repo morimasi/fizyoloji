@@ -1,11 +1,11 @@
 
-import { getAI } from "./ai-core.ts";
+import { getAI, isApiKeyError } from "./ai-core.ts";
 import { GoogleGenAI, Type } from "@google/genai";
 import { PatientProfile, ProgressReport } from "./types.ts";
 import { ClinicalRules } from "./ClinicalRules.ts";
 
 /**
- * PHYSIOCORE CLINICAL REASONING ENGINE v9.0 (EBM & Referral Integration)
+ * PHYSIOCORE CLINICAL REASONING ENGINE v9.1 (Safety & Key Awareness)
  */
 
 export const runClinicalEBMSearch = async (query: string) => {
@@ -43,7 +43,6 @@ export const findNearbyClinics = async (lat: number, lng: number, specialty: str
   return { text, clinics };
 };
 
-// ... existing code ...
 const patientProfileSchema = {
   type: Type.OBJECT,
   properties: {
@@ -80,51 +79,67 @@ const patientProfileSchema = {
 };
 
 export const runClinicalConsultation = async (text: string, imageData?: string) => {
-  const ai = getAI();
-  const systemPrompt = `Sen Senior Klinik Fizyoterapistsin. 
-    HIZLI ANALİZ PROTOKOLÜ:
-    1. Ağrı > 7 ise: Sadece izometrik/stabilizasyon odaklı planla.
-    2. Dozaj Formülü: Tekrar sayısı = 15 - ağrıSkoru (min 5).
-    3. Anatomik Seviye: Patoloji bölgesini (örn: L4-L5) belirle.
-    4. Yanıtı mutlaka JSON formatında döndür.`;
+  try {
+    const ai = getAI();
+    const systemPrompt = `Sen Senior Klinik Fizyoterapistsin. 
+      HIZLI ANALİZ PROTOKOLÜ:
+      1. Ağrı > 7 ise: Sadece izometrik/stabilizasyon odaklı planla.
+      2. Dozaj Formülü: Tekrar sayısı = 15 - ağrıSkoru (min 5).
+      3. Anatomik Seviye: Patoloji bölgesini (örn: L4-L5) belirle.
+      4. Yanıtı mutlaka JSON formatında döndür.`;
 
-  const parts: any[] = [{ text: `${systemPrompt}\n\nGirdi: ${text}` }];
-  
-  if (imageData) {
-    const base64Data = imageData.split(',')[1] || imageData;
-    parts.push({ inlineData: { mimeType: "image/jpeg", data: base64Data } });
-  }
-
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview', 
-    contents: [{ parts }],
-    config: { 
-      responseMimeType: "application/json",
-      responseSchema: patientProfileSchema,
-      temperature: 0.1
+    const parts: any[] = [{ text: `${systemPrompt}\n\nGirdi: ${text}` }];
+    
+    if (imageData) {
+      const base64Data = imageData.split(',')[1] || imageData;
+      parts.push({ inlineData: { mimeType: "image/jpeg", data: base64Data } });
     }
-  });
-  
-  return JSON.parse(response.text);
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview', 
+      contents: [{ parts }],
+      config: { 
+        responseMimeType: "application/json",
+        responseSchema: patientProfileSchema,
+        temperature: 0.1
+      }
+    });
+    
+    return JSON.parse(response.text);
+  } catch (err) {
+    if (isApiKeyError(err)) {
+       const aistudio = (window as any).aistudio;
+       if (aistudio?.openSelectKey) await aistudio.openSelectKey();
+    }
+    throw err;
+  }
 };
 
 export const runAdaptiveAdjustment = async (p: PatientProfile, f: ProgressReport) => {
-  const ai = getAI();
-  const calculatedReps = ClinicalRules.calculateDynamicReps(f.painScore);
-  
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: [{ parts: [{ 
-      text: `GÜNCELLEME PROTOKOLÜ:
-      Mevcut: ${JSON.stringify(p)}
-      Geri Bildirim: ${JSON.stringify(f)}
-      Kural: Tekrar sayısını ${calculatedReps} olarak güncelle.
-      Zorluk Ayarı: Ağrı arttıysa -1, azaldıysa +1.` 
-    }] }],
-    config: { 
-      responseMimeType: "application/json",
-      responseSchema: patientProfileSchema
+  try {
+    const ai = getAI();
+    const calculatedReps = ClinicalRules.calculateDynamicReps(f.painScore);
+    
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: [{ parts: [{ 
+        text: `GÜNCELLEME PROTOKOLÜ:
+        Mevcut: ${JSON.stringify(p)}
+        Geri Bildirim: ${JSON.stringify(f)}
+        Kural: Tekrar sayısını ${calculatedReps} olarak güncelle.
+        Zorluk Ayarı: Ağrı arttıysa -1, azaldıysa +1.` 
+      }] }],
+      config: { 
+        responseMimeType: "application/json",
+        responseSchema: patientProfileSchema
+      }
+    });
+    return JSON.parse(response.text);
+  } catch (err) {
+    if (isApiKeyError(err)) {
+       const aistudio = (window as any).aistudio;
+       if (aistudio?.openSelectKey) await aistudio.openSelectKey();
     }
-  });
-  return JSON.parse(response.text);
+    throw err;
+  }
 };
