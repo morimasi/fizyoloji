@@ -1,17 +1,18 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { 
   Play, Pause, RotateCcw, ChevronLeft, Zap, 
   Activity, Volume2, VolumeX, Mic, Loader2,
   Wind, ShieldCheck, Layers, Maximize2, Microscope,
   CheckCircle2, Flame, TrendingUp, Scan, Monitor,
   Settings, Download, Layout, Target, MousePointer2,
-  ChevronRight, BrainCircuit, AlertCircle, Sparkles
+  ChevronRight, BrainCircuit, AlertCircle, Sparkles, Box
 } from 'lucide-react';
 import { Exercise, ExerciseTutorial } from './types.ts';
 import { generateExerciseTutorial } from './ai-service.ts';
 import { MediaConverter, ExportFormat } from './MediaConverter.ts';
 import { LiveCoach } from './LiveCoach.tsx';
+import { AnatomicalAvatar } from './AnatomicalAvatar.tsx';
 
 interface PlayerProps {
   exercise: Exercise;
@@ -24,7 +25,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
   const [currentRep, setCurrentRep] = useState(0);
   const [isResting, setIsResting] = useState(false);
   const [restTime, setRestTime] = useState(exercise.restPeriod || 60);
-  const [activeLayer, setActiveLayer] = useState<'standard' | 'xray' | 'muscles'>('standard');
+  const [activeLayer, setActiveLayer] = useState<'standard' | 'xray' | 'muscles' | '3d'>('standard');
   const [showLiveCoach, setShowLiveCoach] = useState(false);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -58,17 +59,17 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
   };
 
   useEffect(() => {
-    if (exercise.visualUrl) {
+    if (exercise.visualUrl && activeLayer !== '3d') {
       const img = new Image();
       img.src = exercise.visualUrl;
       img.onload = () => { imageCacheRef.current = img; drawFrame(0); };
     }
-  }, [exercise]);
+  }, [exercise, activeLayer]);
 
   const drawFrame = (progress: number) => {
     const canvas = canvasRef.current;
     const img = imageCacheRef.current;
-    if (!canvas || !img) return;
+    if (!canvas || !img || activeLayer === '3d') return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -96,7 +97,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
 
   useEffect(() => {
     const animate = (time: number) => {
-      if (!isPlaying) return;
+      if (!isPlaying || activeLayer === '3d') return;
       const dt = time - lastTimeRef.current;
       lastTimeRef.current = time;
       progressRef.current = (progressRef.current + dt * 0.005) % 16;
@@ -155,12 +156,19 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
            )}
 
            <div className="relative w-full h-full max-w-5xl rounded-[4rem] overflow-hidden border-4 border-slate-900 bg-slate-950 shadow-2xl">
-              <canvas ref={canvasRef} width={1080} height={1080} className="w-full h-full object-contain" />
+              {activeLayer === '3d' ? (
+                <Suspense fallback={<div className="flex items-center justify-center w-full h-full"><Loader2 className="animate-spin text-cyan-500" size={48} /></div>}>
+                  <AnatomicalAvatar targetArea={exercise.category || exercise.title} />
+                </Suspense>
+              ) : (
+                <canvas ref={canvasRef} width={1080} height={1080} className="w-full h-full object-contain" />
+              )}
               
               <div className="absolute top-10 right-10 flex flex-col gap-3">
                  <LayerBtn active={activeLayer === 'standard'} onClick={() => setActiveLayer('standard')} icon={Monitor} label="Vision" />
                  <LayerBtn active={activeLayer === 'xray'} onClick={() => setActiveLayer('xray')} icon={Scan} label="X-Ray" />
                  <LayerBtn active={activeLayer === 'muscles'} onClick={() => setActiveLayer('muscles')} icon={Flame} label="Muscle" />
+                 <LayerBtn active={activeLayer === '3d'} onClick={() => setActiveLayer('3d')} icon={Box} label="3D Pro" />
               </div>
 
               <div className="absolute top-10 left-10 p-8 bg-slate-900/40 backdrop-blur-3xl border border-white/5 rounded-[2.5rem] min-w-[280px]">
@@ -173,7 +181,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
                  </div>
               </div>
 
-              {!isPlaying && !isResting && (
+              {activeLayer !== '3d' && !isPlaying && !isResting && (
                  <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-20">
                     <button onClick={() => setIsPlaying(true)} className="w-32 h-32 bg-cyan-600 rounded-[3rem] flex items-center justify-center text-white shadow-[0_0_80px_rgba(6,182,212,0.4)] hover:scale-110 active:scale-90 transition-all"><Play size={56} fill="currentColor" /></button>
                     <p className="mt-8 text-sm font-black italic text-white uppercase tracking-[0.3em] animate-pulse">BAŞLATMAK İÇİN DOKUNUN</p>
@@ -200,6 +208,17 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
                  {exercise.primaryMuscles.map(m => <span key={m} className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase rounded-lg">{m}</span>)}
               </div>
            </div>
+           
+           {activeLayer === '3d' && (
+              <div className="p-6 bg-cyan-500/5 border border-cyan-500/10 rounded-2xl">
+                 <p className="text-[10px] text-cyan-400 font-bold uppercase tracking-widest flex items-center gap-2">
+                    <Target size={14} /> 3D Kinematik Notu
+                 </p>
+                 <p className="text-xs text-slate-500 italic mt-2">
+                    Model üzerindeki mavi bölgeler bu egzersizde aktif olan birincil eklem ve kemik segmentlerini temsil eder.
+                 </p>
+              </div>
+           )}
         </div>
       </div>
     </div>
