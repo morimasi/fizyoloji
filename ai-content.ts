@@ -5,7 +5,6 @@ import { Exercise } from "./types.ts";
 
 /**
  * PHYSIOCORE CONTENT & DOSAGE ENGINE
- * Models: gemini-3-flash-preview, gemini-2.5-flash-preview-tts
  */
 
 const exerciseSchema = {
@@ -14,7 +13,6 @@ const exerciseSchema = {
     description: { type: Type.STRING },
     biomechanics: { type: Type.STRING },
     primaryMuscles: { type: Type.ARRAY, items: { type: Type.STRING } },
-    secondaryMuscles: { type: Type.ARRAY, items: { type: Type.STRING } },
     safetyFlags: { type: Type.ARRAY, items: { type: Type.STRING } },
     sets: { type: Type.NUMBER },
     reps: { type: Type.NUMBER },
@@ -23,11 +21,24 @@ const exerciseSchema = {
   }
 };
 
+export const generateExerciseData = async (title: string): Promise<Partial<Exercise>> => {
+  const ai = getAI();
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: [{ parts: [{ text: `Analyze and provide clinical data for exercise: "${title}"` }] }],
+    config: { 
+        responseMimeType: "application/json",
+        responseSchema: exerciseSchema
+    }
+  });
+  return JSON.parse(response.text);
+};
+
 export const generateExerciseTutorial = async (t: string) => {
   const ai = getAI();
   const sr = await ai.models.generateContent({ 
     model: 'gemini-3-flash-preview', 
-    contents: [{ parts: [{ text: `Provide a clinical tutorial script for: ${t}. Include 4 detailed steps.` }] }], 
+    contents: [{ parts: [{ text: `Egzersiz için 4 adımlık sesli rehberlik metni hazırla: ${t}` }] }], 
     config: { 
         responseMimeType: "application/json",
         responseSchema: {
@@ -42,51 +53,34 @@ export const generateExerciseTutorial = async (t: string) => {
                             duration: { type: Type.NUMBER }
                         }
                     }
-                },
-                bpm: { type: Type.NUMBER }
+                }
             }
         }
     } 
   });
   const sd = JSON.parse(sr.text || "{}");
   
-  // Generating Audio using Native TTS
   const ar = await ai.models.generateContent({
     model: "gemini-2.5-flash-preview-tts",
-    contents: [{ parts: [{ text: sd.script?.map((s: any) => s.text).join(' ') || "Egzersize başlayın." }] }],
+    contents: [{ parts: [{ text: sd.script?.map((s: any) => s.text).join(' ') || "Hazırlanın." }] }],
     config: { 
       responseModalities: [Modality.AUDIO], 
       speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } } 
     }
   });
   
-  const base64Audio = ar.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || null;
-
   return { 
     script: sd.script, 
-    audioBase64: base64Audio, 
-    bpm: sd.bpm || 60 
+    audioBase64: ar.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || null,
+    bpm: 60 
   };
-};
-
-export const generateExerciseData = async (title: string): Promise<Partial<Exercise>> => {
-  const ai = getAI();
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: [{ parts: [{ text: `Generate full clinical data for the exercise: "${title}".` }] }],
-    config: { 
-        responseMimeType: "application/json",
-        responseSchema: exerciseSchema
-    }
-  });
-  return JSON.parse(response.text);
 };
 
 export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: string): Promise<Partial<Exercise>> => {
   const ai = getAI();
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: [{ parts: [{ text: `Optimize this exercise dosage for the goal "${goal}": ${JSON.stringify(exercise)}.` }] }],
+    contents: [{ parts: [{ text: `Bu egzersizi şu hedef için optimize et: ${goal}. Veri: ${JSON.stringify(exercise)}` }] }],
     config: { 
         responseMimeType: "application/json",
         responseSchema: exerciseSchema

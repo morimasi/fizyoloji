@@ -1,12 +1,12 @@
 
 import { getAI } from "./ai-core.ts";
 import { Type } from "@google/genai";
-import { PatientProfile, ProgressReport, TreatmentHistory, DetailedPainLog } from "./types.ts";
+import { PatientProfile, ProgressReport } from "./types.ts";
 
 /**
- * PHYSIOCORE CLINICAL REASONING ENGINE
- * Teşhis, Takip ve Stratejik Karar Destek Sistemi
- * Model: gemini-3-flash-preview (Fast & Reliable)
+ * PHYSIOCORE CLINICAL REASONING ENGINE v6.0
+ * Model: gemini-3-flash-preview
+ * Uzmanlık: Ortopedik ve Nörolojik Rehabilitasyon
  */
 
 const patientProfileSchema = {
@@ -14,9 +14,8 @@ const patientProfileSchema = {
   properties: {
     user_id: { type: Type.STRING },
     diagnosisSummary: { type: Type.STRING },
-    icd10: { type: Type.STRING },
     riskLevel: { type: Type.STRING, description: 'Düşük, Orta veya Yüksek' },
-    status: { type: Type.STRING, description: 'Kritik, Stabil, İyileşiyor, Taburcu' },
+    status: { type: Type.STRING },
     rehabPhase: { type: Type.STRING, description: 'Akut, Sub-Akut, Kronik, Performans' },
     suggestedPlan: {
       type: Type.ARRAY,
@@ -32,7 +31,8 @@ const patientProfileSchema = {
           reps: { type: Type.NUMBER },
           description: { type: Type.STRING },
           biomechanics: { type: Type.STRING },
-          rehabPhase: { type: Type.STRING }
+          rehabPhase: { type: Type.STRING },
+          targetRpe: { type: Type.NUMBER }
         }
       }
     },
@@ -53,37 +53,18 @@ const patientProfileSchema = {
   }
 };
 
-export const generateDashboardInsights = async (profile: PatientProfile): Promise<any> => {
+export const runClinicalConsultation = async (text: string, imageData?: string) => {
   const ai = getAI();
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: [{ parts: [{ text: `Analyze patient progress: ${JSON.stringify(profile)}. Predict recovery trajectory and suggest next best clinical action.` }] }],
-    config: { 
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          summary: { type: Type.STRING },
-          nextStep: { type: Type.STRING },
-          recoveryTrajectory: { type: Type.NUMBER }
-        }
-      }
-    }
-  });
-  return JSON.parse(response.text);
-};
-
-export const runClinicalConsultation = async (text: string, imageData?: string, history?: TreatmentHistory[], painLogs?: DetailedPainLog[]) => {
-  const ai = getAI();
-  const parts: any[] = [{ text: `Clinical Analysis Task: ${text}. Return a full PatientProfile JSON object based on the clinical input.` }];
+  const parts: any[] = [{ 
+    text: `Sen dünya standartlarında bir fizyoterapistsin. Aşağıdaki verileri analiz et ve profesyonel bir PatientProfile JSON objesi döndür. 
+    Kural: Ağrı VAS skoru yüksekse (7+) sadece izometrik egzersizler öner. 
+    Girdi: ${text}` 
+  }];
   
   if (imageData) {
     const base64Data = imageData.split(',')[1] || imageData;
     parts.push({
-      inlineData: {
-        mimeType: "image/jpeg",
-        data: base64Data
-      }
+      inlineData: { mimeType: "image/jpeg", data: base64Data }
     });
   }
 
@@ -103,10 +84,34 @@ export const runAdaptiveAdjustment = async (p: PatientProfile, f: ProgressReport
   const ai = getAI();
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: [{ parts: [{ text: `Profile: ${JSON.stringify(p)}. Feedback: ${JSON.stringify(f)}. Update program dosage and rehab phase based on clinical flags.` }] }],
+    contents: [{ parts: [{ 
+      text: `Mevcut Profil: ${JSON.stringify(p)}. Geri Bildirim: ${JSON.stringify(f)}. 
+      Kural: Tekrar sayısını max(5, 15 - ağrı_skoru) formülüne göre uyarla. 
+      Egzersiz programını klinik verilere göre güncelle ve yeni JSON döndür.` 
+    }] }],
     config: { 
       responseMimeType: "application/json",
       responseSchema: patientProfileSchema
+    }
+  });
+  return JSON.parse(response.text);
+};
+
+export const generateDashboardInsights = async (profile: PatientProfile): Promise<any> => {
+  const ai = getAI();
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: [{ parts: [{ text: `Hasta gelişimini analiz et: ${JSON.stringify(profile)}. İyileşme hızını ve bir sonraki klinik adımı belirle.` }] }],
+    config: { 
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          summary: { type: Type.STRING },
+          nextStep: { type: Type.STRING },
+          recoveryTrajectory: { type: Type.NUMBER }
+        }
+      }
     }
   });
   return JSON.parse(response.text);
