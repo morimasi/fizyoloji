@@ -2,11 +2,16 @@
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { 
   Play, Pause, RotateCcw, ChevronLeft, Zap, 
-  Activity, Volume2, Loader2,
-  CheckCircle2, Flame, Scan, Box,
-  BrainCircuit, Sparkles, BookOpen, AlertCircle
+  Activity, Volume2, VolumeX, Mic, Loader2,
+  Wind, ShieldCheck, Layers, Maximize2, Microscope,
+  CheckCircle2, Flame, TrendingUp, Scan, Monitor,
+  Settings, Download, Layout, Target, MousePointer2,
+  ChevronRight, BrainCircuit, AlertCircle, Sparkles, Box
 } from 'lucide-react';
-import { Exercise } from './types.ts';
+import { Exercise, ExerciseTutorial } from './types.ts';
+import { generateExerciseTutorial } from './ai-service.ts';
+import { MediaConverter, ExportFormat } from './MediaConverter.ts';
+import { LiveCoach } from './LiveCoach.tsx';
 import { AnatomicalAvatar } from './AnatomicalAvatar.tsx';
 
 interface PlayerProps {
@@ -21,20 +26,12 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
   const [isResting, setIsResting] = useState(false);
   const [restTime, setRestTime] = useState(exercise.restPeriod || 60);
   const [activeLayer, setActiveLayer] = useState<'standard' | 'xray' | 'muscles' | '3d'>('standard');
-  const [showProfessorGuide, setShowProfessorGuide] = useState(true);
+  const [showLiveCoach, setShowLiveCoach] = useState(false);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageCacheRef = useRef<HTMLImageElement | null>(null);
   const progressRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
-
-  // Adım adım rehberlik (Özel Eğitim Yaklaşımı: Chunking)
-  const steps = [
-    { title: "Hazırlık", desc: "Harekete başlamadan önce vücudunu nötral pozisyona getir." },
-    { title: "Harekete Başla", desc: exercise.description.split('.')[0] + '.' },
-    { title: "Zirve Noktası", desc: "En yüksek gerilimde 1 saniye bekle ve nefes ver." },
-    { title: "Kontrollü Dönüş", desc: "Yavaşça başlangıç pozisyonuna dön." }
-  ];
 
   useEffect(() => {
     if (isResting && restTime > 0) {
@@ -128,28 +125,32 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
         <div className="text-center">
           <h2 className="text-2xl font-black italic uppercase text-white tracking-tighter leading-none">{exercise.titleTr || exercise.title}</h2>
           <p className="text-[9px] text-cyan-500 font-bold uppercase mt-2 tracking-widest flex items-center justify-center gap-2">
-             <Sparkles size={10} /> KLİNİK MOD: {activeLayer.toUpperCase()}
+             <Sparkles size={10} /> CLINICAL MODE: {activeLayer.toUpperCase()}
           </p>
         </div>
 
-        <button 
-          onClick={() => setShowProfessorGuide(!showProfessorGuide)} 
-          className={`px-6 py-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${showProfessorGuide ? 'bg-cyan-500 text-white' : 'bg-slate-900 text-slate-400 border-slate-800'}`}
-        >
-          {showProfessorGuide ? 'REHBERİ KAPAT' : 'PROFESÖR MODU'}
+        <button onClick={() => setShowLiveCoach(!showLiveCoach)} className={`px-6 py-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${showLiveCoach ? 'bg-cyan-500 text-white border-cyan-400 shadow-xl' : 'bg-slate-900 text-slate-400 border-slate-800'}`}>
+          {showLiveCoach ? 'KOÇU GİZLE' : 'LIVE AI COACH'}
         </button>
       </div>
 
       <div className="flex-1 flex flex-col lg:flex-row relative">
         <div className="flex-1 relative flex items-center justify-center bg-black">
            
+           {/* Live Coach Overlay */}
+           {showLiveCoach && (
+              <div className="absolute top-10 left-1/2 -translate-x-1/2 z-[60] w-full max-w-xl animate-in slide-in-from-top-4 duration-500">
+                 <LiveCoach exerciseTitle={exercise.title} systemInstruction={exercise.biomechanics} />
+              </div>
+           )}
+
            {isResting && (
               <div className="absolute inset-0 z-40 bg-slate-950/95 backdrop-blur-3xl flex flex-col items-center justify-center animate-in zoom-in duration-500">
                   <div className="relative w-48 h-48 mb-10">
                      <svg className="w-full h-full -rotate-90"><circle cx="96" cy="96" r="80" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-900" /><circle cx="96" cy="96" r="80" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray={502} strokeDashoffset={502 - (restTime/60)*502} className="text-cyan-500 transition-all duration-1000" /></svg>
                      <div className="absolute inset-0 flex flex-col items-center justify-center"><span className="text-5xl font-black text-white italic">{restTime}</span><span className="text-[10px] font-black text-cyan-500 uppercase">Saniye</span></div>
                   </div>
-                  <h3 className="text-3xl font-black italic text-white uppercase tracking-tighter mb-4">DİNLENME <span className="text-cyan-400">FAZI</span></h3>
+                  <h3 className="text-3xl font-black italic text-white uppercase tracking-tighter mb-4">RECOVERY <span className="text-cyan-400">PHASE</span></h3>
                   <button onClick={() => setRestTime(0)} className="px-10 py-5 bg-slate-900 border border-slate-800 rounded-2xl text-[11px] font-black uppercase text-slate-300">ATLA</button>
               </div>
            )}
@@ -164,10 +165,10 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
               )}
               
               <div className="absolute top-10 right-10 flex flex-col gap-3">
-                 <LayerBtn active={activeLayer === 'standard'} onClick={() => setActiveLayer('standard')} icon={Box} label="Vizyon" />
+                 <LayerBtn active={activeLayer === 'standard'} onClick={() => setActiveLayer('standard')} icon={Monitor} label="Vision" />
                  <LayerBtn active={activeLayer === 'xray'} onClick={() => setActiveLayer('xray')} icon={Scan} label="X-Ray" />
-                 <LayerBtn active={activeLayer === 'muscles'} onClick={() => setActiveLayer('muscles')} icon={Flame} label="Kas" />
-                 <LayerBtn active={activeLayer === '3d'} onClick={() => setActiveLayer('3d')} icon={BrainCircuit} label="3D Pro" />
+                 <LayerBtn active={activeLayer === 'muscles'} onClick={() => setActiveLayer('muscles')} icon={Flame} label="Muscle" />
+                 <LayerBtn active={activeLayer === '3d'} onClick={() => setActiveLayer('3d')} icon={Box} label="3D Pro" />
               </div>
 
               <div className="absolute top-10 left-10 p-8 bg-slate-900/40 backdrop-blur-3xl border border-white/5 rounded-[2.5rem] min-w-[280px]">
@@ -180,7 +181,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
                  </div>
               </div>
 
-              {!isPlaying && !isResting && (
+              {activeLayer !== '3d' && !isPlaying && !isResting && (
                  <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-20">
                     <button onClick={() => setIsPlaying(true)} className="w-32 h-32 bg-cyan-600 rounded-[3rem] flex items-center justify-center text-white shadow-[0_0_80px_rgba(6,182,212,0.4)] hover:scale-110 active:scale-90 transition-all"><Play size={56} fill="currentColor" /></button>
                     <p className="mt-8 text-sm font-black italic text-white uppercase tracking-[0.3em] animate-pulse">BAŞLATMAK İÇİN DOKUNUN</p>
@@ -195,46 +196,30 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
            </div>
         </div>
 
-        {/* Professor's Step-by-Step Guide Panel */}
-        {showProfessorGuide && (
-          <div className="w-full lg:w-[450px] bg-slate-950 border-l border-white/5 flex flex-col p-10 space-y-10 overflow-y-auto no-scrollbar">
-             <div>
-                <div className="flex items-center gap-3 text-cyan-400 mb-4">
-                  <BookOpen size={20} />
-                  <h3 className="text-[11px] font-black uppercase tracking-[0.3em]">Adım Adım Rehberlik</h3>
-                </div>
-                <div className="space-y-4">
-                   {steps.map((s, i) => (
-                      <div key={i} className={`p-5 rounded-2xl border transition-all ${currentRep === 0 && i === 0 ? 'bg-cyan-500/10 border-cyan-500/40 scale-[1.02]' : 'bg-slate-900/40 border-slate-800 opacity-60'}`}>
-                         <div className="flex items-center gap-3 mb-1">
-                            <span className="w-5 h-5 bg-slate-950 rounded-md flex items-center justify-center text-[9px] font-black text-cyan-500 border border-slate-800">{i+1}</span>
-                            <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-200">{s.title}</h4>
-                         </div>
-                         <p className="text-xs text-slate-400 italic leading-relaxed">{s.desc}</p>
-                      </div>
-                   ))}
-                </div>
-             </div>
+        <div className="w-full lg:w-[450px] bg-slate-950 border-l border-white/5 flex flex-col p-10 space-y-12">
+           <div className="space-y-6">
+              <div className="flex items-center gap-3 text-cyan-400"><BrainCircuit size={20} /><h3 className="text-[11px] font-black uppercase tracking-[0.3em]">Biyomekanik Motoru</h3></div>
+              <div className="p-8 bg-slate-900/40 border border-slate-800 rounded-[2.5rem]"><p className="text-xs text-slate-300 leading-loose italic">{exercise.biomechanics}</p></div>
+           </div>
 
-             <div className="space-y-6">
-                <div className="flex items-center gap-3 text-emerald-400"><Activity size={20} /><h3 className="text-[11px] font-black uppercase tracking-[0.3em]">Biyomekanik Notu</h3></div>
-                <div className="p-8 bg-slate-900/40 border border-slate-800 rounded-[2.5rem]"><p className="text-xs text-slate-300 leading-loose italic">{exercise.biomechanics}</p></div>
-             </div>
-
-             {exercise.safetyFlags.length > 0 && (
-                <div className="p-6 bg-rose-500/5 border border-rose-500/10 rounded-2xl">
-                   <p className="text-[10px] text-rose-500 font-bold uppercase tracking-widest flex items-center gap-2 mb-2">
-                      <AlertCircle size={14} /> Güvenlik Uyarısı
-                   </p>
-                   <ul className="space-y-1">
-                      {exercise.safetyFlags.map(f => (
-                         <li key={f} className="text-[10px] text-slate-500 italic">• {f}</li>
-                      ))}
-                   </ul>
-                </div>
-             )}
-          </div>
-        )}
+           <div className="space-y-6">
+              <div className="flex items-center gap-3 text-emerald-400"><Microscope size={20} /><h3 className="text-[11px] font-black uppercase tracking-[0.3em]">Hedef Kas Grupları</h3></div>
+              <div className="flex flex-wrap gap-2">
+                 {exercise.primaryMuscles.map(m => <span key={m} className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase rounded-lg">{m}</span>)}
+              </div>
+           </div>
+           
+           {activeLayer === '3d' && (
+              <div className="p-6 bg-cyan-500/5 border border-cyan-500/10 rounded-2xl">
+                 <p className="text-[10px] text-cyan-400 font-bold uppercase tracking-widest flex items-center gap-2">
+                    <Target size={14} /> 3D Kinematik Notu
+                 </p>
+                 <p className="text-xs text-slate-500 italic mt-2">
+                    Model üzerindeki mavi bölgeler bu egzersizde aktif olan birincil eklem ve kemik segmentlerini temsil eder.
+                 </p>
+              </div>
+           )}
+        </div>
       </div>
     </div>
   );
