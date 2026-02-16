@@ -1,9 +1,8 @@
 {
   "requestFramePermissions": [
     "camera",
-    "microphone",
-    "geolocation"
+    "microphone"
   ],
   "name": "PhysioCore AI",
-  "description": "Ultra-Professional Physiotherapy & Rehabilitation Ecosystem"
+  "description": "Ultra-Professional Physiotherapy & Rehabilitation Ecosystem with Live AI Coaching"
 }

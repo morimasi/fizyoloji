@@ -2,11 +2,11 @@
 import { getAI } from "./ai-core.ts";
 import { Type } from "@google/genai";
 import { PatientProfile, ProgressReport } from "./types.ts";
+import { ClinicalRules } from "./ClinicalRules.ts";
 
 /**
- * PHYSIOCORE CLINICAL REASONING ENGINE v6.0
- * Model: gemini-3-flash-preview
- * Uzmanlık: Ortopedik ve Nörolojik Rehabilitasyon
+ * PHYSIOCORE CLINICAL REASONING ENGINE v8.0 (Flash Optimized)
+ * High efficiency, low latency clinical reasoning using Gemini 3 Flash.
  */
 
 const patientProfileSchema = {
@@ -14,9 +14,9 @@ const patientProfileSchema = {
   properties: {
     user_id: { type: Type.STRING },
     diagnosisSummary: { type: Type.STRING },
-    riskLevel: { type: Type.STRING, description: 'Düşük, Orta veya Yüksek' },
+    riskLevel: { type: Type.STRING },
     status: { type: Type.STRING },
-    rehabPhase: { type: Type.STRING, description: 'Akut, Sub-Akut, Kronik, Performans' },
+    rehabPhase: { type: Type.STRING },
     suggestedPlan: {
       type: Type.ARRAY,
       items: {
@@ -25,29 +25,20 @@ const patientProfileSchema = {
           id: { type: Type.STRING },
           code: { type: Type.STRING },
           title: { type: Type.STRING },
-          category: { type: Type.STRING },
           difficulty: { type: Type.NUMBER },
           sets: { type: Type.NUMBER },
           reps: { type: Type.NUMBER },
           description: { type: Type.STRING },
           biomechanics: { type: Type.STRING },
-          rehabPhase: { type: Type.STRING },
-          targetRpe: { type: Type.NUMBER }
+          clinicalNote: { type: Type.STRING }
         }
-      }
-    },
-    physicalAssessment: {
-      type: Type.OBJECT,
-      properties: {
-        posture: { type: Type.STRING },
-        recoveryTrajectory: { type: Type.NUMBER }
       }
     },
     latestInsight: {
       type: Type.OBJECT,
       properties: {
         summary: { type: Type.STRING },
-        nextStep: { type: Type.STRING }
+        recoveryTrajectory: { type: Type.NUMBER }
       }
     }
   }
@@ -55,25 +46,27 @@ const patientProfileSchema = {
 
 export const runClinicalConsultation = async (text: string, imageData?: string) => {
   const ai = getAI();
-  const parts: any[] = [{ 
-    text: `Sen dünya standartlarında bir fizyoterapistsin. Aşağıdaki verileri analiz et ve profesyonel bir PatientProfile JSON objesi döndür. 
-    Kural: Ağrı VAS skoru yüksekse (7+) sadece izometrik egzersizler öner. 
-    Girdi: ${text}` 
-  }];
+  const systemPrompt = `Sen Senior Klinik Fizyoterapistsin. 
+    HIZLI ANALİZ PROTOKOLÜ:
+    1. Ağrı > 7 ise: Sadece izometrik/stabilizasyon odaklı planla.
+    2. Dozaj Formülü: Tekrar sayısı = 15 - ağrıSkoru (min 5).
+    3. Anatomik Seviye: Patoloji bölgesini (örn: L4-L5) belirle.
+    4. Yanıtı mutlaka JSON formatında döndür.`;
+
+  const parts: any[] = [{ text: `${systemPrompt}\n\nGirdi: ${text}` }];
   
   if (imageData) {
     const base64Data = imageData.split(',')[1] || imageData;
-    parts.push({
-      inlineData: { mimeType: "image/jpeg", data: base64Data }
-    });
+    parts.push({ inlineData: { mimeType: "image/jpeg", data: base64Data } });
   }
 
   const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-3-flash-preview', // Pro modelinden Flash'a geçildi (Hız/Maliyet Optimizasyonu)
     contents: [{ parts }],
     config: { 
       responseMimeType: "application/json",
-      responseSchema: patientProfileSchema
+      responseSchema: patientProfileSchema,
+      temperature: 0.1 // Maksimum klinik tutarlılık
     }
   });
   
@@ -82,36 +75,20 @@ export const runClinicalConsultation = async (text: string, imageData?: string) 
 
 export const runAdaptiveAdjustment = async (p: PatientProfile, f: ProgressReport) => {
   const ai = getAI();
+  const calculatedReps = ClinicalRules.calculateDynamicReps(f.painScore);
+  
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: [{ parts: [{ 
-      text: `Mevcut Profil: ${JSON.stringify(p)}. Geri Bildirim: ${JSON.stringify(f)}. 
-      Kural: Tekrar sayısını max(5, 15 - ağrı_skoru) formülüne göre uyarla. 
-      Egzersiz programını klinik verilere göre güncelle ve yeni JSON döndür.` 
+      text: `GÜNCELLEME PROTOKOLÜ:
+      Mevcut: ${JSON.stringify(p)}
+      Geri Bildirim: ${JSON.stringify(f)}
+      Kural: Tekrar sayısını ${calculatedReps} olarak güncelle.
+      Zorluk Ayarı: Ağrı arttıysa -1, azaldıysa +1.` 
     }] }],
     config: { 
       responseMimeType: "application/json",
       responseSchema: patientProfileSchema
-    }
-  });
-  return JSON.parse(response.text);
-};
-
-export const generateDashboardInsights = async (profile: PatientProfile): Promise<any> => {
-  const ai = getAI();
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: [{ parts: [{ text: `Hasta gelişimini analiz et: ${JSON.stringify(profile)}. İyileşme hızını ve bir sonraki klinik adımı belirle.` }] }],
-    config: { 
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          summary: { type: Type.STRING },
-          nextStep: { type: Type.STRING },
-          recoveryTrajectory: { type: Type.NUMBER }
-        }
-      }
     }
   });
   return JSON.parse(response.text);

@@ -35,17 +35,17 @@ import { ManagementHub } from './ManagementHub.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
+// ErrorBoundary class component to catch rendering errors and handle state/props correctly in TS
+// Fix: Use the imported Component directly to resolve property access errors in TS
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false };
-  }
+  state: ErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError(_error: Error): ErrorBoundaryState { return { hasError: true }; }
   
   componentDidCatch(error: Error, errorInfo: ErrorInfo) { console.error("CRASH:", error, errorInfo); }
   
   render() {
+    // Accessing this.state which is now correctly recognized by TS via extending Component
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-12 text-center">
@@ -57,6 +57,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
+    // Accessing this.props which is now correctly recognized by TS via extending Component
     return this.props.children;
   }
 }
@@ -66,6 +67,7 @@ export default function PhysioCoreApp() {
   const [patientData, setPatientData] = useState<PatientProfile | null>(null);
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
   const [hasKey, setHasKey] = useState(true);
+  const [isDbLoading, setIsDbLoading] = useState(true);
   
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [painScore, setPainScore] = useState(5);
@@ -73,9 +75,20 @@ export default function PhysioCoreApp() {
 
   useEffect(() => {
     const init = async () => {
-      await PhysioDB.initializeDB();
-      const profile = PhysioDB.getProfile();
-      if (profile) setPatientData(profile);
+      try {
+        await PhysioDB.initializeDB();
+        const profile = await PhysioDB.getProfile();
+        if (profile) setPatientData(profile);
+        
+        // Background sync check
+        if (navigator.onLine) {
+            await PhysioDB.syncPendingData();
+        }
+      } catch (e) {
+        console.error("DB Init Failed", e);
+      } finally {
+        setIsDbLoading(false);
+      }
       
       const aistudio = (window as any).aistudio;
       if (aistudio?.hasSelectedApiKey) {
@@ -88,6 +101,9 @@ export default function PhysioCoreApp() {
       }
     };
     init();
+
+    window.addEventListener('online', () => PhysioDB.syncPendingData());
+    return () => window.removeEventListener('online', () => PhysioDB.syncPendingData());
   }, []);
 
   const handleOpenKeySelection = async () => {
@@ -120,6 +136,17 @@ export default function PhysioCoreApp() {
       }
     }
   };
+
+  if (isDbLoading) {
+    return (
+        <div className="min-h-screen bg-[#0F172A] flex items-center justify-center">
+            <div className="flex flex-col items-center gap-6">
+                <RefreshCw size={48} className="text-cyan-500 animate-spin" />
+                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-500">SİSTEM VERİLERİ YÜKLENİYOR...</p>
+            </div>
+        </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0F172A] text-[#F8FAFC] font-roboto">

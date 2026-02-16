@@ -9,6 +9,12 @@ export type VisualStyle = 'AVM-Genesis' | 'VEO-Premium' | 'AVM-Sprite' | 'Cinema
 export type AppTab = 'consultation' | 'dashboard' | 'progress' | 'users' | 'cms' | 'management';
 export type TherapistTab = 'dashboard' | 'patients' | 'intelligence' | 'settings';
 
+export interface SyncMetadata {
+  lastSyncedAt?: string;
+  isDirty: boolean; // Yerelde değişti ama sunucuya gitmedi
+  version: number;
+}
+
 export interface ExerciseTutorial {
   script: { text: string; duration: number }[];
   audioBase64: string | null;
@@ -55,6 +61,7 @@ export interface Exercise {
   syncInfo?: SyncInfo;
   visualFrameCount?: number;
   visualLayout?: string;
+  _sync?: SyncMetadata; // Senkronizasyon metadatası
 }
 
 export interface ProgressReport {
@@ -107,21 +114,7 @@ export interface PatientProfile {
     targetRecoveryDate?: string;
   };
   syncStatus: 'Synced' | 'Syncing' | 'Error';
-}
-
-export interface TherapistProfile {
-  specialization: string[];
-  bio: string;
-  yearsOfExperience: number;
-  successRate: number;
-  totalPatientsActive: number;
-  averageRecoveryTime: string;
-  status: StaffStatus;
-  aiAssistantSettings: {
-    autoSuggestProtocols: boolean;
-    notifyHighRisk: boolean;
-    weeklyReports: boolean;
-  };
+  _sync?: SyncMetadata;
 }
 
 export interface User {
@@ -136,12 +129,21 @@ export interface User {
   patientProfile?: PatientProfile;
   therapistProfile?: TherapistProfile;
   patientStatus?: PatientStatus;
-  clinicalProfile?: {
-    diagnosis: string;
-    riskLevel: RiskLevel;
-    notes: string[];
-    treatmentHistory: TreatmentHistory[];
-    painLogs: DetailedPainLog[];
+  _sync?: SyncMetadata;
+}
+
+export interface TherapistProfile {
+  specialization: string[];
+  bio: string;
+  yearsOfExperience: number;
+  successRate: number;
+  totalPatientsActive: number;
+  averageRecoveryTime: string;
+  status: StaffStatus;
+  aiAssistantSettings: {
+    autoSuggestProtocols: boolean;
+    notifyHighRisk: boolean;
+    weeklyReports: boolean;
   };
 }
 
