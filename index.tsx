@@ -53,11 +53,21 @@ export default function PhysioCoreApp() {
   const [activeTab, setActiveTab] = useState<TabType>('consultation');
   const [patientData, setPatientData] = useState<PatientProfile | null>(null);
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
-  const [hasKey, setHasKey] = useState(true);
+  const [hasKey, setHasKey] = useState(false);
   const [isDbLoading, setIsDbLoading] = useState(true);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [painScore, setPainScore] = useState(5);
   const [userComment, setUserComment] = useState('');
+
+  const checkKey = async () => {
+    const aistudio = (window as any).aistudio;
+    if (aistudio?.hasSelectedApiKey) {
+      const keySelected = await aistudio.hasSelectedApiKey();
+      setHasKey(keySelected);
+    } else {
+      setHasKey(true); // Standalone/Local dev varsayımı
+    }
+  };
 
   useEffect(() => {
     const init = async () => {
@@ -68,25 +78,26 @@ export default function PhysioCoreApp() {
       } catch (e) { console.error("DB Init Failed", e); }
       finally { setIsDbLoading(false); }
       
-      // AI Anahtar durumunu kontrol et
-      const aistudio = (window as any).aistudio;
-      if (aistudio?.hasSelectedApiKey) {
-        const keySelected = await aistudio.hasSelectedApiKey();
-        setHasKey(keySelected);
-      }
+      await checkKey();
     };
     init();
+
+    // Anahtar değişikliğini izlemek için periyodik kontrol (Opsiyonel ama güvenli)
+    const interval = setInterval(checkKey, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleKeySelect = async () => {
-    await ensureApiKey();
-    setHasKey(true);
+    const aistudio = (window as any).aistudio;
+    if (aistudio?.openSelectKey) {
+      await aistudio.openSelectKey();
+      setHasKey(true); // Seçim tetiklendiği an aktif kabul et
+    }
   };
 
   const submitFeedback = async () => {
     if (!patientData) return;
     
-    // AI öncesi kontrol
     const ok = await ensureApiKey();
     if (!ok) return;
 
@@ -121,8 +132,8 @@ export default function PhysioCoreApp() {
           <NavBtn active={activeTab === 'ebm'} onClick={() => setActiveTab('ebm')} icon={Microscope} label="EBM & SEVK" />
           <NavBtn active={activeTab === 'progress'} onClick={() => setActiveTab('progress')} icon={TrendingUp} label="TAKİP" />
           <NavBtn active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={Users} label="KADRO" />
-          <NavBtn active={activeTab === 'cms'} onClick={() => setActiveTab('cms')} icon={Database} label="STUDIO" />
-          <NavBtn active={activeTab === 'management'} onClick={() => setActiveTab('management')} icon={Settings} label="YÖNETİM" />
+          <NavBtn active={activeTab === 'cms'} icon={Database} label="STUDIO" onClick={() => setActiveTab('cms')} />
+          <NavBtn active={activeTab === 'management'} icon={Settings} label="YÖNETİM" onClick={() => setActiveTab('management')} />
         </nav>
 
         <div className="flex items-center gap-4">

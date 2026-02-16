@@ -4,34 +4,35 @@ import { GoogleGenAI } from "@google/genai";
 /**
  * PHYSIOCORE AI CORE MODULE
  * API Key ve SDK Yönetimi
- * Talimatlara uygun olarak her çağrıda yeni bir instance oluşturulur.
  */
 export const getAI = () => {
   const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    throw new Error("API_KEY_MISSING");
+  // Talimat gereği: Eğer anahtar yoksa veya sorgu hatası alınırsa 
+  // "Requested entity was not found." içeren bir hata fırlatılmalıdır.
+  if (!apiKey || apiKey === "undefined") {
+    throw new Error("Requested entity was not found. (API_KEY_MISSING)");
   }
   return new GoogleGenAI({ apiKey });
 };
 
 /**
  * Kullanıcıdan API anahtarı seçmesini isteyen veya mevcut durumu kontrol eden guard.
- * "Requested entity was not found" hatası alındığında bu fonksiyon tekrar çağrılmalıdır.
  */
 export const ensureApiKey = async (): Promise<boolean> => {
   const aistudio = (window as any).aistudio;
-  if (!aistudio) return true; // Standalone ortam kontrolü
+  if (!aistudio) return true;
 
-  const hasKey = await aistudio.hasSelectedApiKey();
-  if (!hasKey) {
-    try {
+  try {
+    const hasKey = await aistudio.hasSelectedApiKey();
+    if (!hasKey) {
       await aistudio.openSelectKey();
-      // Yarış durumunu (race condition) engellemek için seçimin tetiklendiğini varsayıyoruz.
-      return true; 
-    } catch (e) {
-      console.error("Anahtar seçim diyaloğu açılamadı", e);
-      return false;
+      // Yarış durumunu engellemek için seçim tetiklendiği anda 
+      // başarılı varsayıp devam ediyoruz (Yönerge kuralı).
+      return true;
     }
+    return true;
+  } catch (e) {
+    console.error("Anahtar kontrol hatası", e);
+    return false;
   }
-  return true;
 };

@@ -53,8 +53,12 @@ export const ClinicalConsultation: React.FC<ConsultationProps> = ({ onAnalysisCo
     } catch (err: any) {
       console.error("AI Analysis Failed", err);
       // "Requested entity was not found" veya "API_KEY_MISSING" hataları durumunda anahtar seçimini zorla
-      if (err.message?.includes("not found") || err.message?.includes("API_KEY_MISSING")) {
-        await (window as any).aistudio?.openSelectKey();
+      const msg = err.message || "";
+      if (msg.includes("not found") || msg.includes("MISSING")) {
+        const aistudio = (window as any).aistudio;
+        if (aistudio?.openSelectKey) {
+           await aistudio.openSelectKey();
+        }
       } else {
         alert("Analiz sırasında bir hata oluştu. Lütfen bağlantınızı kontrol edin.");
       }
