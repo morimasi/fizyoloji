@@ -1,14 +1,49 @@
 
 import { getAI } from "./ai-core.ts";
-import { Type } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { PatientProfile, ProgressReport } from "./types.ts";
 import { ClinicalRules } from "./ClinicalRules.ts";
 
 /**
- * PHYSIOCORE CLINICAL REASONING ENGINE v8.0 (Flash Optimized)
- * High efficiency, low latency clinical reasoning using Gemini 3 Flash.
+ * PHYSIOCORE CLINICAL REASONING ENGINE v9.0 (EBM & Referral Integration)
  */
 
+export const runClinicalEBMSearch = async (query: string) => {
+  const ai = getAI();
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: [{ parts: [{ text: `Aşağıdaki klinik soru için Kanıta Dayalı Tıp (EBM) protokollerini araştır ve profesyonel bir fizyoterapist diliyle yanıtla: ${query}` }] }],
+    config: {
+      tools: [{ googleSearch: {} }],
+    },
+  });
+
+  const text = response.text;
+  const links = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+  return { text, links };
+};
+
+export const findNearbyClinics = async (lat: number, lng: number, specialty: string = "fizyoterapi") => {
+  const ai = getAI();
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: [{ parts: [{ text: `Şu koordinatlardaki en iyi ${specialty} kliniklerini bul: Latitude ${lat}, Longitude ${lng}` }] }],
+    config: {
+      tools: [{ googleMaps: {} }],
+      toolConfig: {
+        retrievalConfig: {
+          latLng: { latitude: lat, longitude: lng }
+        }
+      }
+    },
+  });
+
+  const text = response.text;
+  const clinics = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+  return { text, clinics };
+};
+
+// ... existing code ...
 const patientProfileSchema = {
   type: Type.OBJECT,
   properties: {
@@ -61,12 +96,12 @@ export const runClinicalConsultation = async (text: string, imageData?: string) 
   }
 
   const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview', // Pro modelinden Flash'a geçildi (Hız/Maliyet Optimizasyonu)
+    model: 'gemini-3-flash-preview', 
     contents: [{ parts }],
     config: { 
       responseMimeType: "application/json",
       responseSchema: patientProfileSchema,
-      temperature: 0.1 // Maksimum klinik tutarlılık
+      temperature: 0.1
     }
   });
   

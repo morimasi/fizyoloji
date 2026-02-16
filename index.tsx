@@ -2,24 +2,9 @@
 import React, { useState, useRef, useEffect, ErrorInfo, ReactNode, Component } from 'react';
 import { createRoot } from 'react-dom/client';
 import { 
-  Activity, 
-  User as UserIcon, 
-  Zap, 
-  BrainCircuit, 
-  Upload, 
-  Stethoscope, 
-  LayoutDashboard, 
-  Database,
-  TrendingUp,
-  Users,
-  CheckCircle2,
-  AlertTriangle,
-  RefreshCw,
-  X,
-  ShieldCheck,
-  Info,
-  Key,
-  Settings
+  Activity, Zap, BrainCircuit, Stethoscope, 
+  LayoutDashboard, Database, TrendingUp, Users,
+  CheckCircle2, AlertTriangle, RefreshCw, Key, Settings, Microscope
 } from 'lucide-react';
 import { AppTab, PatientProfile, Exercise, ProgressReport } from './types.ts';
 import { runAdaptiveAdjustment } from './ai-service.ts';
@@ -31,21 +16,23 @@ import { Dashboard } from './Dashboard.tsx';
 import { UserManager } from './UserManager.tsx';
 import { ClinicalConsultation } from './ClinicalConsultation.tsx';
 import { ManagementHub } from './ManagementHub.tsx';
+import { ClinicalEBMHub } from './ClinicalEBMHub.tsx';
 
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// ErrorBoundary class component to catch rendering errors and handle state/props correctly in TS
-// Fix: Use the imported Component directly to resolve property access errors in TS
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { hasError: false };
+// Fixed: Inheriting from React.Component and explicitly defining props to resolve "Property 'props' does not exist" error
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
   static getDerivedStateFromError(_error: Error): ErrorBoundaryState { return { hasError: true }; }
   
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) { console.error("CRASH:", error, errorInfo); }
+  componentCatch(error: Error, errorInfo: ErrorInfo) { console.error("CRASH:", error, errorInfo); }
   
   render() {
-    // Accessing this.state which is now correctly recognized by TS via extending Component
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-12 text-center">
@@ -57,18 +44,18 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
-    // Accessing this.props which is now correctly recognized by TS via extending Component
     return this.props.children;
   }
 }
 
+type TabType = AppTab | 'ebm';
+
 export default function PhysioCoreApp() {
-  const [activeTab, setActiveTab] = useState<AppTab>('consultation');
+  const [activeTab, setActiveTab] = useState<TabType>('consultation');
   const [patientData, setPatientData] = useState<PatientProfile | null>(null);
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
   const [hasKey, setHasKey] = useState(true);
   const [isDbLoading, setIsDbLoading] = useState(true);
-  
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [painScore, setPainScore] = useState(5);
   const [userComment, setUserComment] = useState('');
@@ -79,31 +66,15 @@ export default function PhysioCoreApp() {
         await PhysioDB.initializeDB();
         const profile = await PhysioDB.getProfile();
         if (profile) setPatientData(profile);
-        
-        // Background sync check
-        if (navigator.onLine) {
-            await PhysioDB.syncPendingData();
-        }
-      } catch (e) {
-        console.error("DB Init Failed", e);
-      } finally {
-        setIsDbLoading(false);
-      }
-      
+      } catch (e) { console.error("DB Init Failed", e); }
+      finally { setIsDbLoading(false); }
       const aistudio = (window as any).aistudio;
       if (aistudio?.hasSelectedApiKey) {
         const keyExists = await aistudio.hasSelectedApiKey();
         setHasKey(keyExists);
-        if (!keyExists) {
-            await aistudio.openSelectKey();
-            setHasKey(true);
-        }
       }
     };
     init();
-
-    window.addEventListener('online', () => PhysioDB.syncPendingData());
-    return () => window.removeEventListener('online', () => PhysioDB.syncPendingData());
   }, []);
 
   const handleOpenKeySelection = async () => {
@@ -112,12 +83,6 @@ export default function PhysioCoreApp() {
       await aistudio.openSelectKey();
       setHasKey(true);
     }
-  };
-
-  const handleConsultationResult = async (result: PatientProfile) => {
-    setPatientData(result);
-    await PhysioDB.saveProfile(result);
-    setActiveTab('dashboard');
   };
 
   const submitFeedback = async () => {
@@ -130,40 +95,25 @@ export default function PhysioCoreApp() {
       setShowFeedbackModal(false);
       setActiveTab('progress');
     } catch (err: any) {
-      console.error("Feedback Adjustment Error", err);
-      if (err.message?.includes("API_KEY_MISSING") || err.message?.includes("Requested entity was not found")) {
-         await handleOpenKeySelection();
-      }
+      console.error(err);
+      if (err.message?.includes("API_KEY_MISSING")) await handleOpenKeySelection();
     }
   };
 
-  if (isDbLoading) {
-    return (
-        <div className="min-h-screen bg-[#0F172A] flex items-center justify-center">
-            <div className="flex flex-col items-center gap-6">
-                <RefreshCw size={48} className="text-cyan-500 animate-spin" />
-                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-500">SİSTEM VERİLERİ YÜKLENİYOR...</p>
-            </div>
-        </div>
-    );
-  }
+  if (isDbLoading) return <div className="min-h-screen bg-[#0F172A] flex items-center justify-center"><RefreshCw size={48} className="text-cyan-500 animate-spin" /></div>;
 
   return (
     <div className="min-h-screen bg-[#0F172A] text-[#F8FAFC] font-roboto">
-      <header className="sticky top-0 z-50 glass-panel border-b border-slate-800 px-8 py-4 flex justify-between items-center">
+      <header className="sticky top-0 z-50 glass-panel border-b border-white/5 px-8 py-4 flex justify-between items-center">
         <div className="flex items-center gap-4 cursor-pointer" onClick={() => setActiveTab('consultation')}>
-          <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-            <Activity className="text-white" size={24} />
-          </div>
-          <div>
-            <h1 className="font-inter font-black text-xl tracking-tighter italic uppercase">PHYSIOCORE <span className="text-cyan-400">AI</span></h1>
-            <p className="text-[8px] font-mono text-slate-500 uppercase tracking-widest font-black">Genesis Expert v6.0</p>
-          </div>
+          <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center"><Activity className="text-white" size={24} /></div>
+          <div><h1 className="font-inter font-black text-xl tracking-tighter italic uppercase">PHYSIOCORE <span className="text-cyan-400">AI</span></h1><p className="text-[8px] font-mono text-slate-500 uppercase font-black">Phase 4: Pro EBM Hub</p></div>
         </div>
         
-        <nav className="hidden md:flex bg-slate-900/50 p-1 rounded-xl border border-slate-800">
+        <nav className="hidden xl:flex bg-slate-900/50 p-1 rounded-xl border border-white/5 overflow-x-auto no-scrollbar">
           <NavBtn active={activeTab === 'consultation'} onClick={() => setActiveTab('consultation')} icon={Stethoscope} label="GÖRÜŞME" />
           <NavBtn active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={LayoutDashboard} label="PANEL" />
+          <NavBtn active={activeTab === 'ebm'} onClick={() => setActiveTab('ebm')} icon={Microscope} label="EBM & SEVK" />
           <NavBtn active={activeTab === 'progress'} onClick={() => setActiveTab('progress')} icon={TrendingUp} label="TAKİP" />
           <NavBtn active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={Users} label="KADRO" />
           <NavBtn active={activeTab === 'cms'} icon={Database} label="STUDIO" onClick={() => setActiveTab('cms')} />
@@ -171,48 +121,36 @@ export default function PhysioCoreApp() {
         </nav>
 
         <div className="flex items-center gap-4">
-           {!hasKey && (
-             <button onClick={handleOpenKeySelection} className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 transition-colors">
-                <Key size={14} className="text-amber-500" />
-                <span className="text-[9px] font-black uppercase text-amber-500 tracking-widest">API KEY SEÇİN</span>
-             </button>
-           )}
-           <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-[9px] font-black uppercase text-white tracking-widest">SİSTEM AKTİF</span>
-           </div>
+           {!hasKey && <button onClick={handleOpenKeySelection} className="p-2 text-amber-500 border border-amber-500/30 rounded-lg animate-pulse"><Key size={20}/></button>}
+           <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto p-8 pb-20">
-        {activeTab === 'consultation' && <ClinicalConsultation onAnalysisComplete={handleConsultationResult} />}
-        {activeTab === 'dashboard' && <Dashboard profile={patientData} onExerciseSelect={(ex) => setSelectedExercise(ex)} />}
+        {activeTab === 'consultation' && <ClinicalConsultation onAnalysisComplete={(res) => { setPatientData(res); PhysioDB.saveProfile(res); setActiveTab('dashboard'); }} />}
+        {activeTab === 'dashboard' && <Dashboard profile={patientData} onExerciseSelect={setSelectedExercise} />}
+        {activeTab === 'ebm' && <ClinicalEBMHub />}
         {activeTab === 'progress' && <ProgressTracker profile={patientData} />}
         {activeTab === 'users' && <UserManager />}
         {activeTab === 'cms' && <ExerciseStudio />}
         {activeTab === 'management' && <ManagementHub />}
       </main>
 
-      {selectedExercise && <ExercisePlayer exercise={selectedExercise} onClose={(finished) => {
-        setSelectedExercise(null);
-        if (finished) setShowFeedbackModal(true);
-      }} />}
+      {selectedExercise && <ExercisePlayer exercise={selectedExercise} onClose={(f) => { setSelectedExercise(null); if (f) setShowFeedbackModal(true); }} />}
       
       {showFeedbackModal && (
-        <div className="fixed inset-0 z-[110] bg-slate-950/90 backdrop-blur-3xl flex items-center justify-center p-6 animate-in fade-in duration-300">
-           <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-[3rem] p-12 space-y-10 shadow-2xl relative overflow-hidden">
-              <div className="text-center space-y-3">
-                 <CheckCircle2 size={32} className="mx-auto text-emerald-400" />
-                 <h2 className="font-inter text-2xl font-black italic tracking-tighter uppercase leading-tight text-white">Seans <span className="text-cyan-400">Tamamlandı</span></h2>
-              </div>
-              <div className="space-y-6">
-                 <label className="text-[10px] font-mono text-slate-400 uppercase tracking-widest font-black">Ağrı Skoru (VAS: {painScore})</label>
+        <div className="fixed inset-0 z-[110] bg-slate-950/90 backdrop-blur-3xl flex items-center justify-center p-6">
+           <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-[3rem] p-12 space-y-10 shadow-2xl relative overflow-hidden text-center">
+              <CheckCircle2 size={32} className="mx-auto text-emerald-400" />
+              <h2 className="text-2xl font-black italic uppercase text-white">Seans <span className="text-cyan-400">Tamamlandı</span></h2>
+              <div className="space-y-6 text-left">
+                 <label className="text-[10px] font-mono text-slate-400 uppercase font-black">Ağrı Skoru (VAS: {painScore})</label>
                  <input type="range" min="0" max="10" value={painScore} onChange={(e) => setPainScore(parseInt(e.target.value))} className="w-full h-2 bg-slate-800 rounded-full appearance-none accent-cyan-500" />
-                 <textarea value={userComment} onChange={(e) => setUserComment(e.target.value)} placeholder="Terapistiniz için notunuz..." className="w-full bg-slate-950 border border-slate-800 rounded-[1.5rem] p-6 text-xs h-32 outline-none" />
+                 <textarea value={userComment} onChange={(e) => setUserComment(e.target.value)} placeholder="Terapist Notu..." className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs h-24" />
               </div>
               <div className="flex gap-4">
-                 <button onClick={() => setShowFeedbackModal(false)} className="flex-1 py-5 bg-slate-800 rounded-2xl text-[10px] font-black text-slate-400">İPTAL</button>
-                 <button onClick={submitFeedback} className="flex-1 py-5 bg-cyan-500 rounded-2xl text-[10px] font-black text-white">VERİLERİ KAYDET</button>
+                 <button onClick={() => setShowFeedbackModal(false)} className="flex-1 py-4 bg-slate-800 rounded-xl text-[10px] font-black">İPTAL</button>
+                 <button onClick={submitFeedback} className="flex-1 py-4 bg-cyan-500 rounded-xl text-[10px] font-black text-white">KAYDET</button>
               </div>
            </div>
         </div>
