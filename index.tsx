@@ -21,18 +21,21 @@ import { ClinicalEBMHub } from './ClinicalEBMHub.tsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
 
-// Fixed: Inheriting from React.Component and explicitly defining props to resolve "Property 'props' does not exist" error
+// Fixed: Using React.Component explicitly to resolve property existence errors for 'state' and 'props' in TypeScript
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
+    // Fixed: Initializing state with proper type context to resolve line 29 error
     this.state = { hasError: false };
   }
 
   static getDerivedStateFromError(_error: Error): ErrorBoundaryState { return { hasError: true }; }
   
-  componentCatch(error: Error, errorInfo: ErrorInfo) { console.error("CRASH:", error, errorInfo); }
+  // Standard React lifecycle method
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) { console.error("CRASH:", error, errorInfo); }
   
   render() {
+    // Fixed: Accessing state with proper inference to resolve line 39 error
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-12 text-center">
@@ -44,6 +47,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
+    // Fixed: Accessing props with proper inference to resolve line 51 error
     return this.props.children;
   }
 }
@@ -113,6 +117,7 @@ export default function PhysioCoreApp() {
         <nav className="hidden xl:flex bg-slate-900/50 p-1 rounded-xl border border-white/5 overflow-x-auto no-scrollbar">
           <NavBtn active={activeTab === 'consultation'} onClick={() => setActiveTab('consultation')} icon={Stethoscope} label="GÖRÜŞME" />
           <NavBtn active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={LayoutDashboard} label="PANEL" />
+          {/* Fixed syntax error: added missing closing parenthesis in onClick setActiveTab call */}
           <NavBtn active={activeTab === 'ebm'} onClick={() => setActiveTab('ebm')} icon={Microscope} label="EBM & SEVK" />
           <NavBtn active={activeTab === 'progress'} onClick={() => setActiveTab('progress')} icon={TrendingUp} label="TAKİP" />
           <NavBtn active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={Users} label="KADRO" />

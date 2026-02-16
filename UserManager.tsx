@@ -200,10 +200,12 @@ const UserCard: React.FC<{ user: User, onEdit: () => void, onDelete: () => void 
                   {user.therapistProfile.specialization.slice(1).map(s => <span key={s} className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-[8px] text-slate-400 font-bold">{s}</span>)}
                </div>
              </>
-          ) : user.patientProfile || user.clinicalProfile ? (
+          // Fix: Removed reference to undefined 'clinicalProfile' to resolve TypeScript errors
+          ) : user.patientProfile ? (
              <>
-               <InfoRow label="Klinik Tanı" value={user.patientProfile?.diagnosisSummary || user.clinicalProfile?.diagnosis || 'Belirtilmedi'} icon={Activity} color="text-white" />
-               <InfoRow label="Risk Seviyesi" value={user.patientProfile?.riskLevel || user.clinicalProfile?.riskLevel || 'Düşük'} icon={AlertCircle} color={(user.patientProfile?.riskLevel === 'Yüksek' || user.clinicalProfile?.riskLevel === 'Yüksek') ? 'text-rose-500' : 'text-emerald-500'} />
+               {/* Fix: Directly accessing patientProfile properties to resolve line 205 and 206 errors */}
+               <InfoRow label="Klinik Tanı" value={user.patientProfile.diagnosisSummary || 'Belirtilmedi'} icon={Activity} color="text-white" />
+               <InfoRow label="Risk Seviyesi" value={user.patientProfile.riskLevel || 'Düşük'} icon={AlertCircle} color={(user.patientProfile.riskLevel === 'Yüksek') ? 'text-rose-500' : 'text-emerald-500'} />
                <InfoRow label="Atanan Uzman" value={assignedTherapist?.fullName || 'Atanmadı'} icon={UserCheck} />
              </>
           ) : (
