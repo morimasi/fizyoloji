@@ -17,26 +17,10 @@ export const DosageEngineModule: React.FC<DosageEngineModuleProps> = ({ data, on
   const [optimizationGoal, setOptimizationGoal] = useState('Maksimum Mobilite');
   const [isOptimizing, setIsOptimizing] = useState(false);
 
-  const sets = data.sets || 0;
-  const reps = data.reps || 0;
-  const tempo = data.tempo || '3-1-3';
-  
-  const calculateTutPerRep = (tempoStr: string) => {
-    const parts = tempoStr.split('-').map(Number);
-    if (parts.length >= 3 && !parts.some(isNaN)) {
-        return parts.reduce((a, b) => a + b, 0);
-    }
-    return 4;
-  };
-
-  const tutPerRep = calculateTutPerRep(tempo);
-  const totalTut = sets * reps * tutPerRep;
-  const volumeLoad = sets * reps;
-
   const handleOptimize = async () => {
-    // API Anahtarı Guard
-    const ok = await ensureApiKey();
-    if (!ok) return;
+    // 1. API Anahtarı Kontrolü
+    const hasKey = await ensureApiKey();
+    if (!hasKey) return;
 
     setIsOptimizing(true);
     try {
@@ -44,10 +28,10 @@ export const DosageEngineModule: React.FC<DosageEngineModuleProps> = ({ data, on
       onUpdate({ ...data, ...optimized, isPersonalized: true });
     } catch (err: any) {
       console.error("Optimization Failed", err);
-      if (err.message?.includes("Requested entity was not found") || err.message?.includes("API_KEY_MISSING")) {
-         await (window as any).aistudio?.openSelectKey();
+      if (err.message?.includes("not found") || err.message?.includes("API_KEY_MISSING")) {
+        await (window as any).aistudio?.openSelectKey();
       } else {
-         alert("Optimizasyon başarısız. Lütfen tekrar deneyin.");
+        alert("Dozaj optimizasyonu yapılamadı.");
       }
     } finally {
       setIsOptimizing(false);
@@ -57,6 +41,9 @@ export const DosageEngineModule: React.FC<DosageEngineModuleProps> = ({ data, on
   const updateField = (field: keyof Exercise, value: any) => {
     onUpdate({ ...data, [field]: value });
   };
+
+  const sets = data.sets || 0;
+  const reps = data.reps || 0;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">

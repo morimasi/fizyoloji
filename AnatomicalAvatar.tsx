@@ -3,13 +3,11 @@ import { Canvas, useFrame, ThreeElements } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera, Stars, Float, Text, MeshDistortMaterial } from '@react-three/drei';
 import * as THREE from 'three';
 
-// Fix: Extending React.JSX.IntrinsicElements allows TypeScript to recognize Three.js elements used by @react-three/fiber
-// Modern React environments often require the augmentation within the React namespace.
+// Üst düzey JSX ad alanı genişletmesi, Three.js intrinsic elementlerinin 
+// (mesh, group, light'lar vb.) TypeScript tarafından doğru tanınmasını sağlar.
 declare global {
-  namespace React {
-    namespace JSX {
-      interface IntrinsicElements extends ThreeElements {}
-    }
+  namespace JSX {
+    interface IntrinsicElements extends ThreeElements {}
   }
 }
 

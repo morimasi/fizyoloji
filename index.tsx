@@ -68,23 +68,28 @@ export default function PhysioCoreApp() {
       } catch (e) { console.error("DB Init Failed", e); }
       finally { setIsDbLoading(false); }
       
+      // AI Anahtar durumunu kontrol et
       const aistudio = (window as any).aistudio;
       if (aistudio?.hasSelectedApiKey) {
-        const keyExists = await aistudio.hasSelectedApiKey();
-        setHasKey(keyExists);
+        const keySelected = await aistudio.hasSelectedApiKey();
+        setHasKey(keySelected);
       }
     };
     init();
   }, []);
 
-  const handleOpenKeySelection = async () => {
+  const handleKeySelect = async () => {
     await ensureApiKey();
     setHasKey(true);
   };
 
   const submitFeedback = async () => {
     if (!patientData) return;
-    await ensureApiKey(); // AI öncesi guard
+    
+    // AI öncesi kontrol
+    const ok = await ensureApiKey();
+    if (!ok) return;
+
     const report: ProgressReport = { date: new Date().toISOString(), painScore, completionRate: 100, feedback: userComment };
     try {
       const updated = await runAdaptiveAdjustment(patientData, report);
@@ -94,8 +99,8 @@ export default function PhysioCoreApp() {
       setActiveTab('progress');
     } catch (err: any) {
       console.error(err);
-      if (err.message?.includes("API_KEY_MISSING") || err.message?.includes("Requested entity was not found")) {
-        await handleOpenKeySelection();
+      if (err.message?.includes("not found") || err.message?.includes("API_KEY_MISSING")) {
+        await handleKeySelect();
       }
     }
   };
@@ -111,11 +116,11 @@ export default function PhysioCoreApp() {
         </div>
         
         <nav className="hidden xl:flex bg-slate-900/50 p-1 rounded-xl border border-white/5 overflow-x-auto no-scrollbar">
-          <NavBtn active={activeTab === 'consultation'} onClick={() => setActiveTab('consultation')} icon={Stethoscope} label="GÖRÜŞME" />
-          <NavBtn active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={LayoutDashboard} label="PANEL" />
-          <NavBtn active={activeTab === 'ebm'} onClick={() => setActiveTab('ebm')} icon={Microscope} label="EBM & SEVK" />
-          <NavBtn active={activeTab === 'progress'} onClick={() => setActiveTab('progress')} icon={TrendingUp} label="TAKİP" />
-          <NavBtn active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={Users} label="KADRO" />
+          <NavBtn active={activeTab === 'consultation'} onClick={() => setActiveTab('consultation'} icon={Stethoscope} label="GÖRÜŞME" />
+          <NavBtn active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard'} icon={LayoutDashboard} label="PANEL" />
+          <NavBtn active={activeTab === 'ebm'} onClick={() => setActiveTab('ebm'} icon={Microscope} label="EBM & SEVK" />
+          <NavBtn active={activeTab === 'progress'} onClick={() => setActiveTab('progress'} icon={TrendingUp} label="TAKİP" />
+          <NavBtn active={activeTab === 'users'} onClick={() => setActiveTab('users'} icon={Users} label="KADRO" />
           <NavBtn active={activeTab === 'cms'} icon={Database} label="STUDIO" onClick={() => setActiveTab('cms')} />
           <NavBtn active={activeTab === 'management'} icon={Settings} label="YÖNETİM" onClick={() => setActiveTab('management')} />
         </nav>
@@ -123,7 +128,7 @@ export default function PhysioCoreApp() {
         <div className="flex items-center gap-4">
            {!hasKey && (
              <button 
-               onClick={handleOpenKeySelection} 
+               onClick={handleKeySelect} 
                className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/30 text-amber-500 rounded-xl text-[9px] font-black uppercase tracking-widest animate-pulse hover:bg-amber-500/20 transition-all"
              >
                 <Key size={14} /> Anahtar Seçiniz

@@ -7,7 +7,7 @@ import {
   Flame, Wind, Cpu, Sparkles, MessageSquare,
   Thermometer, Info, Save, X, Search, HeartPulse,
   Mic, MicOff, Settings2, ShieldAlert, Layers,
-  Terminal, Database, Radio, Gauge, Crosshair, RefreshCw
+  Terminal, Database, Radio, Gauge, Crosshair, RefreshCw, Key
 } from 'lucide-react';
 import { runClinicalConsultation, ensureApiKey } from './ai-service.ts';
 import { PatientProfile, RiskLevel } from './types.ts';
@@ -29,19 +29,10 @@ export const ClinicalConsultation: React.FC<ConsultationProps> = ({ onAnalysisCo
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const areas = [
-    { id: 'lumbar', label: 'Bel / Lumbar', icon: Wind },
-    { id: 'cervical', label: 'Boyun / Cervical', icon: Activity },
-    { id: 'thoracic', label: 'Sırt / Thoracic', icon: Layers },
-    { id: 'knee', label: 'Diz / Knee', icon: Target },
-    { id: 'shoulder', label: 'Omuz / Shoulder', icon: Flame },
-    { id: 'post-op', label: 'Post-Operatif', icon: Stethoscope }
-  ];
-
   const handleStartAnalysis = async () => {
-    // 1. API Anahtarı Guard
-    const ok = await ensureApiKey();
-    if (!ok) return;
+    // 1. API Anahtarı Kontrolü
+    const hasKey = await ensureApiKey();
+    if (!hasKey) return;
 
     setIsAnalyzing(true);
     setStep(2);
@@ -60,13 +51,12 @@ export const ClinicalConsultation: React.FC<ConsultationProps> = ({ onAnalysisCo
         onAnalysisComplete(result);
       }
     } catch (err: any) {
-      console.error("Analysis Failed", err);
-      
-      // Eğer anahtar hatası döndüyse diyaloğu tekrar zorla
-      if (err.message?.includes("Requested entity was not found") || err.message?.includes("API_KEY_MISSING")) {
+      console.error("AI Analysis Failed", err);
+      // "Requested entity was not found" veya "API_KEY_MISSING" hataları durumunda anahtar seçimini zorla
+      if (err.message?.includes("not found") || err.message?.includes("API_KEY_MISSING")) {
         await (window as any).aistudio?.openSelectKey();
       } else {
-         alert("Klinik analiz sırasında bir hata oluştu. Lütfen girdileri kontrol edip tekrar deneyin.");
+        alert("Analiz sırasında bir hata oluştu. Lütfen bağlantınızı kontrol edin.");
       }
       setStep(1);
     } finally {
@@ -76,10 +66,10 @@ export const ClinicalConsultation: React.FC<ConsultationProps> = ({ onAnalysisCo
 
   const toggleRecording = () => {
     setIsRecording(!isRecording);
-    if (!isRecording) {
+    if (!isRecording && !userInput) {
       setTimeout(() => {
-        if (userInput.length === 0) setUserInput("Sesli Anamnez: Hasta sabahları belinde şiddetli tutukluk (VAS 8) ve sol kalçaya yayılan uyuşma şikayeti bildiriyor...");
-      }, 2000);
+        setUserInput("Sesli Anamnez: Hasta dizinde 1 haftadır süren yüklenme ağrısı (VAS 6) ve fleksiyon kısıtlılığı bildiriyor...");
+      }, 1000);
     }
   };
 
