@@ -80,7 +80,8 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
       } else if (format === 'mp4' && videoUrl) {
         await MediaConverter.export(videoUrl, 'mp4', `PhysioCore_Video_${exercise.code}`);
       } else if (format === 'gif' && (videoUrl || previewUrl)) {
-        await MediaConverter.export(videoUrl || previewUrl, 'gif', `PhysioCore_Anim_${exercise.code}`);
+        // Note: 'gif' format internally triggers WebM conversion in MediaConverter to avoid corrupt files
+        await MediaConverter.export(videoUrl || previewUrl, 'gif', `PhysioCore_Motion_${exercise.code}`);
       }
     } catch (e) {
       alert("Dönüştürme sırasında hata oluştu.");
@@ -207,7 +208,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                    <DownloadBtn onClick={() => handleDownload('mp4')} label="MP4 İNDİR" icon={FileVideo} />
                 )}
                 {(activeTab === 'image' || activeTab === 'video') && (
-                   <DownloadBtn onClick={() => handleDownload('gif')} label="GIF İNDİR" icon={Gift} />
+                   <DownloadBtn onClick={() => handleDownload('gif')} label="VIDEO (WEBM)" icon={Film} />
                 )}
              </div>
           )}

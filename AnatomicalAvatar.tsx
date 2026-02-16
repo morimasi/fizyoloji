@@ -1,16 +1,12 @@
-
 import React, { useRef, useMemo } from 'react';
 import { Canvas, useFrame, ThreeElements } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera, Stars, Float, Text, MeshDistortMaterial } from '@react-three/drei';
 import * as THREE from 'three';
 
 // Fix for "Property '...' does not exist on type 'JSX.IntrinsicElements'"
-// This explicitly augments the JSX namespace to include Three.js elements for React Three Fiber.
 declare global {
-  namespace React {
-    namespace JSX {
-      interface IntrinsicElements extends ThreeElements {}
-    }
+  namespace JSX {
+    interface IntrinsicElements extends ThreeElements {}
   }
 }
 
@@ -42,12 +38,12 @@ const Bone: React.FC<BoneProps> = ({ start, end, highlighted, layer = 'skeletal'
     }
   };
 
-  const mat = getMaterialProps();
+  const { thickness, ...materialProps } = getMaterialProps();
 
   return (
     <mesh position={position} quaternion={quaternion} ref={meshRef}>
-      <cylinderGeometry args={[mat.thickness, mat.thickness, height, 8]} />
-      <meshStandardMaterial {...mat} />
+      <cylinderGeometry args={[thickness, thickness, height, 8]} />
+      <meshStandardMaterial {...materialProps} />
     </mesh>
   );
 };
