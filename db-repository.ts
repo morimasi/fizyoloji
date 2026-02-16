@@ -3,11 +3,11 @@ import { Exercise, PatientProfile, User } from './types.ts';
 import { SEED_EXERCISES } from './seed-data.ts';
 
 /**
- * PHYSIOCORE DATA ENGINE v3.0 (Enterprise IndexedDB & Cloud Orchestrator)
+ * PHYSIOCORE DATA ENGINE v3.1 (UUID Compliant & Sync Orchestrator)
  */
 export class PhysioDB {
   private static DB_NAME = 'PhysioCore_Genesis_DB';
-  private static DB_VERSION = 2; // Şema değişikliği için versiyon artırıldı
+  private static DB_VERSION = 2;
   private static STORES = {
     EXERCISES: 'exercises',
     PROFILES: 'profiles',
@@ -25,12 +25,11 @@ export class PhysioDB {
 
       request.onupgradeneeded = (event: any) => {
         const db = event.target.result;
-        if (!db.objectStoreNames.contains(this.STORES.EXERCISES)) db.createObjectStore(this.STORES.EXERCISES, { keyPath: 'id' });
-        if (!db.objectStoreNames.contains(this.STORES.PROFILES)) db.createObjectStore(this.STORES.PROFILES, { keyPath: 'user_id' });
-        if (!db.objectStoreNames.contains(this.STORES.USERS)) db.createObjectStore(this.STORES.USERS, { keyPath: 'id' });
-        if (!db.objectStoreNames.contains(this.STORES.TASKS)) db.createObjectStore(this.STORES.TASKS, { keyPath: 'id' });
-        if (!db.objectStoreNames.contains(this.STORES.LOGS)) db.createObjectStore(this.STORES.LOGS, { keyPath: 'id' });
-        if (!db.objectStoreNames.contains(this.STORES.SYNC_QUEUE)) db.createObjectStore(this.STORES.SYNC_QUEUE, { keyPath: 'id', autoIncrement: true });
+        Object.values(this.STORES).forEach(store => {
+          if (!db.objectStoreNames.contains(store)) {
+            db.createObjectStore(store, { keyPath: store === this.STORES.SYNC_QUEUE ? 'id' : (store === this.STORES.PROFILES ? 'user_id' : 'id'), autoIncrement: store === this.STORES.SYNC_QUEUE });
+          }
+        });
       };
 
       request.onsuccess = async (event: any) => {
@@ -91,34 +90,30 @@ export class PhysioDB {
   }
 
   // --- USERS ---
-  // Fix: Added missing getUsers method to retrieve all users from IDB
   static async getUsers(): Promise<User[]> {
     const store = await this.getStore(this.STORES.USERS);
     return new Promise(r => { const req = store.getAll(); req.onsuccess = () => r(req.result || []); });
   }
 
-  // Fix: Added missing addUser method to store a new user and trigger sync
   static async addUser(user: User): Promise<void> {
     const store = await this.getStore(this.STORES.USERS, 'readwrite');
     const enriched = { ...user, _sync: { isDirty: true, version: 1 } };
     return new Promise(r => { 
       const req = store.put(enriched); 
-      req.onsuccess = () => { this.triggerSync('USER_UPSERT', enriched); r(); }; 
+      req.onsuccess = () => { this.triggerSync('PROFILE_UPSERT', enriched); r(); }; 
     });
   }
 
-  // Fix: Added missing updateUser method (alias to addUser for simplicity in IDB put)
   static async updateUser(user: User): Promise<void> {
     await this.addUser(user);
   }
 
-  // Fix: Added missing deleteUser method to remove user records by ID
   static async deleteUser(id: string): Promise<void> {
     const store = await this.getStore(this.STORES.USERS, 'readwrite');
     return new Promise(r => { const req = store.delete(id); req.onsuccess = () => r(); });
   }
 
-  // --- CLINICAL TASKS (New) ---
+  // --- CLINICAL TASKS ---
   static async getTasks(): Promise<any[]> {
     const store = await this.getStore(this.STORES.TASKS);
     return new Promise(r => { const req = store.getAll(); req.onsuccess = () => r(req.result || []); });
@@ -146,9 +141,16 @@ export class PhysioDB {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ syncType: type, payload })
       });
-      if (response.ok) await this.markAsClean(type, payload);
-      else throw new Error("Sync Failed");
+      
+      if (response.ok) {
+        await this.markAsClean(type, payload);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error(`[SyncEngine] Server rejected data (${response.status}):`, errorData.error || response.statusText);
+        this.addToSyncQueue(type, payload);
+      }
     } catch (err) {
+      console.warn("[SyncEngine] Network connection unavailable, queuing data.");
       this.addToSyncQueue(type, payload);
     }
   }
@@ -167,12 +169,14 @@ export class PhysioDB {
       'USER_UPSERT': 'id'
     };
     
-    const storeName = storeMap[type];
-    if (!storeName) return;
-
+    const storeName = storeMap[type] || this.STORES.USERS;
     const store = await this.getStore(storeName, 'readwrite');
+    const idValue = payload[keyMap[type]] || payload.id || payload.user_id;
+
+    if (!idValue) return;
+
     const item = await new Promise<any>(r => {
-      const req = store.get(payload[keyMap[type]]);
+      const req = store.get(idValue);
       req.onsuccess = () => r(req.result);
     });
 

@@ -7,11 +7,13 @@ import { GoogleGenAI } from "@google/genai";
  */
 export const getAI = () => {
   const apiKey = process.env.API_KEY;
-  // Talimat gereği: Eğer anahtar yoksa veya sorgu hatası alınırsa 
-  // "Requested entity was not found." içeren bir hata fırlatılmalıdır.
-  if (!apiKey || apiKey === "undefined") {
+  
+  // Talimat gereği: Eğer anahtar yoksa veya geçersizse 
+  // "Requested entity was not found." fırlatılmalı.
+  if (!apiKey || apiKey === "undefined" || apiKey === "") {
     throw new Error("Requested entity was not found. (API_KEY_MISSING)");
   }
+  
   return new GoogleGenAI({ apiKey });
 };
 
@@ -35,8 +37,7 @@ export const ensureApiKey = async (): Promise<boolean> => {
     const hasKey = await aistudio.hasSelectedApiKey();
     if (!hasKey) {
       await aistudio.openSelectKey();
-      // Yarış durumunu engellemek için seçim tetiklendiği anda 
-      // başarılı varsayıp devam ediyoruz (Yönerge kuralı).
+      // Yönerge kuralı: Seçim tetiklendiği anda başarılı varsayıp devam et.
       return true;
     }
     return true;

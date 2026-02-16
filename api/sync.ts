@@ -3,8 +3,7 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql } from '@vercel/postgres';
 
 /**
- * PHYSIOCORE SYNC ENGINE v9.3 (Cloud Orchestrator)
- * Handles Role-based Profiles, Exercises, and Clinical Tasks.
+ * PHYSIOCORE SYNC ENGINE v9.4 (UUID Robust Edition)
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -16,12 +15,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     console.log(`[SyncServer] Executing: ${syncType}`);
 
+    // Helper: Valid UUID check and generation
+    const ensureUUID = (id: string | undefined) => {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (id && uuidRegex.test(id)) return id;
+      return null; // Let Postgres generate it via gen_random_uuid()
+    };
+
     // --- PROFILE UPSERT ---
     if (syncType === 'PROFILE_UPSERT') {
-      const { id, fullName, email, role, phone, patientProfile, therapistProfile } = payload;
+      const { id, fullName, email, role, phone, patientProfile } = payload;
+      const validId = ensureUUID(id);
+      
       const userRes = await sql`
         INSERT INTO users (id, full_name, email, role, phone)
-        VALUES (${id || 'gen_random_uuid()'}, ${fullName}, ${email}, ${role}, ${phone})
+        VALUES (${validId || 'gen_random_uuid()'}, ${fullName}, ${email}, ${role}, ${phone})
         ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name, phone = EXCLUDED.phone, updated_at = CURRENT_TIMESTAMP
         RETURNING id;
       `;
@@ -40,16 +48,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // --- CLINICAL TASK SYNC ---
     if (syncType === 'TASK_SYNC') {
       const { id, title, priority, status, aiRecommendation, therapistId, patientId } = payload;
+      const validId = ensureUUID(id);
+      const validTherapistId = ensureUUID(therapistId);
+      const validPatientId = ensureUUID(patientId);
+
       await sql`
         INSERT INTO clinical_tasks (id, title, priority, status, ai_recommendation, therapist_id, patient_id)
         VALUES (
-          ${id}, 
+          ${validId || 'gen_random_uuid()'}, 
           ${title}, 
           ${priority}, 
           ${status || 'Pending'}, 
           ${aiRecommendation || null}, 
-          ${therapistId || '00000000-0000-0000-0000-000000000000'}, 
-          ${patientId || null}
+          ${validTherapistId || '00000000-0000-0000-0000-000000000000'}, 
+          ${validPatientId}
         )
         ON CONFLICT (id) DO UPDATE SET 
           status = EXCLUDED.status, 
@@ -61,10 +73,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // --- STUDIO EXERCISE SYNC ---
     if (syncType === 'STUDIO_EXERCISE') {
-      const { code, title, titleTr, category, difficulty, description, biomechanics, isMotion } = payload;
+      const { id, code, title, titleTr, category, difficulty, description, biomechanics } = payload;
+      const validId = ensureUUID(id);
+      
       await sql`
-        INSERT INTO exercises (code, title, title_tr, category, difficulty_level, description, biomechanics_notes)
-        VALUES (${code}, ${title}, ${titleTr}, ${category}, ${difficulty}, ${description}, ${biomechanics})
+        INSERT INTO exercises (id, code, title, title_tr, category, difficulty_level, description, biomechanics_notes)
+        VALUES (${validId || 'gen_random_uuid()'}, ${code}, ${title}, ${titleTr}, ${category}, ${difficulty}, ${description}, ${biomechanics})
         ON CONFLICT (code) DO UPDATE SET title = EXCLUDED.title, description = EXCLUDED.description;
       `;
       return res.status(200).json({ success: true });
@@ -74,6 +88,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   } catch (error: any) {
     console.error("[SyncFatal]:", error.message);
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message, detail: "UUID mismatch or DB connection error" });
   }
 }
