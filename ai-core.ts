@@ -16,6 +16,15 @@ export const getAI = () => {
 };
 
 /**
+ * Gelen hatanın API anahtarı ile ilgili (expired, invalid, missing) olup olmadığını kontrol eder.
+ */
+export const isApiKeyError = (error: any): boolean => {
+  const errorMessage = error?.message || (typeof error === 'string' ? error : JSON.stringify(error));
+  const expiredKeywords = ["expired", "INVALID_ARGUMENT", "API_KEY_INVALID", "not found", "renew", "MISSING"];
+  return expiredKeywords.some(keyword => errorMessage.includes(keyword));
+};
+
+/**
  * Kullanıcıdan API anahtarı seçmesini isteyen veya mevcut durumu kontrol eden guard.
  */
 export const ensureApiKey = async (): Promise<boolean> => {

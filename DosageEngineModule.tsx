@@ -6,7 +6,7 @@ import {
   TrendingUp, PlayCircle, Settings2, ArrowRight, Layers
 } from 'lucide-react';
 import { Exercise } from './types.ts';
-import { optimizeExerciseData, ensureApiKey } from './ai-service.ts';
+import { optimizeExerciseData, ensureApiKey, isApiKeyError } from './ai-service.ts';
 
 interface DosageEngineModuleProps {
   data: Partial<Exercise>;
@@ -28,7 +28,7 @@ export const DosageEngineModule: React.FC<DosageEngineModuleProps> = ({ data, on
       onUpdate({ ...data, ...optimized, isPersonalized: true });
     } catch (err: any) {
       console.error("Optimization Failed", err);
-      if (err.message?.includes("not found") || err.message?.includes("API_KEY_MISSING")) {
+      if (isApiKeyError(err)) {
         await (window as any).aistudio?.openSelectKey();
       } else {
         alert("Dozaj optimizasyonu yapılamadı.");

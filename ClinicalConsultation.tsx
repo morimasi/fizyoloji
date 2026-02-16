@@ -9,7 +9,7 @@ import {
   Mic, MicOff, Settings2, ShieldAlert, Layers,
   Terminal, Database, Radio, Gauge, Crosshair, RefreshCw, Key
 } from 'lucide-react';
-import { runClinicalConsultation, ensureApiKey } from './ai-service.ts';
+import { runClinicalConsultation, ensureApiKey, isApiKeyError } from './ai-service.ts';
 import { PatientProfile, RiskLevel } from './types.ts';
 
 interface ConsultationProps {
@@ -52,9 +52,8 @@ export const ClinicalConsultation: React.FC<ConsultationProps> = ({ onAnalysisCo
       }
     } catch (err: any) {
       console.error("AI Analysis Failed", err);
-      // "Requested entity was not found" veya "API_KEY_MISSING" hataları durumunda anahtar seçimini zorla
-      const msg = err.message || "";
-      if (msg.includes("not found") || msg.includes("MISSING")) {
+      // Hata anahtar kaynaklıysa seçiciyi aç
+      if (isApiKeyError(err)) {
         const aistudio = (window as any).aistudio;
         if (aistudio?.openSelectKey) {
            await aistudio.openSelectKey();

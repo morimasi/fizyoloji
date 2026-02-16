@@ -6,7 +6,7 @@ import {
   Stethoscope, Database, Plus, X, List, Hash
 } from 'lucide-react';
 import { Exercise } from './types.ts';
-import { generateExerciseData, ensureApiKey } from './ai-service.ts';
+import { generateExerciseData, ensureApiKey, isApiKeyError } from './ai-service.ts';
 
 interface ClinicalDataModuleProps {
   data: Partial<Exercise>;
@@ -37,7 +37,7 @@ export const ClinicalDataModule: React.FC<ClinicalDataModuleProps> = ({ data, on
       });
     } catch (err: any) {
       console.error("AI Analysis Failed", err);
-      if (err.message?.includes("Requested entity was not found") || err.message?.includes("API_KEY_MISSING")) {
+      if (isApiKeyError(err)) {
          await (window as any).aistudio?.openSelectKey();
       } else {
          alert("AI Analizi şu an gerçekleştirilemiyor. Lütfen ağ bağlantınızı ve girdileri kontrol edin.");

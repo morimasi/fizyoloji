@@ -7,7 +7,7 @@ import {
   CheckCircle2, AlertTriangle, RefreshCw, Key, Settings, Microscope
 } from 'lucide-react';
 import { AppTab, PatientProfile, Exercise, ProgressReport } from './types.ts';
-import { runAdaptiveAdjustment, ensureApiKey } from './ai-service.ts';
+import { runAdaptiveAdjustment, ensureApiKey, isApiKeyError } from './ai-service.ts';
 import { ExerciseStudio } from './ExerciseStudio.tsx';
 import { ExercisePlayer } from './ExercisePlayer.tsx';
 import { ProgressTracker } from './ProgressTracker.tsx';
@@ -82,7 +82,7 @@ export default function PhysioCoreApp() {
     };
     init();
 
-    // Anahtar değişikliğini izlemek için periyodik kontrol (Opsiyonel ama güvenli)
+    // Anahtar değişikliğini izlemek için periyodik kontrol
     const interval = setInterval(checkKey, 5000);
     return () => clearInterval(interval);
   }, []);
@@ -109,8 +109,8 @@ export default function PhysioCoreApp() {
       setShowFeedbackModal(false);
       setActiveTab('progress');
     } catch (err: any) {
-      console.error(err);
-      if (err.message?.includes("not found") || err.message?.includes("API_KEY_MISSING")) {
+      console.error("Optimization Failed", err);
+      if (isApiKeyError(err)) {
         await handleKeySelect();
       }
     }
