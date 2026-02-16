@@ -7,15 +7,16 @@ import {
   Trophy, CloudSync, BrainCircuit, AlertTriangle, 
   Target, BarChart3, Settings2, Sparkles,
   ArrowUpRight, Gauge, Layers, Info, History,
-  TrendingDown, Repeat, Timer, HeartPulse, User
+  TrendingDown, Repeat, Timer, HeartPulse, User, ShieldAlert
 } from 'lucide-react';
 import { PatientProfile, Exercise } from './types.ts';
 import { RPMBridge } from './RPMBridge.tsx';
+import { ClinicalRules } from './ClinicalRules.ts';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 /**
- * PHYSIOCORE CLINICAL DASHBOARD v6.0
- * Recharts & Biometric Visualization Hub
+ * PHYSIOCORE CLINICAL DASHBOARD v6.5
+ * Recharts & Biometric Visualization Hub with Red-Flag Alerts
  */
 
 const DEMO_RECOVERY_DATA = [
@@ -36,13 +37,35 @@ export const Dashboard: React.FC<{ profile: PatientProfile | null, onExerciseSel
     status: "Stabil",
     rehabPhase: "Sub-Akut",
     suggestedPlan: [],
+    progressHistory: [],
     physicalAssessment: { recoveryTrajectory: 72 },
     latestInsight: { summary: "Hasta iyileşme trendinde. Hareket açıklığı %15 arttı.", nextStep: "Faz 2 Egzersizlerine Geçiş" }
   };
 
+  // Kırmızı Bayrak Analizi
+  const redFlags = ClinicalRules.detectRedFlags(displayProfile.progressHistory);
+
   return (
     <div className="grid grid-cols-12 gap-8 animate-in fade-in slide-in-from-bottom-6 duration-1000 pb-20 font-roboto">
       
+      {/* 0. RED FLAG ALERTS (EBM v3.2) */}
+      {redFlags.length > 0 && (
+        <div className="col-span-12 animate-in slide-in-from-top-4 duration-500">
+           <div className="bg-rose-500/10 border border-rose-500/30 p-6 rounded-[2rem] flex items-center gap-6 shadow-2xl shadow-rose-500/10">
+              <div className="w-14 h-14 bg-rose-500 rounded-2xl flex items-center justify-center text-white shrink-0 animate-pulse">
+                 <ShieldAlert size={32} />
+              </div>
+              <div className="flex-1">
+                 <h4 className="text-xs font-black text-rose-500 uppercase tracking-[0.3em] mb-1">Kritik Klinik Uyarı (Red Flag)</h4>
+                 <p className="text-sm text-rose-100 font-medium italic">{redFlags[0]}</p>
+              </div>
+              <button className="px-6 py-3 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 transition-all">
+                 UZMANA SEVK ET
+              </button>
+           </div>
+        </div>
+      )}
+
       {/* 1. AI STRATEGIC COMMAND HUB */}
       <div className="col-span-12">
         <div className="bg-slate-900/60 backdrop-blur-3xl border-l-4 border-cyan-500 border border-slate-800 rounded-[2.5rem] p-8 relative overflow-hidden group">
@@ -62,7 +85,7 @@ export const Dashboard: React.FC<{ profile: PatientProfile | null, onExerciseSel
               <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-8">
                  <Metric label="İyileşme Yörüngesi" value={`%${displayProfile.physicalAssessment.recoveryTrajectory || 0}`} icon={Target} sub="Tahmini Hedef: 14 Gün" />
                  <Metric label="Nöromusküler Uyum" value="%88" icon={Activity} sub="Optimal Seviye" />
-                 <Metric label="Risk İndeksi" value={displayProfile.riskLevel} icon={Shield} sub="Kırmızı Bayrak Yok" color="text-emerald-400" />
+                 <Metric label="Risk İndeksi" value={displayProfile.riskLevel} icon={Shield} sub="Kırmızı Bayrak Yok" color={redFlags.length > 0 ? "text-rose-500" : "text-emerald-400"} />
               </div>
 
               <div className="p-6 bg-slate-950/50 rounded-3xl border border-slate-800 lg:max-w-xs">
@@ -84,9 +107,13 @@ export const Dashboard: React.FC<{ profile: PatientProfile | null, onExerciseSel
                </div>
             </div>
             <div>
-               <div className="text-5xl font-black text-white italic tracking-tighter">4.2<span className="text-lg text-slate-600 not-italic ml-2">/10</span></div>
+               <div className="text-5xl font-black text-white italic tracking-tighter">
+                {displayProfile.progressHistory.length > 0 ? displayProfile.progressHistory[displayProfile.progressHistory.length-1].painScore : '4.2'}
+                <span className="text-lg text-slate-600 not-italic ml-2">/10</span>
+               </div>
                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-2 flex items-center gap-2">
-                  <TrendingDown size={14} className="text-emerald-500" /> Son seansa göre %12 azalma
+                  <TrendingDown size={14} className={redFlags.length > 0 ? "text-rose-500" : "text-emerald-500"} /> 
+                  {redFlags.length > 0 ? "Ağrı trendi yükselişte!" : "Son seansa göre iyileşme"}
                </p>
             </div>
          </div>

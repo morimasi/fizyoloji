@@ -1,5 +1,5 @@
 
-import { RehabPhase, PatientProfile, Exercise } from './types.ts';
+import { RehabPhase, PatientProfile, Exercise, ProgressReport } from './types.ts';
 
 /**
  * PHYSIOCORE DETERMINISTIC CLINICAL ENGINE
@@ -18,6 +18,19 @@ export const ClinicalRules = {
   calculateDynamicReps: (painScore: number, baseReps: number = 10): number => {
     if (painScore >= 8) return 5; // Kritik ağrıda minimum yüklenme
     return Math.max(5, 15 - painScore);
+  },
+
+  // Red Flag Tespit: Son 3 seanstır ağrı sürekli artıyorsa uyarı ver
+  detectRedFlags: (history: ProgressReport[]): string[] => {
+    const flags: string[] = [];
+    if (history.length >= 3) {
+      const last3 = history.slice(-3);
+      const isIncreasing = last3[0].painScore < last3[1].painScore && last3[1].painScore < last3[2].painScore;
+      if (isIncreasing) {
+        flags.push("KRİTİK AĞRI TRENDİ: Son 3 seanstır ağrı seviyesi (VAS) sürekli artış gösteriyor. Klinik revizyon gereklidir.");
+      }
+    }
+    return flags;
   },
 
   // Kontrendikasyon Kontrolü
