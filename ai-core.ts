@@ -18,12 +18,29 @@ export const getAI = () => {
 };
 
 /**
- * Gelen hatanın API anahtarı ile ilgili (expired, invalid, missing) olup olmadığını kontrol eder.
+ * Gelen hatanın API anahtarı ile ilgili olup olmadığını kontrol eder.
+ * API'den gelen JSON hata nesnelerini de string olarak tarar.
  */
 export const isApiKeyError = (error: any): boolean => {
-  const errorMessage = error?.message || (typeof error === 'string' ? error : JSON.stringify(error));
-  const expiredKeywords = ["expired", "INVALID_ARGUMENT", "API_KEY_INVALID", "not found", "renew", "MISSING"];
-  return expiredKeywords.some(keyword => errorMessage.includes(keyword));
+  if (!error) return false;
+  
+  const errorMessage = typeof error === 'string' 
+    ? error 
+    : (error.message || JSON.stringify(error));
+
+  const expiredKeywords = [
+    "expired", 
+    "INVALID_ARGUMENT", 
+    "API_KEY_INVALID", 
+    "not found", 
+    "renew", 
+    "MISSING",
+    "API key"
+  ];
+  
+  return expiredKeywords.some(keyword => 
+    errorMessage.toLowerCase().includes(keyword.toLowerCase())
+  );
 };
 
 /**
