@@ -116,11 +116,11 @@ export default function PhysioCoreApp() {
         </div>
         
         <nav className="hidden xl:flex bg-slate-900/50 p-1 rounded-xl border border-white/5 overflow-x-auto no-scrollbar">
-          <NavBtn active={activeTab === 'consultation'} onClick={() => setActiveTab('consultation'} icon={Stethoscope} label="GÖRÜŞME" />
-          <NavBtn active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard'} icon={LayoutDashboard} label="PANEL" />
-          <NavBtn active={activeTab === 'ebm'} onClick={() => setActiveTab('ebm'} icon={Microscope} label="EBM & SEVK" />
-          <NavBtn active={activeTab === 'progress'} onClick={() => setActiveTab('progress'} icon={TrendingUp} label="TAKİP" />
-          <NavBtn active={activeTab === 'users'} onClick={() => setActiveTab('users'} icon={Users} label="KADRO" />
+          <NavBtn active={activeTab === 'consultation'} onClick={() => setActiveTab('consultation')} icon={Stethoscope} label="GÖRÜŞME" />
+          <NavBtn active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={LayoutDashboard} label="PANEL" />
+          <NavBtn active={activeTab === 'ebm'} onClick={() => setActiveTab('ebm')} icon={Microscope} label="EBM & SEVK" />
+          <NavBtn active={activeTab === 'progress'} onClick={() => setActiveTab('progress')} icon={TrendingUp} label="TAKİP" />
+          <NavBtn active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={Users} label="KADRO" />
           <NavBtn active={activeTab === 'cms'} icon={Database} label="STUDIO" onClick={() => setActiveTab('cms')} />
           <NavBtn active={activeTab === 'management'} icon={Settings} label="YÖNETİM" onClick={() => setActiveTab('management')} />
         </nav>

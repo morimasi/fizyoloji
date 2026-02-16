@@ -1,3 +1,4 @@
+
 import React, { useRef, useMemo } from 'react';
 import { Canvas, useFrame, ThreeElements } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera, Stars, Float, Text, MeshDistortMaterial } from '@react-three/drei';
@@ -5,9 +6,15 @@ import * as THREE from 'three';
 
 // Üst düzey JSX ad alanı genişletmesi, Three.js intrinsic elementlerinin 
 // (mesh, group, light'lar vb.) TypeScript tarafından doğru tanınmasını sağlar.
+// React 18+ ve modern TypeScript sürümleriyle uyumluluk için hem global hem de React.JSX ad alanları genişletilmiştir.
 declare global {
   namespace JSX {
     interface IntrinsicElements extends ThreeElements {}
+  }
+  namespace React {
+    namespace JSX {
+      interface IntrinsicElements extends ThreeElements {}
+    }
   }
 }
 
