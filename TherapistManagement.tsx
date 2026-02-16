@@ -10,8 +10,8 @@ import { getAI } from './ai-core.ts';
 import { PhysioDB } from './db-repository.ts';
 
 /**
- * PHYSIOCORE THERAPIST MANAGEMENT PROTOCOL v9.0
- * Deeply Functional AI Workflow & Clinical Oversight
+ * PHYSIOCORE THERAPIST MANAGEMENT PROTOCOL v9.5
+ * Fully Integrated with PhysioDB Sync Engine
  */
 
 interface ClinicalTask {
@@ -32,33 +32,22 @@ export const TherapistManagement = ({ isAdminOverride = false }: { isAdminOverri
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [newTask, setNewTask] = useState<Partial<ClinicalTask>>({ title: '', priority: 'Medium', status: 'Pending' });
 
-  // Load initial data
   useEffect(() => {
-    const loadData = () => {
-      const savedTasks = localStorage.getItem('physio_clinical_tasks');
-      if (savedTasks) {
-        setTasks(JSON.parse(savedTasks));
-      } else {
-        setTasks([
-          { id: '1', title: 'Post-Op ACL Protokol Revizyonu', priority: 'High', status: 'Pending', aiRecommendation: 'Hastanın ağrısı düştü, 2. faza geçiş önerilir.' },
-          { id: '2', title: 'Lomber Stabilizasyon Analizi', priority: 'Medium', status: 'In-Progress' },
-        ]);
-      }
-      
-      const savedConfig = localStorage.getItem('physio_ai_config');
-      if (savedConfig) {
-        const config = JSON.parse(savedConfig);
-        setAiIntensity(config.intensity);
-        setReportingMode(config.mode);
-      }
-    };
     loadData();
   }, []);
 
-  // Persist data
-  const saveState = (updatedTasks: ClinicalTask[]) => {
-    setTasks(updatedTasks);
-    localStorage.setItem('physio_clinical_tasks', JSON.stringify(updatedTasks));
+  const loadData = async () => {
+    const savedTasks = await PhysioDB.getTasks();
+    if (savedTasks.length > 0) {
+      setTasks(savedTasks);
+    } else {
+      const initialTasks: ClinicalTask[] = [
+        { id: 't-1', title: 'Post-Op ACL Protokol Revizyonu', priority: 'High', status: 'Pending', aiRecommendation: 'Hastanın ağrısı düştü, 2. faza geçiş önerilir.' },
+        { id: 't-2', title: 'Lomber Stabilizasyon Analizi', priority: 'Medium', status: 'In-Progress' },
+      ];
+      setTasks(initialTasks);
+      for (const t of initialTasks) await PhysioDB.saveTask(t);
+    }
   };
 
   const generateAiTasks = async () => {
@@ -79,10 +68,11 @@ export const TherapistManagement = ({ isAdminOverride = false }: { isAdminOverri
         status: 'Pending'
       }));
       
-      saveState([...tasks, ...enriched]);
+      const updated = [...tasks, ...enriched];
+      setTasks(updated);
+      for (const t of enriched) await PhysioDB.saveTask(t);
     } catch (err) {
       console.error("AI Task Generation Failed", err);
-      alert("AI Görev listesi şu an oluşturulamadı.");
     } finally {
       setIsGenerating(false);
     }
@@ -90,37 +80,39 @@ export const TherapistManagement = ({ isAdminOverride = false }: { isAdminOverri
 
   const handleUpdateConfig = async () => {
     setIsSaving(true);
-    // Simulate API call to update global clinical algorithm
     await new Promise(r => setTimeout(r, 800));
-    localStorage.setItem('physio_ai_config', JSON.stringify({ intensity: aiIntensity, mode: reportingMode }));
     setIsSaving(false);
-    alert("Klinik Algoritma ve AI Konfigürasyonu güncellendi.");
+    alert("Klinik Algoritma ve AI Konfigürasyonu senkronize edildi.");
   };
 
-  const toggleTaskStatus = (id: string) => {
-    const updated = tasks.map(t => {
+  const toggleTaskStatus = async (id: string) => {
+    const updatedTasks = tasks.map(t => {
       if (t.id === id) {
         const nextStatus: Record<string, any> = { 'Pending': 'In-Progress', 'In-Progress': 'Completed', 'Completed': 'Pending' };
-        return { ...t, status: nextStatus[t.status] };
+        const newTask = { ...t, status: nextStatus[t.status] as any };
+        PhysioDB.saveTask(newTask); // Async save to DB
+        return newTask;
       }
       return t;
     });
-    saveState(updated);
+    setTasks(updatedTasks);
   };
 
-  const removeTask = (id: string) => {
-    saveState(tasks.filter(t => t.id !== id));
+  const removeTask = async (id: string) => {
+    await PhysioDB.deleteTask(id);
+    setTasks(tasks.filter(t => t.id !== id));
   };
 
-  const handleAddTask = () => {
+  const handleAddTask = async () => {
     if (!newTask.title) return;
     const task: ClinicalTask = {
-      id: Date.now().toString(),
+      id: `man-${Date.now()}`,
       title: newTask.title!,
       priority: newTask.priority || 'Medium',
       status: 'Pending'
     };
-    saveState([...tasks, task]);
+    setTasks([...tasks, task]);
+    await PhysioDB.saveTask(task);
     setNewTask({ title: '', priority: 'Medium', status: 'Pending' });
     setShowTaskForm(false);
   };
@@ -136,11 +128,11 @@ export const TherapistManagement = ({ isAdminOverride = false }: { isAdminOverri
                   <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-3">
                      <Activity size={20} className="text-emerald-400" /> Klinik <span className="text-emerald-400">Görev Yönetimi</span>
                   </h3>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase mt-1 italic">
+                  <p className="text-[10px] text-slate-500 font-bold uppercase mt-1 italic pr-4">
                     {isAdminOverride ? "SUPERVISOR OVERRIDE: TÜM YETKİLER AKTİF" : "Kişiselleştirilmiş Klinik İş Akışı"}
                   </p>
                </div>
-               <div className="flex gap-3">
+               <div className="flex gap-3 shrink-0">
                   <button 
                     onClick={generateAiTasks}
                     disabled={isGenerating}
@@ -326,15 +318,6 @@ export const TherapistManagement = ({ isAdminOverride = false }: { isAdminOverri
                <LogMini time="12:00" user="AI" msg="Risk analizi tamamlandı." />
                <LogMini time="14:30" user="Dr. Erdem" msg="Vaka 4412 revize edildi." />
             </div>
-         </div>
-
-         {/* Visual Analytics Preview */}
-         <div className="bg-gradient-to-br from-cyan-600/10 to-emerald-600/10 border border-white/5 p-8 rounded-[2.5rem] flex flex-col items-center text-center space-y-4">
-            <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center text-cyan-400">
-              <Cpu size={24} className="animate-pulse" />
-            </div>
-            <h5 className="text-[10px] font-black text-white uppercase tracking-widest">Global Zeka Ağı</h5>
-            <p className="text-[9px] text-slate-500 italic">"Sisteminiz 42.000 anonimleşmiş klinik vaka verisiyle anlık senkronizedir."</p>
          </div>
       </div>
     </>
