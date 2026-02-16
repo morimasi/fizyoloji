@@ -32,7 +32,10 @@ export const ClinicalConsultation: React.FC<ConsultationProps> = ({ onAnalysisCo
   const handleStartAnalysis = async () => {
     // 1. API Anahtarı Kontrolü
     const hasKey = await ensureApiKey();
-    if (!hasKey) return;
+    if (!hasKey) {
+        alert("Devam etmek için lütfen geçerli bir API Anahtarı seçin.");
+        return;
+    }
 
     setIsAnalyzing(true);
     setStep(2);
@@ -54,6 +57,7 @@ export const ClinicalConsultation: React.FC<ConsultationProps> = ({ onAnalysisCo
       console.error("AI Analysis Failed", err);
       // Hata anahtar kaynaklıysa seçiciyi aç
       if (isApiKeyError(err)) {
+        alert("API Anahtarı geçersiz veya süresi dolmuş. Lütfen yenileyin.");
         const aistudio = (window as any).aistudio;
         if (aistudio?.openSelectKey) {
            await aistudio.openSelectKey();

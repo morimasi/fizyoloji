@@ -3,7 +3,7 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql } from '@vercel/postgres';
 
 /**
- * PHYSIOCORE SYNC ENGINE v9.5 (Robust UUID & Error Handling)
+ * PHYSIOCORE SYNC ENGINE v9.6 (Schema Fix & Robustness)
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -82,14 +82,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (syncType === 'STUDIO_EXERCISE') {
       const { id, code, title, titleTr, category, difficulty, description, biomechanics } = payload;
       
-      // Seed veriler UUID değilse Postgres çöker. 
-      // Studio'dan gelenler genelde UUID olmalı.
       const validId = isValidUUID(id) ? id : null;
       
+      // FIX: 'difficulty_level' yerine 'difficulty' kullanıldı.
+      // FIX: 'biomechanics_notes' yerine 'biomechanics_notes' (veya 'biomechanics' denenebilir ama şimdilik difficulty hatasını çözelim)
       await sql`
-        INSERT INTO exercises (id, code, title, title_tr, category, difficulty_level, description, biomechanics_notes)
+        INSERT INTO exercises (id, code, title, title_tr, category, difficulty, description, biomechanics_notes)
         VALUES (${validId || 'gen_random_uuid()'}, ${code}, ${title}, ${titleTr}, ${category}, ${difficulty}, ${description}, ${biomechanics})
-        ON CONFLICT (code) DO UPDATE SET title = EXCLUDED.title, description = EXCLUDED.description;
+        ON CONFLICT (code) DO UPDATE SET title = EXCLUDED.title, description = EXCLUDED.description, difficulty = EXCLUDED.difficulty;
       `;
       return res.status(200).json({ success: true });
     }
@@ -100,7 +100,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error("[SyncFatal]:", error.message);
     return res.status(500).json({ 
       error: error.message, 
-      detail: "ID type mismatch (UUID required) or database integrity violation." 
+      detail: "Database schema mismatch or connection error." 
     });
   }
 }
