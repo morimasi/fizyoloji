@@ -1,12 +1,21 @@
 import React, { useRef, useMemo } from 'react';
-import { Canvas, useFrame, ThreeElements } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera, Stars, Float, Text, MeshDistortMaterial } from '@react-three/drei';
 import * as THREE from 'three';
 
 // Fix for "Property '...' does not exist on type 'JSX.IntrinsicElements'"
+// Manually defining R3F elements to ensure TypeScript recognizes them
 declare global {
   namespace JSX {
-    interface IntrinsicElements extends ThreeElements {}
+    interface IntrinsicElements {
+      mesh: any;
+      group: any;
+      cylinderGeometry: any;
+      sphereGeometry: any;
+      meshStandardMaterial: any;
+      ambientLight: any;
+      pointLight: any;
+    }
   }
 }
 

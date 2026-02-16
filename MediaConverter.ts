@@ -53,7 +53,7 @@ export class MediaConverter {
 
     // Canvas-based Conversion (Sprite Sheet to Video)
     // NOTE: Browsers cannot natively record GIFs via MediaRecorder. 
-    // Trying to save video/webm as .gif creates a corrupt file.
+    // Trying to save video/webm as .gif creates a corrupt file (Header Mismatch).
     // We force .webm for "gif" requests to ensure high quality and playability.
     const effectiveFormat = format === 'gif' ? 'webm' : format;
     
