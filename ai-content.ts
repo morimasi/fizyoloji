@@ -5,7 +5,7 @@ import { Exercise } from "./types.ts";
 
 /**
  * PHYSIOCORE CONTENT & DOSAGE ENGINE
- * Rehabilitasyon Protokolleri ve Sesli Rehberlik
+ * Models: gemini-3-flash-preview, gemini-2.5-flash-preview-tts
  */
 
 const exerciseSchema = {
@@ -50,6 +50,7 @@ export const generateExerciseTutorial = async (t: string) => {
   });
   const sd = JSON.parse(sr.text || "{}");
   
+  // Generating Audio using Native TTS
   const ar = await ai.models.generateContent({
     model: "gemini-2.5-flash-preview-tts",
     contents: [{ parts: [{ text: sd.script?.map((s: any) => s.text).join(' ') || "Egzersize başlayın." }] }],
@@ -59,9 +60,11 @@ export const generateExerciseTutorial = async (t: string) => {
     }
   });
   
+  const base64Audio = ar.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || null;
+
   return { 
     script: sd.script, 
-    audioBase64: (ar as any).candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || null, 
+    audioBase64: base64Audio, 
     bpm: sd.bpm || 60 
   };
 };
@@ -69,8 +72,8 @@ export const generateExerciseTutorial = async (t: string) => {
 export const generateExerciseData = async (title: string): Promise<Partial<Exercise>> => {
   const ai = getAI();
   const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
-    contents: [{ parts: [{ text: `Generate full clinical data for the following exercise: "${title}".` }] }],
+    model: 'gemini-3-flash-preview',
+    contents: [{ parts: [{ text: `Generate full clinical data for the exercise: "${title}".` }] }],
     config: { 
         responseMimeType: "application/json",
         responseSchema: exerciseSchema
@@ -82,7 +85,7 @@ export const generateExerciseData = async (title: string): Promise<Partial<Exerc
 export const optimizeExerciseData = async (exercise: Partial<Exercise>, goal: string): Promise<Partial<Exercise>> => {
   const ai = getAI();
   const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
+    model: 'gemini-3-flash-preview',
     contents: [{ parts: [{ text: `Optimize this exercise dosage for the goal "${goal}": ${JSON.stringify(exercise)}.` }] }],
     config: { 
         responseMimeType: "application/json",

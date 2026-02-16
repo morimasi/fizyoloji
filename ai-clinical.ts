@@ -6,6 +6,7 @@ import { PatientProfile, ProgressReport, TreatmentHistory, DetailedPainLog } fro
 /**
  * PHYSIOCORE CLINICAL REASONING ENGINE
  * Teşhis, Takip ve Stratejik Karar Destek Sistemi
+ * Model: gemini-3-flash-preview (Fast & Reliable)
  */
 
 const patientProfileSchema = {
@@ -87,7 +88,7 @@ export const runClinicalConsultation = async (text: string, imageData?: string, 
   }
 
   const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
+    model: 'gemini-3-flash-preview',
     contents: [{ parts }],
     config: { 
       responseMimeType: "application/json",
@@ -101,7 +102,7 @@ export const runClinicalConsultation = async (text: string, imageData?: string, 
 export const runAdaptiveAdjustment = async (p: PatientProfile, f: ProgressReport) => {
   const ai = getAI();
   const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
+    model: 'gemini-3-flash-preview',
     contents: [{ parts: [{ text: `Profile: ${JSON.stringify(p)}. Feedback: ${JSON.stringify(f)}. Update program dosage and rehab phase based on clinical flags.` }] }],
     config: { 
       responseMimeType: "application/json",
