@@ -1,6 +1,6 @@
 
 -- =============================================================================
--- PHYSIOCORE AI - GENESIS v9.8 MASTER SCHEMA (FULL ECOSYSTEM)
+-- PHYSIOCORE AI - GENESIS v10.0 MASTER SCHEMA (FLASH ULTRA EDITION)
 -- =============================================================================
 
 -- 1. EXTENSIONS & SECURITY
@@ -76,13 +76,21 @@ CREATE TABLE IF NOT EXISTS exercises (
     title VARCHAR(255) NOT NULL,
     title_tr VARCHAR(255),
     category VARCHAR(100) NOT NULL,
-    difficulty INTEGER DEFAULT 5, -- Fix: difficulty_level changed to difficulty
+    difficulty INTEGER DEFAULT 5,
     description TEXT,
     biomechanics_notes TEXT,
-    visual_url TEXT,
-    video_url TEXT,
+    
+    -- Multimodal Assets (Flash Engine v10.0)
+    media_assets JSONB DEFAULT '{
+        "visual_url": null,      -- Static Image / Sprite Sheet
+        "video_url": null,       -- Veo Fast Video
+        "ppt_data": null,        -- Slide JSON Structure
+        "gif_url": null,         -- Optimized GIF
+        "model_3d_coords": null  -- Vector/3D Coordinates
+    }',
+    
     is_motion BOOLEAN DEFAULT false,
-    visual_style VARCHAR(50) DEFAULT '4K-Render',
+    visual_style VARCHAR(50) DEFAULT 'Flash-Ultra',
     equipment TEXT[] DEFAULT '{}',
     primary_muscles TEXT[] DEFAULT '{}',
     secondary_muscles TEXT[] DEFAULT '{}',
@@ -166,7 +174,6 @@ BEGIN
 END;
 $$ LANGUAGE 'plpgsql';
 
--- Apply triggers to all major tables
 DO $$ 
 DECLARE 
     t TEXT;
@@ -177,6 +184,3 @@ BEGIN
         EXECUTE format('CREATE TRIGGER trg_upd_%I BEFORE UPDATE ON %I FOR EACH ROW EXECUTE PROCEDURE update_timestamp()', t, t);
     END LOOP;
 END $$;
-
--- 13. SEEDING INITIAL ADMIN (Optional)
--- INSERT INTO users (full_name, email, role) VALUES ('System Root', 'admin@physiocore.ai', 'Admin') ON CONFLICT DO NOTHING;

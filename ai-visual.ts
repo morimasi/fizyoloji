@@ -1,11 +1,11 @@
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { getAI } from "./ai-core.ts";
 import { Exercise } from "./types.ts";
 
 /**
- * PHYSIOCORE VISUAL PRODUCTION ENGINE v12.0 (Pro & Ultra Edition)
- * Optimized for High-Quality Cinematic Motion Plates.
+ * PHYSIOCORE VISUAL PRODUCTION ENGINE v13.0 (Flash Ultra Edition)
+ * Optimized for Speed, Cost Efficiency & Multimodal Output.
  */
 
 export type AnatomicalLayer = 'muscular' | 'skeletal' | 'vascular' | 'xray' | 'full-body';
@@ -17,16 +17,17 @@ export const generateExerciseVisual = async (
   const ai = getAI();
   
   const layerPrompts: Record<AnatomicalLayer, string> = {
-    'muscular': 'Detailed red fibrous muscle fibers, tendons, cinematic medical lighting.',
-    'skeletal': 'Anatomically correct white bones and joints, high contrast medical style.',
-    'vascular': 'Network of glowing red arteries and blue veins, transparency effect.',
-    'xray': 'Radiographic negative film, bright white joints on pitch black background.',
-    'full-body': 'Professional 3D medical render, photorealistic skin and muscle silhouette.'
+    'muscular': 'Detailed red fibrous muscle fibers, tendons, clinical medical illustration style.',
+    'skeletal': 'Anatomically correct white bones and joints, high contrast x-ray style.',
+    'vascular': 'Network of arteries and veins, transparency effect.',
+    'xray': 'Radiographic negative film style, bright white skeletal structure.',
+    'full-body': 'Professional medical 3D render, photorealistic skin and muscle definition.'
   };
 
-  const prompt = `Medical 3D Sprite Sheet (4x4 Grid). Subject: Human body performing ${exercise.titleTr || exercise.title}. 
-    Anatomy Layer: ${layerPrompts[layer]}. Biomechanics: ${exercise.biomechanics}. 
-    Dark slate background, cinematic render. 16 distinct motion phases.`;
+  // Flash Image Model (Nano Banana) Optimization
+  const prompt = `Medical 3D Sprite Sheet (4x4 Grid). Subject: Human performing ${exercise.titleTr || exercise.title}. 
+    Style: ${layerPrompts[layer]}. Biomechanics Focus: ${exercise.biomechanics}. 
+    Background: Dark clinical slate. 16 distinct phases of movement. High clarity.`;
 
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image', 
@@ -47,32 +48,31 @@ export const generateExerciseVisual = async (
       }
     }
   }
-  throw new Error("Görsel üretim hatası.");
+  throw new Error("Görsel üretim hatası (Flash Engine).");
 };
 
 /**
- * Veo 3.1 Pro/Fast ile Akıcı Video & GIF Üretimi
- * @param quality 'fast' (720p) veya 'pro' (1080p, High Quality)
+ * Veo 3.1 Fast ile Hızlı Video Üretimi (Pro yerine Fast tercih edildi)
  */
-export const generateExerciseVideo = async (exercise: Partial<Exercise>, quality: 'fast' | 'pro' = 'fast'): Promise<string> => {
+export const generateExerciseVideo = async (exercise: Partial<Exercise>): Promise<string> => {
   const ai = getAI();
-  const modelName = quality === 'pro' ? 'veo-3.1-generate-preview' : 'veo-3.1-fast-generate-preview';
-  const resolution = quality === 'pro' ? '1080p' : '720p';
   
+  // Veo Fast modeli kullanılıyor (Daha hızlı, daha az maliyetli)
   let operation = await ai.models.generateVideos({
-    model: modelName,
-    prompt: `Ultra-high definition medical 3D animation of a human body performing ${exercise.titleTr || exercise.title}. 
-             Detailed biomechanics: ${exercise.biomechanics}. Cinematic volumetric lighting, 4K texture feel, 
-             perfectly loopable, clinical dark background, slow motion clinical precision.`,
+    model: 'veo-3.1-fast-generate-preview',
+    prompt: `Medical 3D animation of ${exercise.titleTr || exercise.title}. 
+             Focus: ${exercise.biomechanics}. 
+             Style: Clinical, clean, 4K texture feel, dark background, perfect loop. 
+             Smooth motion, educational medical standard.`,
     config: {
       numberOfVideos: 1,
-      resolution: resolution,
+      resolution: '720p', // Fast model supports 720p efficiently
       aspectRatio: '1:1'
     }
   });
 
   while (!operation.done) {
-    await new Promise(resolve => setTimeout(resolve, quality === 'pro' ? 15000 : 10000));
+    await new Promise(resolve => setTimeout(resolve, 8000));
     operation = await (ai as any).operations.getVideosOperation({ operation: operation });
   }
 
@@ -82,15 +82,43 @@ export const generateExerciseVideo = async (exercise: Partial<Exercise>, quality
 };
 
 /**
- * Gemini Flash ile Dinamik Vektörel SVG Animasyonu Üretimi
+ * Gemini Flash ile PPT (Sunum) İçeriği Üretimi
  */
+export const generateClinicalSlides = async (exercise: Partial<Exercise>) => {
+  const ai = getAI();
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: [{ parts: [{ text: `
+      Create a 4-slide clinical presentation structure for the exercise: "${exercise.titleTr || exercise.title}".
+      Target Audience: Patients.
+      
+      Output JSON format:
+      {
+        "slides": [
+          {"title": "Title", "bullets": ["point 1", "point 2"], "footer": "PhysioCore AI"},
+          ...
+        ]
+      }
+      
+      Slide 1: Introduction & Goal.
+      Slide 2: Step-by-Step Technique.
+      Slide 3: Common Mistakes & Corrections.
+      Slide 4: Dosage & Safety Warning.
+    ` }] }],
+    config: {
+      responseMimeType: "application/json"
+    }
+  });
+  
+  return JSON.parse(response.text || '{"slides": []}');
+};
+
 export const generateVectorAnimation = async (exercise: Partial<Exercise>): Promise<string> => {
   const ai = getAI();
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: [{ parts: [{ text: `Generate a professional medical SVG animation code for: "${exercise.titleTr || exercise.title}". 
-      Include <animateTransform> tags for the joints corresponding to ${exercise.biomechanics}. 
-      Style: Cyan lines #06B6D4, dark theme compatible, no background. Return only the SVG code.` }] }]
+    contents: [{ parts: [{ text: `Generate SVG animation code for: "${exercise.titleTr || exercise.title}". 
+      Style: Cyan lines #06B6D4 on dark bg. Minimalist medical vector. Return only SVG.` }] }]
   });
   return response.text || "";
 };
