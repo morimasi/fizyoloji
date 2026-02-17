@@ -6,7 +6,7 @@ import {
   AlertCircle, RefreshCw, Video, Film, Timer, Box,
   Bone, Flame, Heart, Scan, User, Layers, ChevronLeft, ChevronRight,
   Presentation, FileVideo, Cpu, Gift, Info, FileJson, Share2,
-  Edit3, Check, X, Grid, Eye, Aperture
+  Edit3, Check, X, Grid, Eye, Aperture, Gauge
 } from 'lucide-react';
 import { Exercise, AnatomicalLayer } from './types.ts';
 import { generateExerciseVisual, generateExerciseVideo, generateVectorAnimation, generateClinicalSlides } from './ai-visual.ts';
@@ -18,12 +18,13 @@ interface VisualStudioProps {
   onVisualGenerated: (url: string, style: string, isMotion: boolean, frameCount: number, layout: string) => void;
 }
 
-// --- INTERNAL LIVE PLAYER ENGINE (DYNAMIC GRID) ---
+// --- GENESIS FLUID-MOTION ENGINE (INTERPOLATED) ---
 const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src: string, isPlaying?: boolean, layout?: string }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>();
   const imageRef = useRef<HTMLImageElement>(new Image());
   const [isLoaded, setIsLoaded] = useState(false);
+  const [useInterpolation, setUseInterpolation] = useState(true); // Akıcı mod varsayılan açık
 
   useEffect(() => {
     imageRef.current.crossOrigin = "anonymous"; 
@@ -34,20 +35,21 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
   useEffect(() => {
     if (!isLoaded || !canvasRef.current) return;
 
-    const ctx = canvasRef.current.getContext('2d');
+    const ctx = canvasRef.current.getContext('2d', { alpha: false }); // Alpha false performans artırır
     if (!ctx) return;
 
     // --- DYNAMIC SPRITE CONFIG ---
-    // 5x5 Grid = 25 Frames = 24 FPS (Cinematic)
-    // 4x4 Grid = 16 Frames = 12 FPS (Standard)
     const isCinematic = layout === 'grid-5x5';
     const COLS = isCinematic ? 5 : 4;
     const ROWS = isCinematic ? 5 : 4;
     const TOTAL_FRAMES = isCinematic ? 25 : 16;
+    
+    // Gerçekçi hız için hedef süre
     const FPS = isCinematic ? 24 : 12; 
+    const FRAME_DURATION = 1000 / FPS;
 
-    let frameIndex = 0;
-    let lastTime = 0;
+    let startTime = performance.now();
+    let frameFloat = 0; // Kayan nokta kare sayısı (örn: 1.45)
 
     const canvas = canvasRef.current!;
     if (canvas.width !== 1080) {
@@ -55,18 +57,10 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
         canvas.height = 1080;
     }
 
-    const animate = (time: number) => {
-      if (!isPlaying) return;
-
-      if (time - lastTime > 1000 / FPS) {
+    const drawFrame = (frameIndex: number, opacity: number = 1) => {
         const img = imageRef.current;
-        
         const frameW = img.width / COLS;
         const frameH = img.height / ROWS;
-        
-        // Clear
-        ctx.fillStyle = '#020617'; 
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         // Aspect Ratio Containment
         const scale = Math.min(canvas.width / frameW, canvas.height / frameH) * 0.90;
@@ -75,25 +69,60 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
         const dx = (canvas.width - drawW) / 2;
         const dy = (canvas.height - drawH) / 2;
 
-        // Frame Coords
-        const sx = (frameIndex % COLS) * frameW;
-        const sy = Math.floor(frameIndex / COLS) * frameH;
+        const safeIndex = Math.floor(frameIndex) % TOTAL_FRAMES;
+        const sx = (safeIndex % COLS) * frameW;
+        const sy = Math.floor(safeIndex / COLS) * frameH;
 
-        // Draw
+        ctx.globalAlpha = opacity;
         ctx.drawImage(img, sx, sy, frameW, frameH, dx, dy, drawW, drawH);
+        ctx.globalAlpha = 1.0;
+    };
 
-        // Watermark / Overlay 
-        ctx.fillStyle = isCinematic ? 'rgba(6, 182, 212, 0.15)' : 'rgba(148, 163, 184, 0.1)'; 
-        ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
-        ctx.font = 'bold 24px monospace';
-        ctx.fillStyle = isCinematic ? '#22d3ee' : '#94a3b8';
-        ctx.textAlign = 'right';
-        const modeLabel = isCinematic ? 'CINEMATIC 24FPS' : 'STANDARD 12FPS';
-        ctx.fillText(`${modeLabel} | FRAME ${frameIndex + 1}/${TOTAL_FRAMES}`, canvas.width - 20, canvas.height - 18);
+    const animate = (time: number) => {
+      if (!isPlaying) return;
 
-        frameIndex = (frameIndex + 1) % TOTAL_FRAMES;
-        lastTime = time;
+      const elapsed = time - startTime;
+      
+      // Clear Canvas (Sinematik Siyah)
+      // Interpolation modunda her karede temizlemek yerine üstüne çizim yapılır (blend için), 
+      // ama base frame temiz olmalı.
+      ctx.fillStyle = '#020617'; 
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (useInterpolation) {
+          // --- FLUID MOTION ALGORITHM ---
+          // Zaman bazlı sürekli akış (Discrete Frame yerine Continuous Flow)
+          frameFloat = (elapsed / FRAME_DURATION) % TOTAL_FRAMES;
+          
+          const currentFrame = Math.floor(frameFloat);
+          const nextFrame = (currentFrame + 1) % TOTAL_FRAMES;
+          const blendFactor = frameFloat - currentFrame; // 0.0 ile 1.0 arası
+
+          // 1. Mevcut kareyi çiz (Zemin)
+          drawFrame(currentFrame, 1);
+
+          // 2. Sonraki kareyi "Blend Factor" kadar opaklıkla üstüne çiz
+          // Bu, iki kare arasında yumuşak bir geçiş (morphing) sağlar.
+          drawFrame(nextFrame, blendFactor);
+
+      } else {
+          // --- CLASSIC STOP-MOTION ALGORITHM ---
+          const currentFrame = Math.floor(elapsed / FRAME_DURATION) % TOTAL_FRAMES;
+          drawFrame(currentFrame, 1);
       }
+
+      // Watermark / Overlay 
+      ctx.fillStyle = isCinematic ? 'rgba(6, 182, 212, 0.15)' : 'rgba(148, 163, 184, 0.1)'; 
+      ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
+      ctx.font = 'bold 24px monospace';
+      ctx.fillStyle = isCinematic ? '#22d3ee' : '#94a3b8';
+      ctx.textAlign = 'right';
+      const modeLabel = isCinematic ? 'CINEMATIC 24FPS' : 'STANDARD 12FPS';
+      const techLabel = useInterpolation ? 'FLUID-MOTION' : 'RAW-STEP';
+      const frameDisp = Math.floor(frameFloat % TOTAL_FRAMES) + 1;
+      
+      ctx.fillText(`${modeLabel} | ${techLabel} | FRAME ${frameDisp}/${TOTAL_FRAMES}`, canvas.width - 30, canvas.height - 25);
+
       requestRef.current = requestAnimationFrame(animate);
     };
 
@@ -102,11 +131,25 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
     return () => {
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
     };
-  }, [isLoaded, isPlaying, layout]);
+  }, [isLoaded, isPlaying, layout, useInterpolation]);
 
   if (!isLoaded) return <div className="w-full h-full flex items-center justify-center"><Loader2 className="animate-spin text-slate-600" /></div>;
 
-  return <canvas ref={canvasRef} className="w-full h-full object-contain rounded-[3rem]" />;
+  return (
+    <div className="relative w-full h-full">
+        <canvas ref={canvasRef} className="w-full h-full object-contain rounded-[3rem]" />
+        
+        {/* Interpolation Toggle - Kullanıcıya Kontrol Verme */}
+        <button 
+            onClick={() => setUseInterpolation(!useInterpolation)}
+            className="absolute bottom-6 left-6 px-4 py-2 bg-slate-900/80 backdrop-blur border border-white/10 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-white hover:bg-cyan-500/20 transition-all flex items-center gap-2 group"
+            title={useInterpolation ? "Ham kare moduna geç" : "Akıcı moda geç"}
+        >
+            <Gauge size={14} className={useInterpolation ? "text-cyan-400" : "text-slate-500"} />
+            {useInterpolation ? "AKIŞ: AKTİF" : "AKIŞ: KAPALI"}
+        </button>
+    </div>
+  );
 };
 
 export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGenerated }) => {
@@ -185,20 +228,17 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
 
     setIsGenerating(true);
     
-    // Eğer özel mod (Cinematic) seçildiyse layer'ı override et
     const effectiveLayer = specialMode || activeLayer;
-    const overrideExercise = { ...exercise, generatedPrompt: specialMode ? undefined : generatedPrompt }; // Özel mod kendi promptunu yapsın
+    const overrideExercise = { ...exercise, generatedPrompt: specialMode ? undefined : generatedPrompt }; 
 
     try {
       if (activeTab === 'image') {
-        // generateExerciseVisual artık "Cinematic-Motion" stringini de kabul ediyor
         const result = await generateExerciseVisual(overrideExercise, effectiveLayer as any);
         
         setPreviewUrl(result.url);
-        setCurrentLayout(result.layout); // 4x4 veya 5x5
+        setCurrentLayout(result.layout); 
         setViewMode('live');
         
-        // Egzersiz verisini güncelle
         onVisualGenerated(result.url, `Flash-${effectiveLayer}`, false, result.frameCount, result.layout);
       } else if (activeTab === 'video') {
         const url = await generateExerciseVideo(overrideExercise);
@@ -251,7 +291,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
             </div>
             <div>
                <h4 className="font-black text-2xl uppercase italic text-white tracking-tighter">Flash <span className="text-cyan-400">Engine</span></h4>
-               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1 italic">Genesis v13.1 Cinematic</p>
+               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1 italic">Genesis v13.2 Fluid-Motion</p>
             </div>
           </div>
 
