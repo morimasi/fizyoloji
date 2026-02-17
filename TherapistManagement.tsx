@@ -10,8 +10,8 @@ import { getAI } from './ai-core.ts';
 import { PhysioDB } from './db-repository.ts';
 
 /**
- * PHYSIOCORE THERAPIST MANAGEMENT PROTOCOL v9.6
- * Real UUID Integration for Database Sync
+ * PHYSIOCORE THERAPIST MANAGEMENT PROTOCOL v9.7
+ * Robust Task Assignment & Database Sync
  */
 
 // Simple UUID v4 generator helper
@@ -45,16 +45,28 @@ export const TherapistManagement = ({ isAdminOverride = false }: { isAdminOverri
   }, []);
 
   const loadData = async () => {
-    const savedTasks = await PhysioDB.getTasks();
-    if (savedTasks.length > 0) {
-      setTasks(savedTasks);
-    } else {
-      const initialTasks: ClinicalTask[] = [
-        { id: generateUUID(), title: 'Post-Op ACL Protokol Revizyonu', priority: 'High', status: 'Pending', aiRecommendation: 'Hastanın ağrısı düştü, 2. faza geçiş önerilir.' },
-        { id: generateUUID(), title: 'Lomber Stabilizasyon Analizi', priority: 'Medium', status: 'In-Progress' },
-      ];
-      setTasks(initialTasks);
-      for (const t of initialTasks) await PhysioDB.saveTask(t);
+    try {
+      const savedTasks = await PhysioDB.getTasks();
+      if (savedTasks && savedTasks.length > 0) {
+        setTasks(savedTasks);
+      } else {
+        // Try to find a default assignee to satisfy DB constraints if strict
+        let defaultAssignee = undefined;
+        try {
+            const users = await PhysioDB.getUsers();
+            defaultAssignee = users.find(u => u.role === 'Therapist')?.id;
+        } catch(e) { console.warn("Could not fetch users for task assignment"); }
+
+        const initialTasks: ClinicalTask[] = [
+          { id: generateUUID(), title: 'Post-Op ACL Protokol Revizyonu', priority: 'High', status: 'Pending', aiRecommendation: 'Hastanın ağrısı düştü, 2. faza geçiş önerilir.', assignedTo: defaultAssignee },
+          { id: generateUUID(), title: 'Lomber Stabilizasyon Analizi', priority: 'Medium', status: 'In-Progress', assignedTo: defaultAssignee },
+        ];
+        setTasks(initialTasks);
+        // Save sequentially to avoid race conditions
+        for (const t of initialTasks) await PhysioDB.saveTask(t);
+      }
+    } catch (e) {
+      console.error("Task Loading Error", e);
     }
   };
 

@@ -3,19 +3,35 @@ import { Exercise, PatientProfile, User } from './types.ts';
 import { SEED_EXERCISES } from './seed-data.ts';
 
 /**
- * PHYSIOCORE CLOUD ENGINE v8.0 (STRICT CLOUD MODE)
- * - No LocalStorage
- * - No In-Memory Fallback
+ * PHYSIOCORE CLOUD ENGINE v8.3 (STRICT CLOUD MODE - UNIVERSAL ROUTING)
+ * - Forces Production API for all non-production environments
+ * - No LocalStorage / In-Memory Fallback
  * - Auto-Seeding to Production Database
  */
 export class PhysioDB {
   
   static async initializeDB(): Promise<void> {
-    console.log("[PhysioCore] Connecting to Live Cloud Database...");
-    // Initial connection check is handled by the first data fetch
+    console.log("[PhysioCore] Cloud Engine Initializing...");
+    // Initial connection check can be done here if needed
   }
 
   // --- CORE API CLIENT ---
+
+  private static getApiBaseUrl(): string {
+    if (typeof window === 'undefined') return ''; // Server-side safety
+    
+    const hostname = window.location.hostname;
+    
+    // If we are strictly on the production domain, use relative paths.
+    // This ensures internal routing works best when deployed to the main site.
+    if (hostname === 'fizyoloji.vercel.app') {
+      return '';
+    }
+
+    // For ALL other environments (Localhost, Bolt, Stackblitz, Vercel Previews, Forks),
+    // we must proxy to the live production server to access the centralized database.
+    return 'https://fizyoloji.vercel.app';
+  }
 
   private static async fetchAPI<T>(endpoint: string, method: string = 'GET', body?: any): Promise<T> {
     const options: RequestInit = {
@@ -24,14 +40,26 @@ export class PhysioDB {
     };
     if (body) options.body = JSON.stringify(body);
 
-    const res = await fetch(`/api/data${endpoint}`, options);
-    
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error(`[Cloud Error] ${res.status}: ${errorText}`);
-      throw new Error(`Cloud API Error: ${res.statusText}`);
+    const baseUrl = this.getApiBaseUrl();
+    const url = `${baseUrl}/api/data${endpoint}`;
+
+    try {
+      const res = await fetch(url, options);
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error(`[Cloud Error] ${res.status} at ${url}: ${errorText}`);
+        
+        if (res.status === 404) {
+          throw new Error("Cloud API Endpoint Not Found. (Backend may not be deployed or URL is incorrect)");
+        }
+        throw new Error(`Cloud API Error: ${res.statusText}`);
+      }
+      return await res.json();
+    } catch (err) {
+      console.error("[Fatal DB Error]", err);
+      throw err;
     }
-    return await res.json();
   }
 
   // --- EXERCISE MANAGEMENT (CLOUD ONLY) ---
@@ -51,12 +79,11 @@ export class PhysioDB {
       return data;
     } catch (e) {
       console.error("Kritik Veritabanı Hatası:", e);
-      throw e; // Hata fırlat ki UI "Sistem Hatası" versin, yalandan çalışmasın.
+      throw e; 
     }
   }
 
   // BATCH SEEDING ENGINE
-  // Sunucuyu (Vercel Function Timeout) patlatmamak için 5'erli paketler halinde gönderir.
   private static async seedCloudDatabase() {
     const BATCH_SIZE = 5;
     const total = SEED_EXERCISES.length;
@@ -67,7 +94,6 @@ export class PhysioDB {
       const batch = SEED_EXERCISES.slice(i, i + BATCH_SIZE);
       await Promise.all(batch.map(ex => this.addExercise(ex)));
       console.log(`[Cloud Seed] Paket işlendi: ${i + batch.length}/${total}`);
-      // Sunucuya nefes aldır
       await new Promise(r => setTimeout(r, 500)); 
     }
     console.log("[Cloud Seed] ✅ SENKRONİZASYON TAMAMLANDI.");
@@ -78,7 +104,6 @@ export class PhysioDB {
   }
 
   static async updateExercise(exercise: Exercise): Promise<void> {
-    // ID kontrolü kritik
     await this.fetchAPI('', 'POST', { table: 'exercises', data: exercise });
   }
 
@@ -97,7 +122,7 @@ export class PhysioDB {
   }
 
   static async updateUser(user: User): Promise<void> {
-    await this.addUser(user); // Upsert logic in API
+    await this.addUser(user); 
   }
 
   static async deleteUser(id: string): Promise<void> {
@@ -117,10 +142,7 @@ export class PhysioDB {
   }
 
   static async saveProfile(profile: PatientProfile): Promise<void> {
-    // Profil kaydı karmaşık olduğu için genellikle User update üzerinden yürür
-    // Ancak burada direkt profil endpoint'i simüle ediyoruz.
-    // Gerçekte API tarafında handle edilmeli.
-    console.warn("Profile save via direct DB call is pending implementation.");
+    console.warn("Profile save via direct DB call is pending implementation in Vercel API.");
   }
 
   // --- TASKS ---
@@ -139,7 +161,6 @@ export class PhysioDB {
 
   // --- UTILS ---
   static async syncExerciseToMobile(patientId: string, exerciseId: string) { 
-    // Cloud log only
     console.log(`[Cloud Sync] Ex: ${exerciseId} -> Patient: ${patientId}`);
     return true; 
   }

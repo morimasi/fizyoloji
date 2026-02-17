@@ -1,4 +1,3 @@
-
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql } from '@vercel/postgres';
 import crypto from 'crypto';
@@ -158,10 +157,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           ${JSON.stringify(mediaAssets)}::jsonb,
           ${isMotion || false},
           ${visualStyle || 'Flash-Ultra'},
-          ${safePrimary}::text[],
-          ${safeSecondary}::text[],
-          ${safeEquipment}::text[],
-          ${safeSafetyFlags}::text[]
+          ${safePrimary as any}::text[],
+          ${safeSecondary as any}::text[],
+          ${safeEquipment as any}::text[],
+          ${safeSafetyFlags as any}::text[]
         )
         ON CONFLICT (code) DO UPDATE SET 
           title = EXCLUDED.title, 

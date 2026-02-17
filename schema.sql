@@ -179,8 +179,8 @@ CREATE TABLE clinical_tasks (
     priority task_priority DEFAULT 'Medium',
     status VARCHAR(50) DEFAULT 'Pending',
     
-    -- İlişkiler
-    therapist_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    -- İlişkiler: Nullable yaparak sistem görevlerine izin veriyoruz
+    therapist_id UUID REFERENCES users(id) ON DELETE SET NULL,
     patient_id UUID REFERENCES users(id) ON DELETE SET NULL,
     
     ai_recommendation TEXT,
@@ -248,4 +248,3 @@ INSERT INTO therapist_profiles (user_id, specialization, years_of_experience, bi
 SELECT id, ARRAY['Ortopedik Rehabilitasyon', 'Sporcu Sağlığı'], 12, 'Manuel Terapi ve Klinik Egzersiz Uzmanı.', 28
 FROM new_therapist
 ON CONFLICT (user_id) DO NOTHING;
-
