@@ -95,12 +95,12 @@ export const ExerciseStudio = () => {
         <div className="space-y-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center text-white shadow-2xl shadow-cyan-500/20 group">
+              <div className="w-14 h-14 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center text-white shadow-2xl shadow-cyan-500/20 group shrink-0">
                 <FlaskConical size={32} className="group-hover:rotate-12 transition-transform" />
               </div>
               <div>
-                <h2 className="text-3xl font-semibold tracking-tighter text-white italic">GENESIS <span className="text-cyan-400 uppercase">Studio</span></h2>
-                <div className="flex items-center gap-3 mt-1">
+                <h2 className="text-2xl md:text-3xl font-semibold tracking-tighter text-white italic">GENESIS <span className="text-cyan-400 uppercase">Studio</span></h2>
+                <div className="flex items-center gap-3 mt-1 flex-wrap">
                   <span className="flex items-center gap-1 text-[9px] font-bold text-slate-500 uppercase tracking-widest bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
                     <Terminal size={10} className="text-cyan-500" /> V7.0 CLOUD NATIVE
                   </span>
@@ -112,26 +112,26 @@ export const ExerciseStudio = () => {
               </div>
             </div>
             
-            <div className="flex gap-4">
+            <div className="flex gap-4 w-full md:w-auto">
               <button 
                 onClick={loadExercises}
-                className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 px-6 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all text-slate-300"
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 px-6 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all text-slate-300"
               >
                 <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} /> 
-                {isLoading ? 'YÜKLENİYOR...' : 'YENİLE'}
+                <span className="hidden sm:inline">{isLoading ? 'YÜKLENİYOR...' : 'YENİLE'}</span>
               </button>
               
               <button 
                 onClick={handleStartNew}
-                className="group relative flex items-center justify-center gap-3 bg-cyan-500 hover:bg-cyan-600 px-10 py-5 rounded-2xl font-semibold text-xs transition-all shadow-2xl shadow-cyan-500/30 active:scale-95 text-white overflow-hidden"
+                className="flex-2 md:flex-none group relative flex items-center justify-center gap-3 bg-cyan-500 hover:bg-cyan-600 px-10 py-5 rounded-2xl font-semibold text-xs transition-all shadow-2xl shadow-cyan-500/30 active:scale-95 text-white overflow-hidden"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                <Plus size={18} /> YENİ PROTOKOL ÜRET
+                <Plus size={18} /> YENİ PROTOKOL
               </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <StudioStatCard icon={Database} label="Klinik Envanter" value={exercises.length.toString()} sub="Aktif Egzersiz" color="text-cyan-400" />
             <StudioStatCard 
               icon={CheckCircle2} 
@@ -168,15 +168,17 @@ export const ExerciseStudio = () => {
                 />
               </div>
               
-              <div className="flex items-center gap-3 bg-slate-950 p-2 rounded-2xl border border-slate-800">
+              <div className="flex items-center gap-3 bg-slate-950 p-2 rounded-2xl border border-slate-800 w-full lg:w-auto justify-between">
                 <div className="flex bg-slate-900 rounded-xl p-1 gap-1">
                   <ViewBtn active={viewMode === 'grid'} onClick={() => setViewMode('grid')} icon={LayoutGrid} />
                   <ViewBtn active={viewMode === 'list'} onClick={() => setViewMode('list')} icon={List} />
                 </div>
-                <div className="w-[1px] h-6 bg-slate-800 mx-1" />
-                <button className="flex items-center gap-2 px-5 py-2.5 text-[10px] font-bold text-slate-400 hover:text-white transition-colors bg-slate-900 rounded-xl border border-slate-800 hover:border-slate-700">
-                  <Filter size={14} /> FİLTRELE
-                </button>
+                <div className="flex items-center gap-3">
+                    <div className="w-[1px] h-6 bg-slate-800 mx-1 hidden sm:block" />
+                    <button className="flex items-center gap-2 px-5 py-2.5 text-[10px] font-bold text-slate-400 hover:text-white transition-colors bg-slate-900 rounded-xl border border-slate-800 hover:border-slate-700">
+                    <Filter size={14} /> FİLTRELE
+                    </button>
+                </div>
               </div>
             </div>
 
@@ -189,15 +191,15 @@ export const ExerciseStudio = () => {
 };
 
 const StudioStatCard = ({ icon: Icon, label, value, sub, color }: any) => (
-  <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-[2rem] flex items-center gap-5 hover:border-slate-700 transition-all group">
-    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center bg-slate-950 border border-slate-800 ${color} group-hover:scale-105 transition-transform shadow-inner`}>
-      <Icon size={24} />
+  <div className="bg-slate-900/40 border border-slate-800 p-4 md:p-6 rounded-[2rem] flex items-center gap-4 md:gap-5 hover:border-slate-700 transition-all group">
+    <div className={`w-10 h-10 md:w-14 md:h-14 rounded-2xl flex items-center justify-center bg-slate-950 border border-slate-800 ${color} group-hover:scale-105 transition-transform shadow-inner`}>
+      <Icon size={20} md:size={24} />
     </div>
-    <div>
-      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.2em] mb-1">{label}</p>
-      <div className="flex items-baseline gap-2">
-        <span className="text-2xl font-semibold text-white tracking-tighter">{value}</span>
-        <span className="text-[9px] font-medium text-slate-600 uppercase italic tracking-widest">{sub}</span>
+    <div className="min-w-0">
+      <p className="text-[8px] md:text-[10px] font-semibold text-slate-500 uppercase tracking-[0.2em] mb-1 truncate">{label}</p>
+      <div className="flex flex-col md:flex-row md:items-baseline md:gap-2">
+        <span className="text-xl md:text-2xl font-semibold text-white tracking-tighter">{value}</span>
+        <span className="text-[8px] md:text-[9px] font-medium text-slate-600 uppercase italic tracking-widest truncate">{sub}</span>
       </div>
     </div>
   </div>

@@ -46,12 +46,12 @@ export const Dashboard: React.FC<{ profile: PatientProfile | null, onExerciseSel
   const redFlags = ClinicalRules.detectRedFlags(displayProfile.progressHistory);
 
   return (
-    <div className="grid grid-cols-12 gap-8 animate-in fade-in slide-in-from-bottom-6 duration-1000 pb-20 font-roboto">
+    <div className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-8 animate-in fade-in slide-in-from-bottom-6 duration-1000 pb-20 font-roboto">
       
       {/* 0. RED FLAG ALERTS (EBM v3.2) */}
       {redFlags.length > 0 && (
-        <div className="col-span-12 animate-in slide-in-from-top-4 duration-500">
-           <div className="bg-rose-500/10 border border-rose-500/30 p-6 rounded-[2rem] flex items-center gap-6 shadow-2xl shadow-rose-500/10">
+        <div className="col-span-1 md:col-span-12 animate-in slide-in-from-top-4 duration-500">
+           <div className="bg-rose-500/10 border border-rose-500/30 p-6 rounded-[2rem] flex flex-col md:flex-row items-start md:items-center gap-6 shadow-2xl shadow-rose-500/10">
               <div className="w-14 h-14 bg-rose-500 rounded-2xl flex items-center justify-center text-white shrink-0 animate-pulse">
                  <ShieldAlert size={32} />
               </div>
@@ -59,7 +59,7 @@ export const Dashboard: React.FC<{ profile: PatientProfile | null, onExerciseSel
                  <h4 className="text-xs font-black text-rose-500 uppercase tracking-[0.3em] mb-1">Kritik Klinik Uyarı (Red Flag)</h4>
                  <p className="text-sm text-rose-100 font-medium italic">{redFlags[0]}</p>
               </div>
-              <button className="px-6 py-3 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 transition-all">
+              <button className="w-full md:w-auto px-6 py-3 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 transition-all">
                  UZMANA SEVK ET
               </button>
            </div>
@@ -67,28 +67,28 @@ export const Dashboard: React.FC<{ profile: PatientProfile | null, onExerciseSel
       )}
 
       {/* 1. AI STRATEGIC COMMAND HUB */}
-      <div className="col-span-12">
-        <div className="bg-slate-900/60 backdrop-blur-3xl border-l-4 border-cyan-500 border border-slate-800 rounded-[2.5rem] p-8 relative overflow-hidden group">
+      <div className="col-span-1 md:col-span-12">
+        <div className="bg-slate-900/60 backdrop-blur-3xl border-l-4 border-cyan-500 border border-slate-800 rounded-[2.5rem] p-6 md:p-8 relative overflow-hidden group">
            <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/5 rounded-full blur-[100px] -mr-48 -mt-48" />
-           <div className="flex flex-col lg:flex-row gap-10 items-start lg:items-center relative z-10">
+           <div className="flex flex-col lg:flex-row gap-8 lg:gap-10 items-start lg:items-center relative z-10">
               <div className="flex items-center gap-6">
-                 <div className="w-20 h-20 bg-cyan-500/10 rounded-[2rem] flex items-center justify-center text-cyan-400 border border-cyan-500/20 shadow-inner group-hover:scale-105 transition-transform duration-500">
-                    <BrainCircuit size={44} className="animate-pulse" />
+                 <div className="w-16 h-16 md:w-20 md:h-20 bg-cyan-500/10 rounded-[2rem] flex items-center justify-center text-cyan-400 border border-cyan-500/20 shadow-inner group-hover:scale-105 transition-transform duration-500">
+                    <BrainCircuit className="w-9 h-9 md:w-11 md:h-11 animate-pulse" />
                  </div>
                  <div>
-                    <p className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.4em] mb-1">Genesis Strategic Intelligence</p>
-                    <h2 className="text-2xl font-black italic text-white uppercase tracking-tighter">Klinik <span className="text-cyan-400">Öngörü Paneli</span></h2>
+                    <p className="text-[9px] md:text-[10px] font-black text-cyan-500 uppercase tracking-[0.4em] mb-1">Genesis Strategic Intelligence</p>
+                    <h2 className="text-xl md:text-2xl font-black italic text-white uppercase tracking-tighter">Klinik <span className="text-cyan-400">Öngörü Paneli</span></h2>
                     {isDemo && <span className="text-[8px] bg-amber-500 text-black px-2 py-0.5 rounded font-black mt-2 inline-block">DEMO MODU</span>}
                  </div>
               </div>
 
-              <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="flex-1 w-full grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
                  <Metric label="İyileşme Yörüngesi" value={`%${displayProfile.physicalAssessment.recoveryTrajectory || 0}`} icon={Target} sub="Tahmini Hedef: 14 Gün" />
                  <Metric label="Nöromusküler Uyum" value="%88" icon={Activity} sub="Optimal Seviye" />
                  <Metric label="Risk İndeksi" value={displayProfile.riskLevel} icon={Shield} sub="Kırmızı Bayrak Yok" color={redFlags.length > 0 ? "text-rose-500" : "text-emerald-400"} />
               </div>
 
-              <div className="p-6 bg-slate-950/50 rounded-3xl border border-slate-800 lg:max-w-xs">
+              <div className="w-full lg:w-auto p-6 bg-slate-950/50 rounded-3xl border border-slate-800 lg:max-w-xs">
                  <p className="text-[9px] font-black text-slate-500 uppercase mb-2">AI Direktifi</p>
                  <p className="text-xs text-slate-300 italic leading-relaxed">"{displayProfile.latestInsight?.summary || "Analiz bekleniyor..."}"</p>
               </div>
@@ -97,7 +97,7 @@ export const Dashboard: React.FC<{ profile: PatientProfile | null, onExerciseSel
       </div>
 
       {/* 2. BIOMETRIC HUD & RECOVERY CHART */}
-      <div className="col-span-12 lg:col-span-4 space-y-6">
+      <div className="col-span-1 md:col-span-12 lg:col-span-4 space-y-6">
          <div className="bg-slate-900/60 border border-slate-800 rounded-[2.5rem] p-8 h-48 flex flex-col justify-between group hover:border-rose-500/30 transition-all">
             <div className="flex justify-between items-start">
                <div className="p-4 bg-rose-500/10 rounded-2xl text-rose-500 border border-rose-500/20 shadow-lg group-hover:scale-110 transition-transform"><Thermometer size={24} /></div>
@@ -136,10 +136,10 @@ export const Dashboard: React.FC<{ profile: PatientProfile | null, onExerciseSel
          </div>
       </div>
 
-      <div className="col-span-12 lg:col-span-8 bg-slate-900/60 border border-slate-800 rounded-[2.5rem] p-8">
+      <div className="col-span-1 md:col-span-12 lg:col-span-8 bg-slate-900/60 border border-slate-800 rounded-[2.5rem] p-6 md:p-8">
          <div className="flex justify-between items-center mb-8">
             <div>
-               <h3 className="text-xl font-black italic text-white uppercase flex items-center gap-3">
+               <h3 className="text-lg md:text-xl font-black italic text-white uppercase flex items-center gap-3">
                   <BarChart3 size={20} className="text-cyan-400" /> İyileşme <span className="text-cyan-400">Yörüngesi</span>
                </h3>
                <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mt-1">Haftalık Biyomekanik Performans Verisi</p>
@@ -170,10 +170,10 @@ export const Dashboard: React.FC<{ profile: PatientProfile | null, onExerciseSel
       </div>
 
       {/* 3. EXERCISE ATELIER */}
-      <div className="col-span-12 lg:col-span-8 space-y-6">
+      <div className="col-span-1 md:col-span-12 lg:col-span-8 space-y-6">
          <div className="flex justify-between items-center px-4">
              <div>
-                 <h2 className="text-2xl font-black italic tracking-tighter text-white uppercase">Egzersiz <span className="text-cyan-400">Atölyesi</span></h2>
+                 <h2 className="text-xl md:text-2xl font-black italic tracking-tighter text-white uppercase">Egzersiz <span className="text-cyan-400">Atölyesi</span></h2>
                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">GÜNLÜK REHABİLİTASYON PROGRAMI</p>
              </div>
          </div>
@@ -181,17 +181,17 @@ export const Dashboard: React.FC<{ profile: PatientProfile | null, onExerciseSel
          <div className="grid grid-cols-1 gap-4">
             {displayProfile.suggestedPlan.length > 0 ? (
                displayProfile.suggestedPlan.map((ex, idx) => (
-                  <div key={idx} onClick={() => onExerciseSelect(ex)} className="bg-slate-900/40 border border-slate-800 hover:border-cyan-500/50 p-6 rounded-[2rem] flex items-center gap-8 cursor-pointer transition-all">
-                     <div className="w-14 h-14 bg-slate-950 rounded-2xl flex items-center justify-center text-slate-700 font-black italic border border-slate-800 text-lg">0{idx+1}</div>
-                     <div className="flex-1">
-                        <h4 className="font-black text-lg text-slate-200 uppercase italic tracking-tight">{ex.titleTr || ex.title}</h4>
+                  <div key={idx} onClick={() => onExerciseSelect(ex)} className="bg-slate-900/40 border border-slate-800 hover:border-cyan-500/50 p-6 rounded-[2rem] flex items-center gap-6 md:gap-8 cursor-pointer transition-all active:scale-95">
+                     <div className="w-12 h-12 md:w-14 md:h-14 bg-slate-950 rounded-2xl flex items-center justify-center text-slate-700 font-black italic border border-slate-800 text-lg">0{idx+1}</div>
+                     <div className="flex-1 min-w-0">
+                        <h4 className="font-black text-base md:text-lg text-slate-200 uppercase italic tracking-tight truncate">{ex.titleTr || ex.title}</h4>
                         <div className="flex gap-4 mt-1">
-                           <span className="text-[10px] font-black text-slate-600 uppercase">{ex.sets}x{ex.reps} Dozaj</span>
-                           <span className="text-[10px] font-black text-cyan-500 uppercase">{ex.rehabPhase} Faz</span>
+                           <span className="text-[9px] md:text-[10px] font-black text-slate-600 uppercase">{ex.sets}x{ex.reps} Dozaj</span>
+                           <span className="text-[9px] md:text-[10px] font-black text-cyan-500 uppercase">{ex.rehabPhase} Faz</span>
                         </div>
                      </div>
-                     <div className="w-12 h-12 bg-slate-950 rounded-full flex items-center justify-center text-slate-600 hover:text-cyan-400 border border-slate-800 shadow-xl transition-all">
-                        <Play size={20} fill="currentColor" className="ml-1" />
+                     <div className="w-10 h-10 md:w-12 md:h-12 bg-slate-950 rounded-full flex items-center justify-center text-slate-600 hover:text-cyan-400 border border-slate-800 shadow-xl transition-all shrink-0">
+                        <Play className="w-[18px] h-[18px] md:w-5 md:h-5 ml-1" fill="currentColor" />
                      </div>
                   </div>
                ))
@@ -206,7 +206,7 @@ export const Dashboard: React.FC<{ profile: PatientProfile | null, onExerciseSel
       </div>
 
       {/* 4. CLINICAL SIDEBAR */}
-      <div className="col-span-12 lg:col-span-4 space-y-6">
+      <div className="col-span-1 md:col-span-12 lg:col-span-4 space-y-6">
          <div className="bg-gradient-to-br from-cyan-600 to-blue-700 rounded-[3rem] p-8 text-white shadow-2xl relative overflow-hidden group cursor-pointer">
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-16 -mt-16" />
             <Trophy size={48} className="text-white/20 mb-6 group-hover:scale-110 transition-transform" />
@@ -224,7 +224,7 @@ export const Dashboard: React.FC<{ profile: PatientProfile | null, onExerciseSel
       </div>
 
       {/* RPM Bridge Integration */}
-      <div className="col-span-12">
+      <div className="col-span-1 md:col-span-12">
          {profile && <RPMBridge profile={profile} />}
       </div>
     </div>

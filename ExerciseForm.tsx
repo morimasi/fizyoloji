@@ -48,42 +48,43 @@ export const ExerciseForm: React.FC<ExerciseFormProps> = ({ initialData, onSave,
   };
 
   return (
-    <div className="glass-panel p-8 md:p-12 rounded-[3rem] border border-slate-800 relative overflow-hidden animate-in zoom-in-95 duration-500">
+    <div className="glass-panel p-6 md:p-12 rounded-[2rem] md:rounded-[3rem] border border-slate-800 relative overflow-hidden animate-in zoom-in-95 duration-500">
       <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/5 rounded-full blur-[100px] -mr-48 -mt-48" />
       
       {/* Editor Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12 relative z-10">
-        <div className="flex items-center gap-5">
-          <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center border border-slate-800 text-cyan-500 shadow-inner">
-            <Settings2 size={28} />
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8 md:mb-12 relative z-10">
+        <div className="flex items-center gap-4 md:gap-5 w-full md:w-auto">
+          <div className="w-12 h-12 md:w-14 md:h-14 bg-slate-900 rounded-2xl flex items-center justify-center border border-slate-800 text-cyan-500 shadow-inner shrink-0">
+            <Settings2 className="w-6 h-6 md:w-7 md:h-7" />
           </div>
-          <div>
-            <h3 className="text-2xl font-semibold text-white tracking-tight italic">
+          <div className="flex-1">
+            <h3 className="text-xl md:text-2xl font-semibold text-white tracking-tight italic">
               {isEditing ? 'PROTOKOLÜ' : 'YENİ'} <span className="text-cyan-400 uppercase">Düzenle</span>
             </h3>
-            <div className="flex gap-2 mt-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+            {/* Mobile-Friendly Scrollable Tabs */}
+            <div className="flex gap-2 mt-2 bg-slate-950 p-1 rounded-xl border border-slate-800 overflow-x-auto no-scrollbar max-w-[250px] md:max-w-none">
               <TabBtn active={activeTab === 'data'} onClick={() => setActiveTab('data')} label="Klinik Veri" />
               <TabBtn active={activeTab === 'tuning'} onClick={() => setActiveTab('tuning')} label="Dozaj Motoru" />
               <TabBtn active={activeTab === 'visual'} onClick={() => setActiveTab('visual')} label="Görsel Stüdyo" />
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button onClick={onCancel} className="p-4 text-slate-500 hover:text-white transition-colors bg-slate-900/50 rounded-2xl border border-slate-800">
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <button onClick={onCancel} className="p-4 text-slate-500 hover:text-white transition-colors bg-slate-900/50 rounded-2xl border border-slate-800 shrink-0">
             <X size={20} />
           </button>
           <button 
             onClick={submitForm} 
             disabled={isSaving}
-            className={`flex items-center gap-3 px-8 py-4 rounded-2xl font-semibold text-xs shadow-xl transition-all ${isSaving ? 'bg-emerald-600 text-white cursor-wait' : 'bg-cyan-500 text-white hover:bg-cyan-400 hover:scale-[1.02] active:scale-95 shadow-cyan-500/20'}`}
+            className={`flex-1 md:flex-none flex items-center justify-center gap-3 px-8 py-4 rounded-2xl font-semibold text-xs shadow-xl transition-all ${isSaving ? 'bg-emerald-600 text-white cursor-wait' : 'bg-cyan-500 text-white hover:bg-cyan-400 hover:scale-[1.02] active:scale-95 shadow-cyan-500/20'}`}
           >
             {isSaving ? (
                 <>
-                    <Loader2 size={18} className="animate-spin" /> KAYDEDİLİYOR...
+                    <Loader2 size={18} className="animate-spin" /> <span className="hidden md:inline">KAYDEDİLİYOR...</span>
                 </>
             ) : (
                 <>
-                    <Save size={18} /> {isEditing ? 'SİSTEMİ GÜNCELLE' : 'PROTOKOLÜ KAYDET'}
+                    <Save size={18} /> {isEditing ? 'GÜNCELLE' : 'KAYDET'}
                 </>
             )}
           </button>
@@ -119,7 +120,7 @@ export const ExerciseForm: React.FC<ExerciseFormProps> = ({ initialData, onSave,
 };
 
 const TabBtn = ({ active, onClick, label }: any) => (
-  <button onClick={onClick} className={`px-5 py-2 rounded-lg text-[10px] font-semibold uppercase tracking-wider transition-all ${active ? 'bg-cyan-500 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'}`}>
+  <button onClick={onClick} className={`px-4 md:px-5 py-2 rounded-lg text-[9px] md:text-[10px] font-semibold uppercase tracking-wider transition-all whitespace-nowrap ${active ? 'bg-cyan-500 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'}`}>
     {label}
   </button>
 );
