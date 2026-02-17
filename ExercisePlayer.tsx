@@ -13,6 +13,7 @@ import { generateExerciseTutorial } from './ai-service.ts';
 import { MediaConverter, ExportFormat } from './MediaConverter.ts';
 import { LiveCoach } from './LiveCoach.tsx';
 import { AnatomicalAvatar } from './AnatomicalAvatar.tsx';
+import { ExerciseActions } from './ExerciseActions.tsx';
 
 interface PlayerProps {
   exercise: Exercise;
@@ -61,11 +62,13 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
   useEffect(() => {
     if (exercise.visualUrl && activeLayer !== '3d') {
       const img = new Image();
+      img.crossOrigin = "anonymous";
       img.src = exercise.visualUrl;
       img.onload = () => { imageCacheRef.current = img; drawFrame(0); };
     }
   }, [exercise, activeLayer]);
 
+  // FIXED: Draw logic with Aspect Ratio Preservation (No More Zoom Issue)
   const drawFrame = (progress: number) => {
     const canvas = canvasRef.current;
     const img = imageCacheRef.current;
@@ -75,22 +78,44 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
 
     const cols = 4; const rows = 4; const totalFrames = 16;
     const frameIndex = Math.floor(progress) % totalFrames;
-    const cellW = img.width / cols; const cellH = img.height / rows;
+    
+    // Sprite boyutları
+    const spriteW = img.width / cols;
+    const spriteH = img.height / rows;
 
+    // Temizle
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Efektler
     if (activeLayer === 'xray') ctx.filter = 'invert(1) hue-rotate(180deg) brightness(1.2)';
     else if (activeLayer === 'muscles') ctx.filter = 'sepia(1) saturate(5) hue-rotate(-50deg)';
     else ctx.filter = 'none';
 
-    ctx.drawImage(img, (frameIndex % cols) * cellW, Math.floor(frameIndex / cols) * cellH, cellW, cellH, 0, 0, canvas.width, canvas.height);
+    // SMART SCALE HESAPLAMA
+    // Canvas boyutuna sığacak en büyük oranı bul (Contain)
+    const scale = Math.min(canvas.width / spriteW, canvas.height / spriteH) * 0.85; // %85 doluluk ile kenar boşluğu bırak
+    
+    const destW = spriteW * scale;
+    const destH = spriteH * scale;
+    const dx = (canvas.width - destW) / 2; // Yatay ortala
+    const dy = (canvas.height - destH) / 2; // Dikey ortala
+
+    // Kaynak koordinatları
+    const sx = (frameIndex % cols) * spriteW;
+    const sy = Math.floor(frameIndex / cols) * spriteH;
+
+    ctx.drawImage(img, sx, sy, spriteW, spriteH, dx, dy, destW, destH);
     ctx.filter = 'none';
 
+    // Ritmik Çember (Görselin etrafında değil, canvas merkezinde dönsün)
     if (isPlaying) {
       ctx.strokeStyle = '#06B6D4';
-      ctx.lineWidth = 4;
-      ctx.setLineDash([20, 10]);
+      ctx.lineWidth = 2;
+      ctx.setLineDash([10, 20]);
       ctx.beginPath();
-      ctx.arc(canvas.width/2, canvas.height/2, 350 + Math.sin(progress) * 10, 0, Math.PI * 2);
+      // Çemberi görselin etrafına çiz
+      const radius = Math.max(destW, destH) / 2 + 20 + Math.sin(progress) * 5;
+      ctx.arc(canvas.width/2, canvas.height/2, radius, 0, Math.PI * 2);
       ctx.stroke();
     }
   };
@@ -100,7 +125,8 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
       if (!isPlaying || activeLayer === '3d') return;
       const dt = time - lastTimeRef.current;
       lastTimeRef.current = time;
-      progressRef.current = (progressRef.current + dt * 0.005) % 16;
+      // Hızı biraz düşürdük (daha sinematik)
+      progressRef.current = (progressRef.current + dt * 0.008) % 16;
       drawFrame(progressRef.current);
       requestAnimationFrame(animate);
     };
@@ -129,9 +155,13 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
           </p>
         </div>
 
-        <button onClick={() => setShowLiveCoach(!showLiveCoach)} className={`px-6 py-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${showLiveCoach ? 'bg-cyan-500 text-white border-cyan-400 shadow-xl' : 'bg-slate-900 text-slate-400 border-slate-800'}`}>
-          {showLiveCoach ? 'KOÇU GİZLE' : 'LIVE AI COACH'}
-        </button>
+        <div className="flex gap-4">
+           {/* Medya Dönüştürücü Entegre Edildi */}
+           <ExerciseActions exercise={exercise} variant="player" />
+           <button onClick={() => setShowLiveCoach(!showLiveCoach)} className={`px-6 py-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${showLiveCoach ? 'bg-cyan-500 text-white border-cyan-400 shadow-xl' : 'bg-slate-900 text-slate-400 border-slate-800'}`}>
+             {showLiveCoach ? 'KOÇU GİZLE' : 'LIVE AI COACH'}
+           </button>
+        </div>
       </div>
 
       <div className="flex-1 flex flex-col lg:flex-row relative">
