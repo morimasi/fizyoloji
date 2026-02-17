@@ -1,12 +1,15 @@
 
 -- =============================================================================
--- PHYSIOCORE AI - GENESIS v10.0 MASTER SCHEMA (PRODUCTION READY)
+-- PHYSIOCORE AI - GENESIS v12.0 MASTER SCHEMA (FULL STACK PRODUCTION)
 -- Architect: Fizyolojik AI
--- Stack: PostgreSQL (Vercel/Neon), UUID, JSONB, RLS Ready
+-- Context: PostgreSQL (Neon/Vercel) + TypeScript Strict Mapping
 -- =============================================================================
 
--- 1. TEMİZLİK & BAŞLANGIÇ (CLEAN SLATE)
--- Dikkat: Bu komutlar mevcut veriyi siler. Canlı sistemde dikkatli kullanın.
+-- [1] TEMİZLİK & BAŞLANGIÇ (HARD RESET)
+-- Mevcut tüm tabloları ve tipleri temizler.
+DROP TRIGGER IF EXISTS update_timestamp ON users;
+DROP FUNCTION IF EXISTS update_timestamp;
+
 DROP TABLE IF EXISTS messages CASCADE;
 DROP TABLE IF EXISTS clinical_tasks CASCADE;
 DROP TABLE IF EXISTS progress_reports CASCADE;
@@ -23,11 +26,11 @@ DROP TYPE IF EXISTS rehab_phase CASCADE;
 DROP TYPE IF EXISTS patient_status CASCADE;
 DROP TYPE IF EXISTS user_role CASCADE;
 
--- 2. EKLENTİLER (EXTENSIONS)
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp"; -- UUID üretimi için
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";  -- Şifreleme fonksiyonları için
+-- [2] EKLENTİLER (EXTENSIONS)
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp"; -- UUID v4 üretimi için
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";  -- Şifreleme (Gerekirse)
 
--- 3. ÖZEL VERİ TİPLERİ (ENUMS)
+-- [3] ENUM TİPLERİ (TYPES.TS ILE UYUMLU)
 CREATE TYPE user_role AS ENUM ('Admin', 'Therapist', 'Patient', 'Supervisor');
 CREATE TYPE patient_status AS ENUM ('Kritik', 'Akut', 'Stabil', 'İyileşiyor', 'Taburcu', 'Pasif');
 CREATE TYPE rehab_phase AS ENUM ('Pre-Op', 'Akut', 'Sub-Akut', 'Kronik', 'Performans');
@@ -35,43 +38,39 @@ CREATE TYPE task_priority AS ENUM ('Low', 'Medium', 'High', 'Critical');
 CREATE TYPE pain_quality AS ENUM ('Keskin', 'Künt', 'Yanıcı', 'Batıcı', 'Elektriklenme', 'Sızlama');
 
 -- =============================================================================
--- 4. TABLOLAR (TABLES)
+-- [4] TABLOLAR (TABLES)
 -- =============================================================================
 
--- 4.1. KULLANICI KİMLİK (CORE IDENTITY)
+-- 4.1. KULLANICILAR (USERS)
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     role user_role NOT NULL DEFAULT 'Patient',
     full_name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
-    phone VARCHAR(30),
+    phone VARCHAR(50),
     avatar_url TEXT,
-    password_hash TEXT DEFAULT 'auth_provider_managed', -- NextAuth/Clerk kullanıldığı varsayımıyla
+    password_hash TEXT, -- Auth provider yoksa manuel giriş için
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4.2. TERAPİST PROFİLLERİ (THERAPIST EXTENSION)
+-- 4.2. TERAPİST PROFİLLERİ (THERAPIST PROFILES)
 CREATE TABLE therapist_profiles (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     license_no VARCHAR(100),
-    specialization TEXT[] DEFAULT '{}', -- Örn: ['Sporcu Sağlığı', 'Nöroloji']
+    specialization TEXT[] DEFAULT '{}', -- ['Sporcu Sağlığı', 'Manuel Terapi']
     bio TEXT,
     years_of_experience INTEGER DEFAULT 0,
     success_rate_percent DECIMAL(5,2) DEFAULT 0.00,
     total_patients_active INTEGER DEFAULT 0,
     average_recovery_time VARCHAR(50),
-    -- AI Asistan Ayarları (JSONB)
-    ai_assistant_config JSONB DEFAULT '{
-        "autoSuggestProtocols": true,
-        "notifyHighRisk": true,
-        "weeklyReports": true,
-        "aiEmpathyLevel": 85
-    }',
-    status VARCHAR(20) DEFAULT 'Aktif'
+    status VARCHAR(20) DEFAULT 'Aktif',
+    
+    -- AI Config (JSONB): { autoSuggestProtocols: true, notifyHighRisk: true, ... }
+    ai_assistant_config JSONB DEFAULT '{}'::jsonb
 );
 
--- 4.3. HASTA PROFİLLERİ (PATIENT EXTENSION)
+-- 4.3. HASTA PROFİLLERİ (PATIENT PROFILES)
 CREATE TABLE patients (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     assigned_therapist_id UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -81,47 +80,47 @@ CREATE TABLE patients (
     diagnosis_summary TEXT,
     icd10_code VARCHAR(20),
     
-    -- Klinik Veriler (JSONB)
+    -- Fiziksel Değerlendirme (ROM, Postür vb.)
     physical_assessment JSONB DEFAULT '{
         "rom": {}, 
         "strength": {}, 
         "posture": "", 
         "recoveryTrajectory": 70
-    }',
+    }'::jsonb,
     
-    -- AI İçgörüleri (Son Analiz)
-    latest_ai_insight JSONB DEFAULT '{}',
+    -- AI Son Analiz Çıktısı
+    latest_ai_insight JSONB DEFAULT '{}'::jsonb,
     
-    -- Senkronizasyon Durumu
     sync_status VARCHAR(20) DEFAULT 'Synced',
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4.4. KLİNİK İÇERİK KÜTÜPHANESİ (EXERCISES - CMS)
+-- 4.4. EGZERSİZ KÜTÜPHANESİ (EXERCISES - CMS)
 CREATE TABLE exercises (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    code VARCHAR(50) UNIQUE NOT NULL, -- Örn: SP-01
+    code VARCHAR(50) UNIQUE NOT NULL, -- Örn: SP-01 (Seed Data Eşleşmesi İçin Kritik)
     title VARCHAR(255) NOT NULL,
     title_tr VARCHAR(255),
-    category VARCHAR(100) NOT NULL,
+    category VARCHAR(100) NOT NULL, -- 'Spine', 'Lower Limb' vb.
     difficulty INTEGER DEFAULT 5, -- 1-10
+    
     description TEXT,
     biomechanics_notes TEXT,
     
-    -- Flash Engine Varlıkları (JSONB)
-    -- { "visual_url": "...", "video_url": "...", "is_motion": true, "layout": "grid-4x4" }
-    media_assets JSONB DEFAULT '{}',
+    -- Görsel Varlıklar ve Metadata (JSONB)
+    -- { "visual_url": "...", "video_url": "...", "is_motion": true, "layout": "grid-4x4", "target_rpe": 5 }
+    media_assets JSONB DEFAULT '{}'::jsonb,
     
     is_motion BOOLEAN DEFAULT false,
     visual_style VARCHAR(50) DEFAULT 'Flash-Ultra',
     
-    -- Tagging
+    -- Etiketleme (Arrays)
     equipment TEXT[] DEFAULT '{}',
     primary_muscles TEXT[] DEFAULT '{}',
     secondary_muscles TEXT[] DEFAULT '{}',
     safety_flags TEXT[] DEFAULT '{}', -- Kontrendikasyonlar
     
-    -- Teknik Veriler
+    -- Varsayılan Dozaj
     default_sets INTEGER DEFAULT 3,
     default_reps INTEGER DEFAULT 10,
     default_tempo VARCHAR(20) DEFAULT '3-1-3',
@@ -131,20 +130,20 @@ CREATE TABLE exercises (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4.5. REÇETELER (PRESCRIPTIONS - PROGRAMLAR)
+-- 4.5. REÇETELER (PRESCRIPTIONS)
 CREATE TABLE prescriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     patient_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     exercise_id UUID NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
-    assigned_by UUID REFERENCES users(id) ON DELETE SET NULL, -- Terapist ID
+    assigned_by UUID REFERENCES users(id) ON DELETE SET NULL,
     
-    -- Kişiselleştirilmiş Dozaj
+    -- Kişiselleştirilmiş Dozaj (Varsayılanı ezer)
     sets INTEGER,
     reps INTEGER,
     tempo VARCHAR(20),
     rest_period INTEGER,
-    target_rpe INTEGER DEFAULT 5, -- 1-10 Algılanan Zorluk
-    frequency VARCHAR(50), -- "Günde 2 kez"
+    target_rpe INTEGER DEFAULT 5,
+    frequency VARCHAR(100), -- "Günde 2 kez"
     
     start_date DATE DEFAULT CURRENT_DATE,
     end_date DATE,
@@ -153,15 +152,15 @@ CREATE TABLE prescriptions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4.6. İLERLEME RAPORLARI & LOGLAR
+-- 4.6. İLERLEME VE LOGLAR (PROGRESS)
 CREATE TABLE progress_reports (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     patient_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    pain_score INTEGER NOT NULL, -- VAS Skoru
-    completion_rate INTEGER DEFAULT 0, -- %0-100
+    pain_score INTEGER NOT NULL, -- VAS 0-10
+    completion_rate INTEGER DEFAULT 0, -- %
     feedback TEXT,
-    clinical_flags TEXT[] DEFAULT '{}' -- ["Red Flag", "High Pain"]
+    clinical_flags TEXT[] DEFAULT '{}'
 );
 
 CREATE TABLE pain_logs (
@@ -173,21 +172,25 @@ CREATE TABLE pain_logs (
     logged_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4.7. KLİNİK GÖREVLER (WORKFLOW)
+-- 4.7. KLİNİK GÖREVLER (TASKS)
 CREATE TABLE clinical_tasks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    therapist_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    patient_id UUID REFERENCES users(id) ON DELETE SET NULL,
     title VARCHAR(255) NOT NULL,
     priority task_priority DEFAULT 'Medium',
-    status VARCHAR(50) DEFAULT 'Pending', -- Pending, In-Progress, Completed
+    status VARCHAR(50) DEFAULT 'Pending',
+    
+    -- İlişkiler
+    therapist_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    patient_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    
     ai_recommendation TEXT,
     due_date TIMESTAMP WITH TIME ZONE,
+    
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4.8. GÜVENLİ MESAJLAŞMA (MESSAGING)
+-- 4.8. MESAJLAŞMA (MESSAGING)
 CREATE TABLE messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -199,22 +202,20 @@ CREATE TABLE messages (
 );
 
 -- =============================================================================
--- 5. PERFORMANS İNDEKSLERİ (INDEXES)
+-- [5] İNDEKSLER (PERFORMANCE TUNING)
 -- =============================================================================
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_role ON users(role);
-CREATE INDEX idx_patients_therapist ON patients(assigned_therapist_id);
-CREATE INDEX idx_exercises_code ON exercises(code);
+CREATE INDEX idx_exercises_code ON exercises(code); -- Seed data upsert hızı için kritik
 CREATE INDEX idx_exercises_category ON exercises(category);
 CREATE INDEX idx_prescriptions_patient ON prescriptions(patient_id);
 CREATE INDEX idx_progress_patient_date ON progress_reports(patient_id, date);
-CREATE INDEX idx_messages_conversation ON messages(sender_id, receiver_id);
-CREATE INDEX idx_tasks_therapist_status ON clinical_tasks(therapist_id, status);
+CREATE INDEX idx_clinical_tasks_therapist ON clinical_tasks(therapist_id);
 
 -- =============================================================================
--- 6. OTOMASYON (TRIGGERS)
+-- [6] OTOMASYON (TRIGGERS)
 -- =============================================================================
-CREATE OR REPLACE FUNCTION update_timestamp()
+CREATE OR REPLACE FUNCTION update_timestamp_func()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = CURRENT_TIMESTAMP;
@@ -222,35 +223,29 @@ BEGIN
 END;
 $$ LANGUAGE 'plpgsql';
 
--- Tüm ana tablolar için otomatik updated_at tetikleyicisi
-DO $$ 
-DECLARE 
-    t TEXT;
-BEGIN
-    FOR t IN SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('users', 'patients', 'exercises', 'clinical_tasks', 'therapist_profiles')
-    LOOP
-        EXECUTE format('DROP TRIGGER IF EXISTS trg_upd_%I ON %I', t, t);
-        EXECUTE format('CREATE TRIGGER trg_upd_%I BEFORE UPDATE ON %I FOR EACH ROW EXECUTE PROCEDURE update_timestamp()', t, t);
-    END LOOP;
-END $$;
+CREATE TRIGGER trg_users_upd BEFORE UPDATE ON users FOR EACH ROW EXECUTE PROCEDURE update_timestamp_func();
+CREATE TRIGGER trg_patients_upd BEFORE UPDATE ON patients FOR EACH ROW EXECUTE PROCEDURE update_timestamp_func();
+CREATE TRIGGER trg_exercises_upd BEFORE UPDATE ON exercises FOR EACH ROW EXECUTE PROCEDURE update_timestamp_func();
+CREATE TRIGGER trg_tasks_upd BEFORE UPDATE ON clinical_tasks FOR EACH ROW EXECUTE PROCEDURE update_timestamp_func();
 
 -- =============================================================================
--- 7. SEED DATA (BAŞLANGIÇ VERİSİ - OPSİYONEL)
+-- [7] SEED DATA (INITIAL ADMIN & THERAPIST)
 -- =============================================================================
 
--- Demo Admin
+-- Root Admin
 INSERT INTO users (full_name, email, role, password_hash)
-VALUES ('System Admin', 'admin@physiocore.ai', 'Admin', 'hashed_secret_123')
+VALUES ('System Admin', 'admin@physiocore.ai', 'Admin', 'secure_hash_x99')
 ON CONFLICT (email) DO NOTHING;
 
 -- Demo Terapist
 WITH new_therapist AS (
-    INSERT INTO users (full_name, email, role, password_hash)
-    VALUES ('Uzm. Fzt. Erdem Arslan', 'erdem@physiocore.ai', 'Therapist', 'hashed_secret_456')
-    ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name 
+    INSERT INTO users (full_name, email, role)
+    VALUES ('Uzm. Fzt. Erdem Arslan', 'erdem@physiocore.ai', 'Therapist')
+    ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name
     RETURNING id
 )
-INSERT INTO therapist_profiles (user_id, specialization, years_of_experience, bio)
-SELECT id, ARRAY['Ortopedik Rehabilitasyon', 'Sporcu Sağlığı'], 12, 'Manuel Terapi ve Klinik Egzersiz Uzmanı.'
+INSERT INTO therapist_profiles (user_id, specialization, years_of_experience, bio, total_patients_active)
+SELECT id, ARRAY['Ortopedik Rehabilitasyon', 'Sporcu Sağlığı'], 12, 'Manuel Terapi ve Klinik Egzersiz Uzmanı.', 28
 FROM new_therapist
 ON CONFLICT (user_id) DO NOTHING;
+
