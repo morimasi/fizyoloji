@@ -7,8 +7,9 @@
 
 -- [1] TEMİZLİK & BAŞLANGIÇ (HARD RESET)
 -- Mevcut tüm tabloları ve tipleri temizler.
-DROP TRIGGER IF EXISTS update_timestamp ON users;
-DROP FUNCTION IF EXISTS update_timestamp;
+DROP TRIGGER IF EXISTS update_timestamp ON users CASCADE;
+DROP FUNCTION IF EXISTS update_timestamp CASCADE;
+DROP FUNCTION IF EXISTS update_timestamp_func CASCADE;
 
 DROP TABLE IF EXISTS messages CASCADE;
 DROP TABLE IF EXISTS clinical_tasks CASCADE;
