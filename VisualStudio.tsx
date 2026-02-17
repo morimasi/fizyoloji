@@ -5,11 +5,12 @@ import {
   MonitorPlay, Zap, Wand2, Sparkles, Rocket, 
   AlertCircle, RefreshCw, Video, Film, Timer, Box,
   Bone, Flame, Heart, Scan, User, Layers, ChevronLeft, ChevronRight,
-  Presentation, FileVideo, Cpu, Gift, Info, FileJson, Share2
+  Presentation, FileVideo, Cpu, Gift, Info, FileJson, Share2,
+  Edit3, Check, X
 } from 'lucide-react';
-import { Exercise } from './types.ts';
-import { generateExerciseVisual, generateExerciseVideo, generateVectorAnimation, generateClinicalSlides, AnatomicalLayer } from './ai-visual.ts';
-import { ensureApiKey, isApiKeyError } from './ai-core.ts';
+import { Exercise, AnatomicalLayer } from './types.ts';
+import { generateExerciseVisual, generateExerciseVideo, generateVectorAnimation, generateClinicalSlides } from './ai-visual.ts';
+import { ensureApiKey, isApiKeyError, getAI } from './ai-core.ts';
 import { MediaConverter } from './MediaConverter.ts';
 
 interface VisualStudioProps {
@@ -26,6 +27,48 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
   const [svgContent, setSvgContent] = useState<string>(exercise.vectorData || '');
   const [slideData, setSlideData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  // Prompt Engineering State
+  const [generatedPrompt, setGeneratedPrompt] = useState('');
+  const [isPromptEditing, setIsPromptEditing] = useState(false);
+  const [isAiExpanding, setIsAiExpanding] = useState(false);
+
+  // Auto-generate prompt on mount based on incoming data
+  useEffect(() => {
+    constructPrompt();
+  }, [exercise, activeLayer]);
+
+  const constructPrompt = () => {
+    // Ultra-Detailed Clinical Prompt Construction
+    const anatomicalFocus = activeLayer === 'muscular' ? 'emphasizing deep red muscle fibers and striations' : 
+                            activeLayer === 'skeletal' ? 'highlighting bone structure and joint articulation in white' :
+                            activeLayer === 'xray' ? 'in a radiographic blue/white x-ray style' : 
+                            'showing a photorealistic athletic human figure';
+    
+    const context = `Subject: Human performing ${exercise.title || 'movement'}. 
+    Action: ${exercise.titleTr || exercise.title}. 
+    Biomechanics: ${exercise.biomechanics || 'Neutral spine'}. 
+    Target Tissue: ${exercise.tissueTarget || 'General'}.
+    Visual Style: ${anatomicalFocus}. 
+    Technical: 4K resolution, clinical lighting, dark slate background, high contrast. 
+    Kinetic Chain: ${exercise.kineticChain || 'Closed'}. 
+    Phase: ${exercise.contractionType || 'Concentric'}.`;
+
+    setGeneratedPrompt(context);
+  };
+
+  const handleAiExpand = async () => {
+    setIsAiExpanding(true);
+    try {
+        const ai = getAI();
+        const res = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: `Expand this image generation prompt to make it more cinematic, detailed, and anatomically precise. Keep it under 60 words: "${generatedPrompt}"`
+        });
+        if (res.text) setGeneratedPrompt(res.text);
+    } catch (e) { console.error(e); }
+    finally { setIsAiExpanding(false); }
+  };
 
   const layers = [
     { id: 'full-body', label: 'Komple Beden', icon: User, color: 'text-white' },
@@ -42,22 +85,24 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
 
     setIsGenerating(true);
     
+    // Inject custom prompt into exercise object for the generator function
+    const overrideExercise = { ...exercise, generatedPrompt };
+
     try {
       if (activeTab === 'image') {
-        const result = await generateExerciseVisual(exercise, activeLayer);
+        const result = await generateExerciseVisual(overrideExercise, activeLayer);
         setPreviewUrl(result.url);
         onVisualGenerated(result.url, `Flash-${activeLayer}`, false, result.frameCount, result.layout);
       } else if (activeTab === 'video') {
-        // Veo Fast Model
-        const url = await generateExerciseVideo(exercise);
+        const url = await generateExerciseVideo(overrideExercise);
         setVideoUrl(url);
         onVisualGenerated(url, `Veo-Fast-720p`, true, 24, 'single');
       } else if (activeTab === 'vector') {
-        const svg = await generateVectorAnimation(exercise);
+        const svg = await generateVectorAnimation(overrideExercise);
         setSvgContent(svg);
         onVisualGenerated(svg, 'Flash-Vector', false, 1, 'single');
       } else if (activeTab === 'slides') {
-        const slides = await generateClinicalSlides(exercise);
+        const slides = await generateClinicalSlides(overrideExercise);
         setSlideData(slides);
       }
     } catch (err: any) {
@@ -80,7 +125,6 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
       } else if (format === 'mp4' && videoUrl) {
         await MediaConverter.export(videoUrl, 'mp4', `PhysioCore_Video_${exercise.code}`);
       } else if (format === 'gif' && (videoUrl || previewUrl)) {
-        // Note: 'gif' format internally triggers WebM conversion in MediaConverter to avoid corrupt files
         await MediaConverter.export(videoUrl || previewUrl, 'gif', `PhysioCore_Motion_${exercise.code}`);
       }
     } catch (e) {
@@ -94,7 +138,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
         <div className="bg-slate-900/80 rounded-[3rem] p-8 border border-slate-800 shadow-2xl relative overflow-hidden backdrop-blur-3xl">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 to-indigo-600" />
           
-          <div className="flex items-center gap-4 mb-10">
+          <div className="flex items-center gap-4 mb-8">
             <div className="w-14 h-14 bg-slate-950 rounded-2xl flex items-center justify-center text-cyan-400 border border-slate-800 shadow-inner">
                <Cpu size={28} className="animate-pulse" />
             </div>
@@ -104,7 +148,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
             </div>
           </div>
 
-          <div className="space-y-6 mb-10">
+          <div className="space-y-6 mb-8">
              <div className="grid grid-cols-2 gap-2 bg-slate-950 p-2 rounded-2xl border border-slate-800">
                 <ModeBtn active={activeTab === 'image'} onClick={() => setActiveTab('image')} icon={FileVideo} label="SPRITE" />
                 <ModeBtn active={activeTab === 'video'} onClick={() => setActiveTab('video')} icon={Video} label="VEO FAST" />
@@ -132,6 +176,34 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
              )}
           </div>
 
+          {/* PROMPT ENGINEERING SECTION */}
+          <div className="bg-slate-950 border border-slate-800 rounded-3xl p-5 space-y-3 mb-6 relative group/prompt">
+             <div className="flex justify-between items-center">
+                <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                   <Sparkles size={12} className="text-amber-400" /> Prompt Mühendisliği
+                </h5>
+                <div className="flex gap-2">
+                   <button onClick={handleAiExpand} disabled={isAiExpanding} className="p-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 rounded-lg transition-all" title="AI ile Genişlet">
+                      {isAiExpanding ? <RefreshCw className="animate-spin" size={12} /> : <Wand2 size={12} />}
+                   </button>
+                   <button onClick={() => setIsPromptEditing(!isPromptEditing)} className="p-1.5 bg-slate-800 hover:text-white text-slate-400 rounded-lg transition-all">
+                      {isPromptEditing ? <Check size={12} /> : <Edit3 size={12} />}
+                   </button>
+                </div>
+             </div>
+             {isPromptEditing ? (
+               <textarea 
+                 value={generatedPrompt} 
+                 onChange={(e) => setGeneratedPrompt(e.target.value)}
+                 className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-[10px] text-white font-mono h-24 outline-none"
+               />
+             ) : (
+               <div className="p-3 bg-slate-900/50 rounded-xl border border-slate-800 max-h-24 overflow-y-auto">
+                  <p className="text-[9px] text-slate-400 font-mono leading-relaxed italic">{generatedPrompt}</p>
+               </div>
+             )}
+          </div>
+
           {error && <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-start gap-3"><AlertCircle className="text-rose-500 shrink-0" size={16} /><p className="text-[10px] text-rose-200 font-bold uppercase italic">{error}</p></div>}
 
           <button 
@@ -141,13 +213,6 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
           >
              {isGenerating ? <><Loader2 className="animate-spin" size={20} /> İŞLENİYOR...</> : <><Rocket size={20} /> {activeTab === 'video' ? 'VEO VİDEO ÜRET' : 'ÜRETİMİ BAŞLAT'}</>}
           </button>
-          
-          <div className="mt-6 p-4 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex items-start gap-3">
-             <Info size={14} className="text-amber-500 shrink-0" />
-             <p className="text-[8px] text-slate-500 leading-relaxed italic">
-                {activeTab === 'video' ? "VEO Fast motoru 720p klinik videoları hızla üretir." : "Flash modelleri multimodal içerik üretiminde en hızlı seçenektir."}
-             </p>
-          </div>
         </div>
       </div>
 

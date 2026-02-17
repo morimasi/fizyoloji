@@ -24,7 +24,6 @@ export const ExerciseActions: React.FC<ExerciseActionsProps> = ({ exercise, onUp
   const [isFavorite, setIsFavorite] = useState(exercise.isFavorite || false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Click Outside to Close
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -43,7 +42,7 @@ export const ExerciseActions: React.FC<ExerciseActionsProps> = ({ exercise, onUp
     }
 
     setIsConverting(true);
-    setShowExportMenu(false); // Menüyü hemen kapat
+    setShowExportMenu(false);
     try {
         await MediaConverter.export(url, format, `PhysioCore_${exercise.code}`);
     } catch (err) {
@@ -93,10 +92,10 @@ export const ExerciseActions: React.FC<ExerciseActionsProps> = ({ exercise, onUp
   ];
 
   const exportOptions = [
-      { id: 'webm', label: 'HD Video (WebM)', icon: FileVideo, desc: 'Whatsapp & Web İçin En İyisi' },
-      { id: 'gif', label: 'Hareketli GIF', icon: Film, desc: 'E-Posta & Sunum İçin' },
-      { id: 'png-sequence', label: 'Slayt Kareleri', icon: Presentation, desc: 'PowerPoint (2 Kare)' },
-      { id: 'jpg', label: 'Poster (JPG)', icon: FileImage, desc: 'Yüksek Çözünürlüklü Baskı' },
+      { id: 'mp4', label: 'PC Uyumlu Video (MP4)', icon: FileVideo, desc: 'En Yüksek Uyumluluk' },
+      { id: 'gif', label: 'Sinematik Döngü', icon: Film, desc: 'Loop Video (Modern GIF)' },
+      { id: 'jpg', label: 'Poster (JPG)', icon: FileImage, desc: 'Klinik Çıktı İçin' },
+      { id: 'ppt', label: 'Analiz Datası (JSON)', icon: Presentation, desc: 'Veri Portabilitesi' },
   ];
 
   if (variant === 'player') {
@@ -137,14 +136,13 @@ export const ExerciseActions: React.FC<ExerciseActionsProps> = ({ exercise, onUp
               )}
             </button>
 
-            {/* UPWARD MENU (DROPUP) */}
             {showExportMenu && (
                 <div className="absolute bottom-full left-0 mb-3 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 p-2 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] min-w-[260px] z-[200] animate-in slide-in-from-bottom-2 fade-in zoom-in-95 origin-bottom-left">
                     <div className="p-3 border-b border-white/5 mb-1 flex items-center justify-between">
                         <span className="text-[9px] font-black text-cyan-500 uppercase tracking-widest flex items-center gap-2">
                            <Zap size={10} fill="currentColor" /> Convert Studio
                         </span>
-                        <span className="text-[8px] font-bold text-slate-500 bg-slate-950 px-2 py-0.5 rounded">GPU</span>
+                        <span className="text-[8px] font-bold text-slate-500 bg-slate-950 px-2 py-0.5 rounded">V11.0</span>
                     </div>
                     <div className="space-y-1">
                       {exportOptions.map((opt) => (
@@ -160,7 +158,6 @@ export const ExerciseActions: React.FC<ExerciseActionsProps> = ({ exercise, onUp
                                   <p className="text-[10px] font-bold text-slate-200 group-hover:text-white uppercase tracking-wide">{opt.label}</p>
                                   <p className="text-[9px] text-slate-500 group-hover:text-cyan-200/80 font-medium">{opt.desc}</p>
                               </div>
-                              {/* Hover Effect */}
                               <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                           </button>
                       ))}
@@ -169,7 +166,6 @@ export const ExerciseActions: React.FC<ExerciseActionsProps> = ({ exercise, onUp
             )}
         </div>
         
-        {/* Share Button */}
         <div className="relative">
           <button 
             onClick={() => setShowShare(!showShare)} 
@@ -219,7 +215,6 @@ export const ExerciseActions: React.FC<ExerciseActionsProps> = ({ exercise, onUp
     );
   }
 
-  // CARD VARIANT (Fallback)
   return (
     <div className="flex gap-2 relative z-20">
       <ActionBtn icon={Download} onClick={() => setShowExportMenu(!showExportMenu)} tooltip="Hızlı İndir" />

@@ -6,12 +6,18 @@ export type RiskLevel = 'Düşük' | 'Orta' | 'Yüksek';
 export type PainQuality = 'Keskin' | 'Künt' | 'Yanıcı' | 'Batıcı' | 'Elektriklenme' | 'Sızlama';
 export type RehabPhase = 'Akut' | 'Sub-Akut' | 'Kronik' | 'Performans';
 export type VisualStyle = 'AVM-Genesis' | 'VEO-Premium' | 'AVM-Sprite' | 'Cinematic-Grid' | 'X-Ray' | 'Schematic' | '4K-Render' | 'Cinematic-Motion';
+export type AnatomicalLayer = 'muscular' | 'skeletal' | 'vascular' | 'xray' | 'full-body';
 export type AppTab = 'consultation' | 'dashboard' | 'progress' | 'users' | 'cms' | 'management';
 export type TherapistTab = 'dashboard' | 'patients' | 'intelligence' | 'settings';
 
+// --- NEW CLINICAL TYPES ---
+export type KineticChain = 'Open' | 'Closed' | 'Mixed';
+export type ContractionType = 'Isometric' | 'Concentric' | 'Eccentric' | 'Isokinetic';
+export type TissueTarget = 'Muscle Belly' | 'Tendon' | 'Ligament' | 'Fascia' | 'Neural';
+
 export interface SyncMetadata {
   lastSyncedAt?: string;
-  isDirty: boolean; // Yerelde değişti ama sunucuya gitmedi
+  isDirty: boolean; 
   version: number;
 }
 
@@ -42,26 +48,39 @@ export interface Exercise {
   primaryMuscles: string[];
   secondaryMuscles: string[];
   equipment: string[];
+  
+  // Dosage & Technical
   sets: number;
   reps: number;
   tempo: string;
   restPeriod: number;
   targetRpe: number;
   frequency?: string;
+  
+  // Advanced Clinical Props
+  kineticChain?: KineticChain;
+  contractionType?: ContractionType;
+  tissueTarget?: TissueTarget;
+  timeUnderTension?: number; // Calculated seconds per set
+
+  // Visuals
   visualUrl?: string;
   videoUrl?: string;
   isMotion: boolean;
   visualStyle: VisualStyle;
   vectorData?: string;
+  visualFrameCount?: number;
+  visualLayout?: string;
+  generatedPrompt?: string; // AI Prompt cache
+
+  // Meta
   isPersonalized?: boolean;
   isFavorite?: boolean;
   isArchived?: boolean;
   movementPlane?: string;
   tutorialData?: ExerciseTutorial;
   syncInfo?: SyncInfo;
-  visualFrameCount?: number;
-  visualLayout?: string;
-  _sync?: SyncMetadata; // Senkronizasyon metadatası
+  _sync?: SyncMetadata;
 }
 
 export interface ProgressReport {
@@ -104,7 +123,7 @@ export interface PatientProfile {
     rom: Record<string, number>;
     strength: Record<string, number>;
     posture: string;
-    recoveryTrajectory?: number; // 0-100 percentage of recovery path
+    recoveryTrajectory?: number; 
   };
   latestInsight?: {
     summary?: string;

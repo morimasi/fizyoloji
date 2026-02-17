@@ -1,14 +1,12 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import { getAI } from "./ai-core.ts";
-import { Exercise } from "./types.ts";
+import { Exercise, AnatomicalLayer } from "./types.ts";
 
 /**
  * PHYSIOCORE VISUAL PRODUCTION ENGINE v13.0 (Flash Ultra Edition)
  * Optimized for Speed, Cost Efficiency & Multimodal Output.
  */
-
-export type AnatomicalLayer = 'muscular' | 'skeletal' | 'vascular' | 'xray' | 'full-body';
 
 export const generateExerciseVisual = async (
   exercise: Partial<Exercise>, 
@@ -16,17 +14,9 @@ export const generateExerciseVisual = async (
 ): Promise<{ url: string, frameCount: number, layout: 'grid-4x4' }> => {
   const ai = getAI();
   
-  const layerPrompts: Record<AnatomicalLayer, string> = {
-    'muscular': 'Detailed red fibrous muscle fibers, tendons, clinical medical illustration style.',
-    'skeletal': 'Anatomically correct white bones and joints, high contrast x-ray style.',
-    'vascular': 'Network of arteries and veins, transparency effect.',
-    'xray': 'Radiographic negative film style, bright white skeletal structure.',
-    'full-body': 'Professional medical 3D render, photorealistic skin and muscle definition.'
-  };
-
-  // Flash Image Model (Nano Banana) Optimization
-  const prompt = `Medical 3D Sprite Sheet (4x4 Grid). Subject: Human performing ${exercise.titleTr || exercise.title}. 
-    Style: ${layerPrompts[layer]}. Biomechanics Focus: ${exercise.biomechanics}. 
+  // Use the manually engineered prompt if available, otherwise fallback to auto-generation
+  const prompt = exercise.generatedPrompt || `Medical 3D Sprite Sheet (4x4 Grid). Subject: Human performing ${exercise.titleTr || exercise.title}. 
+    Style: ${layer} medical illustration. Biomechanics Focus: ${exercise.biomechanics}. 
     Background: Dark clinical slate. 16 distinct phases of movement. High clarity.`;
 
   const response = await ai.models.generateContent({
@@ -57,14 +47,15 @@ export const generateExerciseVisual = async (
 export const generateExerciseVideo = async (exercise: Partial<Exercise>): Promise<string> => {
   const ai = getAI();
   
-  // Veo Fast modeli kullanılıyor (Daha hızlı, daha az maliyetli)
-  // FIX: Aspect Ratio '1:1' is not supported by Veo models. Changed to '16:9' for cinematic clinical view.
-  let operation = await ai.models.generateVideos({
-    model: 'veo-3.1-fast-generate-preview',
-    prompt: `Medical 3D animation of ${exercise.titleTr || exercise.title}. 
+  // Use custom prompt if available
+  const prompt = exercise.generatedPrompt || `Medical 3D animation of ${exercise.titleTr || exercise.title}. 
              Focus: ${exercise.biomechanics}. 
              Style: Clinical, clean, 4K texture feel, dark background, perfect loop. 
-             Smooth motion, educational medical standard.`,
+             Smooth motion, educational medical standard.`;
+
+  let operation = await ai.models.generateVideos({
+    model: 'veo-3.1-fast-generate-preview',
+    prompt: prompt,
     config: {
       numberOfVideos: 1,
       resolution: '720p', // Fast model supports 720p efficiently

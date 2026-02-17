@@ -1,8 +1,8 @@
 
 /**
- * PHYSIOCORE GENESIS MEDIA TRANSCODER (v10.1 STABLE EDITION)
- * Supports: WebM (High Quality Loop), MP4 (Container), JPG, SVG, JSON (PPT)
- * Fix: Prevents "Corrupt File" errors by enforcing correct MIME types for browser recording.
+ * PHYSIOCORE GENESIS MEDIA TRANSCODER (v11.0 STABLE)
+ * Optimized for PC Compatibility and High-Fidelity Clinical Loops.
+ * Prevents "Corrupt File" errors by ensuring proper MediaRecorder flushing and valid containers.
  */
 
 export type ExportFormat = 'mp4' | 'webm' | 'gif' | 'jpg' | 'ppt' | 'svg';
@@ -10,8 +10,8 @@ export type ExportFormat = 'mp4' | 'webm' | 'gif' | 'jpg' | 'ppt' | 'svg';
 export class MediaConverter {
   private static readonly WIDTH = 1080;
   private static readonly HEIGHT = 1080;
-  private static readonly FPS = 30; // Increased for smoothness
-  private static readonly DURATION_MS = 4000; // 4 seconds loop
+  private static readonly FPS = 30;
+  private static readonly DURATION_MS = 4000;
 
   static async export(
     source: string | { svg: string } | { slides: any[] }, 
@@ -26,7 +26,7 @@ export class MediaConverter {
         return;
     }
 
-    // 2. PPT Export (Simulated via JSON for Data Portability)
+    // 2. PPT Export (Data Portability)
     if (format === 'ppt' && typeof source === 'object' && 'slides' in source) {
         const content = JSON.stringify(source, null, 2);
         const blob = new Blob([content], { type: 'application/json' });
@@ -34,35 +34,35 @@ export class MediaConverter {
         return;
     }
 
-    // 3. Video/Image Export
     const sourceUrl = typeof source === 'string' ? source : '';
     if (!sourceUrl) return;
 
-    // Direct Download for VEO generated videos (Already MP4)
+    // 3. Direct VEO Download (Google Video URI usually points to an MP4)
     if (sourceUrl.includes('googlevideo.com')) {
        try {
          const response = await fetch(sourceUrl);
+         if (!response.ok) throw new Error();
          const blob = await response.blob();
-         // If it's from VEO, it is likely MP4.
          this.downloadBlob(blob, `${title}.mp4`);
        } catch (e) {
+         // Fallback to opening in new tab if CORS prevents fetch
          window.open(sourceUrl, '_blank');
        }
        return;
     }
 
-    // Canvas-based Conversion (Sprite Sheet to Video)
-    // NOTE: Browsers cannot natively record GIFs via MediaRecorder. 
-    // Trying to save video/webm as .gif creates a corrupt file (Header Mismatch).
-    // We force .webm for "gif" requests to ensure high quality and playability.
-    const effectiveFormat = format === 'gif' ? 'webm' : format;
-    
-    const blob = await this.generateBlob(sourceUrl, effectiveFormat);
+    // 4. Sprite-to-Video Conversion
+    // PC COMPATIBILITY NOTE: Native GIF encoding is not available in browser MediaRecorder.
+    // Saving WebM as .gif causes "Corrupt File" errors on Windows.
+    // We deliver high-compatibility MP4/WebM loops which act as "Modern GIFs".
+    const blob = await this.generateBlob(sourceUrl, format);
     if (blob) {
-        // If user asked for GIF, we give them a WebM file (which loops like a GIF)
-        // but verify the extension matches the binary data to avoid "Corrupt File" errors.
-        const ext = effectiveFormat === 'mp4' ? 'mp4' : 'webm';
-        this.downloadBlob(blob, `${title}_motion_loop.${ext}`);
+        let ext = 'webm';
+        if (blob.type.includes('mp4')) ext = 'mp4';
+        else if (format === 'jpg') ext = 'jpg';
+        
+        const suffix = format === 'gif' ? '_loop' : '';
+        this.downloadBlob(blob, `${title}${suffix}.${ext}`);
     }
   }
 
@@ -71,7 +71,7 @@ export class MediaConverter {
     const canvas = document.createElement('canvas');
     canvas.width = this.WIDTH;
     canvas.height = this.HEIGHT;
-    const ctx = canvas.getContext('2d', { alpha: false }); // Alpha false for better video compatibility
+    const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) throw new Error("Canvas Context Fail");
 
     const rows = 4, cols = 4, totalFrames = 16;
@@ -81,7 +81,6 @@ export class MediaConverter {
     }
 
     if (format === 'jpg') {
-        // Create a collage poster
         this.drawGridFrame(ctx, image, 0, rows, cols, this.WIDTH, this.HEIGHT);
         return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
     }
@@ -94,56 +93,62 @@ export class MediaConverter {
     rows: number, cols: number, totalFrames: number
   ): Promise<Blob> {
     
-    // We use VP9 for high quality. This is a VIDEO stream.
-    const mimeType = 'video/webm;codecs=vp9';
-    
-    if (!MediaRecorder.isTypeSupported(mimeType)) {
-        console.warn("VP9 not supported, falling back to default WebM");
-    }
+    // PC Compatibility Priority: MP4 > WebM (VP9) > WebM (Default)
+    const preferredMimes = [
+        'video/mp4;codecs=h264',
+        'video/webm;codecs=vp9',
+        'video/webm;codecs=vp8',
+        'video/webm'
+    ];
 
+    const mimeType = preferredMimes.find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm';
     const stream = canvas.captureStream(this.FPS);
-    const options = MediaRecorder.isTypeSupported(mimeType) ? { mimeType, videoBitsPerSecond: 5000000 } : undefined;
-    const recorder = new MediaRecorder(stream, options);
+    const recorder = new MediaRecorder(stream, { 
+        mimeType, 
+        videoBitsPerSecond: 8000000 // 8Mbps for 1080p clarity
+    });
     
     const chunks: Blob[] = [];
     recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
 
     return new Promise((resolve) => {
         recorder.onstop = () => {
-            const finalBlob = new Blob(chunks, { type: 'video/webm' });
+            const finalBlob = new Blob(chunks, { type: mimeType });
             resolve(finalBlob);
         };
 
         recorder.start();
 
-        let frame = 0, elapsed = 0;
-        // Record 2 full loops to ensure smooth playback
-        const totalDuration = (this.DURATION_MS * 2); 
-        const maxFrames = this.FPS * (totalDuration / 1000);
+        let frame = 0;
+        const totalDuration = this.DURATION_MS; 
+        const maxFrames = Math.floor((this.FPS * totalDuration) / 1000);
+        let capturedFrames = 0;
         
-        const animate = () => {
-            if (elapsed >= maxFrames) { 
-                recorder.stop(); 
+        const captureFrame = () => {
+            if (capturedFrames >= maxFrames) { 
+                // Delay stop slightly to ensure the last frame's buffer is processed
+                setTimeout(() => recorder.stop(), 100);
                 return; 
             }
+            
             this.drawGridFrame(ctx, image, Math.floor(frame), rows, cols, this.WIDTH, this.HEIGHT);
             
-            // Frame interpolation for smoother motion (16 sprite frames stretched over time)
-            frame = (frame + 0.5) % totalFrames; 
-            elapsed++;
+            // Advance frame (16 frames looped over the duration)
+            frame = (frame + (totalFrames / maxFrames)) % totalFrames;
+            capturedFrames++;
             
-            setTimeout(() => requestAnimationFrame(animate), 1000 / this.FPS);
+            // Use requestAnimationFrame for smooth sync with canvas capture
+            requestAnimationFrame(captureFrame);
         };
-        requestAnimationFrame(animate);
+
+        requestAnimationFrame(captureFrame);
     });
   }
 
   private static drawGridFrame(ctx: CanvasRenderingContext2D, image: HTMLImageElement, frameIndex: number, rows: number, cols: number, w: number, h: number) {
-      // 1. Background
-      ctx.fillStyle = '#020617'; // Deep Slate
+      ctx.fillStyle = '#020617'; 
       ctx.fillRect(0, 0, w, h);
       
-      // 2. Draw Sprite Frame
       const cw = image.width / cols;
       const ch = image.height / rows;
       const safeFrame = Math.floor(frameIndex) % (rows * cols);
@@ -153,28 +158,27 @@ export class MediaConverter {
 
       ctx.drawImage(image, sx, sy, cw, ch, 0, 0, w, h);
       
-      // 3. Clinical Overlay (Watermark)
+      // Clinical Overlay (Watermark)
       ctx.save();
-      
-      // Grid lines
-      ctx.strokeStyle = 'rgba(6, 182, 212, 0.1)';
+      ctx.strokeStyle = 'rgba(6, 182, 212, 0.15)';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(w/2, 0); ctx.lineTo(w/2, h);
       ctx.moveTo(0, h/2); ctx.lineTo(w, h/2);
       ctx.stroke();
 
-      // Text Info
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
-      ctx.fillRect(40, h - 100, 380, 60);
-      ctx.font = '900 24px Courier New';
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      ctx.beginPath();
+      ctx.roundRect(40, h - 110, 420, 70, 20);
+      ctx.fill();
+
+      ctx.font = 'bold 24px Inter, system-ui';
       ctx.fillStyle = '#06B6D4';
-      ctx.fillText(`PHYSIOCORE AI | GENESIS`, 60, h - 65);
+      ctx.fillText(`PHYSIOCORE AI GENESIS`, 65, h - 75);
       
-      ctx.font = '600 16px sans-serif';
+      ctx.font = '500 16px Roboto, system-ui';
       ctx.fillStyle = '#94a3b8';
-      ctx.fillText(`FRAME: ${safeFrame + 1}/${rows*cols} • 1080P RENDER`, 60, h - 40);
-      
+      ctx.fillText(`CLINICAL MOTION LOOP • 1080P • ${safeFrame + 1}/16`, 65, h - 50);
       ctx.restore();
   }
 
@@ -184,7 +188,10 @@ export class MediaConverter {
         img.crossOrigin = 'anonymous'; 
         img.src = url;
         img.onload = () => resolve(img); 
-        img.onerror = () => reject();
+        img.onerror = () => {
+            console.error("Transcoder Image Load Failed:", url);
+            reject();
+        };
     });
   }
 
@@ -195,6 +202,10 @@ export class MediaConverter {
     a.download = filename;
     document.body.appendChild(a); 
     a.click();
-    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+    // Use a slightly longer timeout to ensure browser trigger
+    setTimeout(() => { 
+        document.body.removeChild(a); 
+        URL.revokeObjectURL(url); 
+    }, 500);
   }
 }
