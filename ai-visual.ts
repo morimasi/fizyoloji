@@ -4,20 +4,37 @@ import { getAI } from "./ai-core.ts";
 import { Exercise, AnatomicalLayer } from "./types.ts";
 
 /**
- * PHYSIOCORE VISUAL PRODUCTION ENGINE v13.0 (Flash Ultra Edition)
+ * PHYSIOCORE VISUAL PRODUCTION ENGINE v13.1 (Cinematic Update)
  * Optimized for Speed, Cost Efficiency & Multimodal Output.
  */
 
 export const generateExerciseVisual = async (
   exercise: Partial<Exercise>, 
-  layer: AnatomicalLayer = 'full-body'
-): Promise<{ url: string, frameCount: number, layout: 'grid-4x4' }> => {
+  layer: AnatomicalLayer | 'Cinematic-Motion' = 'full-body'
+): Promise<{ url: string, frameCount: number, layout: 'grid-4x4' | 'grid-5x5' }> => {
   const ai = getAI();
   
-  // Use the manually engineered prompt if available, otherwise fallback to auto-generation
-  const prompt = exercise.generatedPrompt || `Medical 3D Sprite Sheet (4x4 Grid). Subject: Human performing ${exercise.titleTr || exercise.title}. 
-    Style: ${layer} medical illustration. Biomechanics Focus: ${exercise.biomechanics}. 
-    Background: Dark clinical slate. 16 distinct phases of movement. High clarity.`;
+  const isCinematic = layer === 'Cinematic-Motion';
+  
+  // Prompt Strategy:
+  // Standard: 4x4 Grid (16 frames) -> Good for basic movements.
+  // Cinematic: 5x5 Grid (25 frames) -> Necessary for 24fps smooth playback perception in a single sheet.
+  
+  let prompt = exercise.generatedPrompt;
+  
+  if (!prompt) {
+      if (isCinematic) {
+          prompt = `High-End Medical Sprite Sheet (5x5 Grid, 25 Frames). 
+          Subject: Human performing ${exercise.titleTr || exercise.title}.
+          Style: Photorealistic cinematic lighting, dark slate background.
+          Motion: ULTRA-SMOOTH, high framerate (24fps feel), continuous loop.
+          Technical: Character must remain centered. No crop. 5 columns, 5 rows.`;
+      } else {
+          prompt = `Medical 3D Sprite Sheet (4x4 Grid). Subject: Human performing ${exercise.titleTr || exercise.title}. 
+          Style: ${layer} medical illustration. Biomechanics Focus: ${exercise.biomechanics}. 
+          Background: Dark clinical slate. 16 distinct phases of movement. High clarity.`;
+      }
+  }
 
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image', 
@@ -32,8 +49,8 @@ export const generateExerciseVisual = async (
       if (part.inlineData) {
         return { 
           url: `data:image/png;base64,${part.inlineData.data}`, 
-          frameCount: 16, 
-          layout: 'grid-4x4' 
+          frameCount: isCinematic ? 25 : 16, 
+          layout: isCinematic ? 'grid-5x5' : 'grid-4x4' 
         };
       }
     }

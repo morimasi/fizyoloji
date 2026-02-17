@@ -6,7 +6,7 @@ import {
   AlertCircle, RefreshCw, Video, Film, Timer, Box,
   Bone, Flame, Heart, Scan, User, Layers, ChevronLeft, ChevronRight,
   Presentation, FileVideo, Cpu, Gift, Info, FileJson, Share2,
-  Edit3, Check, X, Grid, Eye
+  Edit3, Check, X, Grid, Eye, Aperture
 } from 'lucide-react';
 import { Exercise, AnatomicalLayer } from './types.ts';
 import { generateExerciseVisual, generateExerciseVideo, generateVectorAnimation, generateClinicalSlides } from './ai-visual.ts';
@@ -18,15 +18,15 @@ interface VisualStudioProps {
   onVisualGenerated: (url: string, style: string, isMotion: boolean, frameCount: number, layout: string) => void;
 }
 
-// --- INTERNAL LIVE PLAYER ENGINE (FIXED ASPECT RATIO) ---
-const LiveSpritePlayer = ({ src, isPlaying = true }: { src: string, isPlaying?: boolean }) => {
+// --- INTERNAL LIVE PLAYER ENGINE (DYNAMIC GRID) ---
+const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src: string, isPlaying?: boolean, layout?: string }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>();
   const imageRef = useRef<HTMLImageElement>(new Image());
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    imageRef.current.crossOrigin = "anonymous"; // CORS sorunlarını önle
+    imageRef.current.crossOrigin = "anonymous"; 
     imageRef.current.src = src;
     imageRef.current.onload = () => setIsLoaded(true);
   }, [src]);
@@ -37,15 +37,18 @@ const LiveSpritePlayer = ({ src, isPlaying = true }: { src: string, isPlaying?: 
     const ctx = canvasRef.current.getContext('2d');
     if (!ctx) return;
 
-    // Sprite Config (Standart Gemini/PhysioCore Çıktısı: 4x4 Grid)
-    const COLS = 4;
-    const ROWS = 4;
-    const TOTAL_FRAMES = 16;
-    const FPS = 12; 
+    // --- DYNAMIC SPRITE CONFIG ---
+    // 5x5 Grid = 25 Frames = 24 FPS (Cinematic)
+    // 4x4 Grid = 16 Frames = 12 FPS (Standard)
+    const isCinematic = layout === 'grid-5x5';
+    const COLS = isCinematic ? 5 : 4;
+    const ROWS = isCinematic ? 5 : 4;
+    const TOTAL_FRAMES = isCinematic ? 25 : 16;
+    const FPS = isCinematic ? 24 : 12; 
+
     let frameIndex = 0;
     let lastTime = 0;
 
-    // Canvas çözünürlüğünü yüksek tutalım
     const canvas = canvasRef.current!;
     if (canvas.width !== 1080) {
         canvas.width = 1080;
@@ -58,40 +61,35 @@ const LiveSpritePlayer = ({ src, isPlaying = true }: { src: string, isPlaying?: 
       if (time - lastTime > 1000 / FPS) {
         const img = imageRef.current;
         
-        // 1. Kaynak Frame Boyutları (Sprite içindeki tek bir karenin boyutu)
         const frameW = img.width / COLS;
         const frameH = img.height / ROWS;
         
-        // 2. Temizle (Sinematik Koyu Arkaplan)
+        // Clear
         ctx.fillStyle = '#020617'; 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // 3. Aspect Ratio Containment (Sığdırma Matematiği)
-        // Görüntüyü canvas'a sığdırmak için en uygun ölçeği bul
-        const scale = Math.min(canvas.width / frameW, canvas.height / frameH) * 0.90; // %90 doluluk (Kenar boşluğu bırak)
-        
+        // Aspect Ratio Containment
+        const scale = Math.min(canvas.width / frameW, canvas.height / frameH) * 0.90;
         const drawW = frameW * scale;
         const drawH = frameH * scale;
-        
-        // 4. Merkezleme (Centering Offsets)
         const dx = (canvas.width - drawW) / 2;
         const dy = (canvas.height - drawH) / 2;
 
-        // 5. Frame Koordinatları (Sprite Sheet üzerinde)
+        // Frame Coords
         const sx = (frameIndex % COLS) * frameW;
         const sy = Math.floor(frameIndex / COLS) * frameH;
 
-        // 6. Çizim (Crop yapmadan, sığdırarak çiz)
-        // ctx.drawImage(source, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight)
+        // Draw
         ctx.drawImage(img, sx, sy, frameW, frameH, dx, dy, drawW, drawH);
 
         // Watermark / Overlay 
-        ctx.fillStyle = 'rgba(6, 182, 212, 0.1)'; 
-        ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+        ctx.fillStyle = isCinematic ? 'rgba(6, 182, 212, 0.15)' : 'rgba(148, 163, 184, 0.1)'; 
+        ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
         ctx.font = 'bold 24px monospace';
-        ctx.fillStyle = '#06b6d4';
+        ctx.fillStyle = isCinematic ? '#22d3ee' : '#94a3b8';
         ctx.textAlign = 'right';
-        ctx.fillText(`LIVE PREVIEW | FRAME ${frameIndex + 1}/${TOTAL_FRAMES}`, canvas.width - 20, canvas.height - 15);
+        const modeLabel = isCinematic ? 'CINEMATIC 24FPS' : 'STANDARD 12FPS';
+        ctx.fillText(`${modeLabel} | FRAME ${frameIndex + 1}/${TOTAL_FRAMES}`, canvas.width - 20, canvas.height - 18);
 
         frameIndex = (frameIndex + 1) % TOTAL_FRAMES;
         lastTime = time;
@@ -104,7 +102,7 @@ const LiveSpritePlayer = ({ src, isPlaying = true }: { src: string, isPlaying?: 
     return () => {
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
     };
-  }, [isLoaded, isPlaying]);
+  }, [isLoaded, isPlaying, layout]);
 
   if (!isLoaded) return <div className="w-full h-full flex items-center justify-center"><Loader2 className="animate-spin text-slate-600" /></div>;
 
@@ -114,15 +112,18 @@ const LiveSpritePlayer = ({ src, isPlaying = true }: { src: string, isPlaying?: 
 export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGenerated }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState<'image' | 'video' | 'vector' | 'slides'>('image');
-  const [activeLayer, setActiveLayer] = useState<AnatomicalLayer>('full-body');
+  const [activeLayer, setActiveLayer] = useState<AnatomicalLayer | 'Cinematic-Motion'>('full-body');
   const [previewUrl, setPreviewUrl] = useState(exercise.visualUrl || '');
   const [videoUrl, setVideoUrl] = useState(exercise.videoUrl || '');
   const [svgContent, setSvgContent] = useState<string>(exercise.vectorData || '');
   const [slideData, setSlideData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   
+  // Varsayılan olarak eğer egzersiz verisinde layout varsa onu kullan, yoksa standart 4x4
+  const [currentLayout, setCurrentLayout] = useState(exercise.visualLayout || 'grid-4x4');
+  
   // View Controls
-  const [viewMode, setViewMode] = useState<'live' | 'grid'>('live'); // 'live' = Animation, 'grid' = Raw Sprite Sheet
+  const [viewMode, setViewMode] = useState<'live' | 'grid'>('live'); 
   
   // Prompt Engineering State
   const [generatedPrompt, setGeneratedPrompt] = useState('');
@@ -134,6 +135,11 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
   }, [exercise, activeLayer]);
 
   const constructPrompt = () => {
+    if (activeLayer === 'Cinematic-Motion') {
+        setGeneratedPrompt(`High-End Medical Sprite Sheet (5x5 Grid). Subject: ${exercise.title}. Action: Smooth continuous motion. 24fps style. Dark background.`);
+        return;
+    }
+
     const anatomicalFocus = activeLayer === 'muscular' ? 'emphasizing deep red muscle fibers and striations' : 
                             activeLayer === 'skeletal' ? 'highlighting bone structure and joint articulation in white' :
                             activeLayer === 'xray' ? 'in a radiographic blue/white x-ray style' : 
@@ -172,21 +178,28 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
     { id: 'xray', label: 'X-Ray Görünüş', icon: Scan, color: 'text-cyan-400' }
   ] as const;
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (specialMode?: 'Cinematic-Motion') => {
     setError(null);
     const ok = await ensureApiKey();
     if (!ok) return;
 
     setIsGenerating(true);
     
-    const overrideExercise = { ...exercise, generatedPrompt };
+    // Eğer özel mod (Cinematic) seçildiyse layer'ı override et
+    const effectiveLayer = specialMode || activeLayer;
+    const overrideExercise = { ...exercise, generatedPrompt: specialMode ? undefined : generatedPrompt }; // Özel mod kendi promptunu yapsın
 
     try {
       if (activeTab === 'image') {
-        const result = await generateExerciseVisual(overrideExercise, activeLayer);
+        // generateExerciseVisual artık "Cinematic-Motion" stringini de kabul ediyor
+        const result = await generateExerciseVisual(overrideExercise, effectiveLayer as any);
+        
         setPreviewUrl(result.url);
-        setViewMode('live'); // Otomatik olarak canlı izlemeye geç
-        onVisualGenerated(result.url, `Flash-${activeLayer}`, false, result.frameCount, result.layout);
+        setCurrentLayout(result.layout); // 4x4 veya 5x5
+        setViewMode('live');
+        
+        // Egzersiz verisini güncelle
+        onVisualGenerated(result.url, `Flash-${effectiveLayer}`, false, result.frameCount, result.layout);
       } else if (activeTab === 'video') {
         const url = await generateExerciseVideo(overrideExercise);
         setVideoUrl(url);
@@ -238,7 +251,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
             </div>
             <div>
                <h4 className="font-black text-2xl uppercase italic text-white tracking-tighter">Flash <span className="text-cyan-400">Engine</span></h4>
-               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1 italic">Genesis v13.0 Ultra-Fast</p>
+               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1 italic">Genesis v13.1 Cinematic</p>
             </div>
           </div>
 
@@ -314,13 +327,29 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
 
           {error && <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-start gap-3"><AlertCircle className="text-rose-500 shrink-0" size={16} /><p className="text-[10px] text-rose-200 font-bold uppercase italic">{error}</p></div>}
 
-          <button 
-             onClick={handleGenerate} 
-             disabled={isGenerating || !exercise.title} 
-             className="w-full py-6 bg-gradient-to-r from-cyan-600 to-indigo-700 hover:from-cyan-500 hover:to-indigo-600 text-white rounded-[2rem] text-xs font-black uppercase tracking-widest shadow-2xl transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-30"
-          >
-             {isGenerating ? <><Loader2 className="animate-spin" size={20} /> İŞLENİYOR...</> : <><Rocket size={20} /> {activeTab === 'video' ? 'VEO VİDEO ÜRET' : 'ÜRETİMİ BAŞLAT'}</>}
-          </button>
+          <div className="space-y-3">
+            {/* Main Generate Button */}
+            <button 
+                onClick={() => handleGenerate()} 
+                disabled={isGenerating || !exercise.title} 
+                className="w-full py-5 bg-slate-800 hover:bg-slate-700 text-white rounded-[2rem] text-xs font-black uppercase tracking-widest border border-slate-700 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-30"
+            >
+                {isGenerating ? <><Loader2 className="animate-spin" size={20} /> İŞLENİYOR...</> : <><Rocket size={20} /> STANDART ÜRETİM (12 FPS)</>}
+            </button>
+
+            {/* Special Cinematic Button */}
+            {activeTab === 'image' && (
+                <button 
+                    onClick={() => handleGenerate('Cinematic-Motion')} 
+                    disabled={isGenerating || !exercise.title} 
+                    className="w-full py-6 bg-gradient-to-r from-cyan-600 to-indigo-700 hover:from-cyan-500 hover:to-indigo-600 text-white rounded-[2rem] text-xs font-black uppercase tracking-widest shadow-2xl transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-30 relative overflow-hidden group"
+                >
+                    <div className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-12" />
+                    {isGenerating ? <Loader2 className="animate-spin" size={20} /> : <Aperture size={20} className="animate-pulse" />} 
+                    24 FPS CINEMATIC MOTION
+                </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -337,7 +366,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
           {activeTab === 'image' && previewUrl && !isGenerating && (
              <>
                {viewMode === 'live' ? (
-                 <LiveSpritePlayer src={previewUrl} />
+                 <LiveSpritePlayer src={previewUrl} layout={currentLayout} />
                ) : (
                  <img src={previewUrl} className="w-full h-full object-contain" alt="Sprite Sheet Source" />
                )}
