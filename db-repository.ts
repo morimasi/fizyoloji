@@ -3,7 +3,7 @@ import { Exercise, PatientProfile, User } from './types.ts';
 import { SEED_EXERCISES } from './seed-data.ts';
 
 /**
- * PHYSIOCORE SYNC ENGINE v5.0 (Global Autonomous Synchronization)
+ * PHYSIOCORE SYNC ENGINE v5.1 (Diagnostic Enhanced)
  * Local-First, Cloud-Consistent 24/7 Architecture.
  */
 export class PhysioDB {
@@ -103,9 +103,6 @@ export class PhysioDB {
           await this.triggerSync(syncTypeMap[storeName], item);
         }
       }
-
-      // B. BULUTTAKİ YENİLİKLERİ YERELE ÇEK (Pull - Opsiyonel/Gelişmiş)
-      // Bu kısımda GET /api/sync?lastSyncedAt=... çağrısı yapılarak global güncellemeler alınabilir.
       
     } catch (e) {
       console.error("[SyncEngine] Auto-sync failed:", e);
@@ -120,12 +117,8 @@ export class PhysioDB {
     const localExercises = await this.getExercises(true);
     let successCount = 0;
     for (const ex of localExercises) {
-       const res = await fetch('/api/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ syncType: 'STUDIO_EXERCISE', payload: ex })
-       });
-       if (res.ok) successCount++;
+       const success = await this.triggerSync('STUDIO_EXERCISE', ex);
+       if (success) successCount++;
     }
     return { success: true, count: successCount };
   }
@@ -228,8 +221,8 @@ export class PhysioDB {
     return new Promise(r => { const req = store.delete(id); req.onsuccess = () => r(); });
   }
 
-  private static async triggerSync(type: string, payload: any) {
-    if (!navigator.onLine) return; // Çevrimdışı isek hiç deneme, Heartbeat beklesin.
+  private static async triggerSync(type: string, payload: any): Promise<boolean> {
+    if (!navigator.onLine) return false; 
 
     try {
       const response = await fetch('/api/sync', {
@@ -240,9 +233,16 @@ export class PhysioDB {
       
       if (response.ok) {
         await this.markAsClean(type, payload);
+        return true;
+      } else {
+        // Detailed error logging for debugging 500 errors
+        const errText = await response.text();
+        console.error(`[SyncError] ${type} Failed (Status ${response.status}):`, errText);
+        return false;
       }
     } catch (err) {
-      // Ağ hatası vb. sessizce yutulur, bir sonraki heartbeat deneyecek.
+      console.error(`[SyncNetworkError] ${type}:`, err);
+      return false;
     }
   }
 
