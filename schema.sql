@@ -254,4 +254,3 @@ INSERT INTO therapist_profiles (user_id, specialization, years_of_experience, bi
 SELECT id, ARRAY['Ortopedik Rehabilitasyon', 'Sporcu Sağlığı'], 12, 'Manuel Terapi ve Klinik Egzersiz Uzmanı.'
 FROM new_therapist
 ON CONFLICT (user_id) DO NOTHING;
-
