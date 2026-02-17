@@ -1,12 +1,12 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Loader2, Play, Pause, Clapperboard, Download,
   MonitorPlay, Zap, Wand2, Sparkles, Rocket, 
   AlertCircle, RefreshCw, Video, Film, Timer, Box,
   Bone, Flame, Heart, Scan, User, Layers, ChevronLeft, ChevronRight,
   Presentation, FileVideo, Cpu, Gift, Info, FileJson, Share2,
-  Edit3, Check, X
+  Edit3, Check, X, Grid, Eye
 } from 'lucide-react';
 import { Exercise, AnatomicalLayer } from './types.ts';
 import { generateExerciseVisual, generateExerciseVideo, generateVectorAnimation, generateClinicalSlides } from './ai-visual.ts';
@@ -18,6 +18,86 @@ interface VisualStudioProps {
   onVisualGenerated: (url: string, style: string, isMotion: boolean, frameCount: number, layout: string) => void;
 }
 
+// --- INTERNAL LIVE PLAYER ENGINE ---
+const LiveSpritePlayer = ({ src, isPlaying = true }: { src: string, isPlaying?: boolean }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const requestRef = useRef<number>();
+  const imageRef = useRef<HTMLImageElement>(new Image());
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    imageRef.current.src = src;
+    imageRef.current.onload = () => setIsLoaded(true);
+  }, [src]);
+
+  useEffect(() => {
+    if (!isLoaded || !canvasRef.current) return;
+
+    const ctx = canvasRef.current.getContext('2d');
+    if (!ctx) return;
+
+    // Sprite Config (Standart Gemini/PhysioCore Çıktısı: 4x4 Grid)
+    const COLS = 4;
+    const ROWS = 4;
+    const TOTAL_FRAMES = 16;
+    const FPS = 12; // Sinematik hareket hızı
+    let frameIndex = 0;
+    let lastTime = 0;
+
+    const animate = (time: number) => {
+      if (!isPlaying) return;
+
+      if (time - lastTime > 1000 / FPS) {
+        const img = imageRef.current;
+        const frameW = img.width / COLS;
+        const frameH = img.height / ROWS;
+        
+        // Canvas Boyutlandırma (Aspect Ratio Korumalı)
+        const canvas = canvasRef.current!;
+        // Canvas boyutunu container'a uydur ama çizim çözünürlüğünü yüksek tut
+        if (canvas.width !== 1024) {
+            canvas.width = 1024;
+            canvas.height = 1024;
+        }
+
+        // Temizle
+        ctx.fillStyle = '#020617'; // Slate-950 background
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Frame Koordinatları
+        const sx = (frameIndex % COLS) * frameW;
+        const sy = Math.floor(frameIndex / COLS) * frameH;
+
+        // Çizim (Contain mantığı ile merkeze oturt)
+        // Sprite kareleri genelde kare (1:1) olduğu için direkt scale edebiliriz
+        ctx.drawImage(img, sx, sy, frameW, frameH, 0, 0, canvas.width, canvas.height);
+
+        // Watermark / Overlay (Opsiyonel: Profesyonel görünüm için)
+        ctx.fillStyle = 'rgba(6, 182, 212, 0.1)'; // Cyan tint
+        ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+        ctx.font = 'bold 20px monospace';
+        ctx.fillStyle = '#06b6d4';
+        ctx.textAlign = 'right';
+        ctx.fillText(`LIVE PREVIEW | FRAME ${frameIndex + 1}/${TOTAL_FRAMES}`, canvas.width - 20, canvas.height - 15);
+
+        frameIndex = (frameIndex + 1) % TOTAL_FRAMES;
+        lastTime = time;
+      }
+      requestRef.current = requestAnimationFrame(animate);
+    };
+
+    requestRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+    };
+  }, [isLoaded, isPlaying]);
+
+  if (!isLoaded) return <div className="w-full h-full flex items-center justify-center"><Loader2 className="animate-spin text-slate-600" /></div>;
+
+  return <canvas ref={canvasRef} className="w-full h-full object-contain rounded-[3rem]" />;
+};
+
 export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGenerated }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState<'image' | 'video' | 'vector' | 'slides'>('image');
@@ -28,18 +108,19 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
   const [slideData, setSlideData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   
+  // View Controls
+  const [viewMode, setViewMode] = useState<'live' | 'grid'>('live'); // 'live' = Animation, 'grid' = Raw Sprite Sheet
+  
   // Prompt Engineering State
   const [generatedPrompt, setGeneratedPrompt] = useState('');
   const [isPromptEditing, setIsPromptEditing] = useState(false);
   const [isAiExpanding, setIsAiExpanding] = useState(false);
 
-  // Auto-generate prompt on mount based on incoming data
   useEffect(() => {
     constructPrompt();
   }, [exercise, activeLayer]);
 
   const constructPrompt = () => {
-    // Ultra-Detailed Clinical Prompt Construction
     const anatomicalFocus = activeLayer === 'muscular' ? 'emphasizing deep red muscle fibers and striations' : 
                             activeLayer === 'skeletal' ? 'highlighting bone structure and joint articulation in white' :
                             activeLayer === 'xray' ? 'in a radiographic blue/white x-ray style' : 
@@ -85,13 +166,13 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
 
     setIsGenerating(true);
     
-    // Inject custom prompt into exercise object for the generator function
     const overrideExercise = { ...exercise, generatedPrompt };
 
     try {
       if (activeTab === 'image') {
         const result = await generateExerciseVisual(overrideExercise, activeLayer);
         setPreviewUrl(result.url);
+        setViewMode('live'); // Otomatik olarak canlı izlemeye geç
         onVisualGenerated(result.url, `Flash-${activeLayer}`, false, result.frameCount, result.layout);
       } else if (activeTab === 'video') {
         const url = await generateExerciseVideo(overrideExercise);
@@ -158,7 +239,21 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
 
              {activeTab === 'image' && (
                 <div className="grid grid-cols-1 gap-2 animate-in slide-in-from-left-2">
-                   <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-2 px-1">Anatomik Katman</p>
+                   <div className="flex justify-between items-center px-1 mb-2">
+                      <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Anatomik Katman</p>
+                      
+                      {/* View Mode Toggle */}
+                      {previewUrl && (
+                        <div className="flex bg-slate-950 rounded-lg p-0.5 border border-slate-800">
+                           <button onClick={() => setViewMode('live')} className={`p-1.5 rounded transition-all ${viewMode === 'live' ? 'bg-cyan-500 text-white' : 'text-slate-500'}`} title="Canlı Önizleme">
+                              <Eye size={12} />
+                           </button>
+                           <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded transition-all ${viewMode === 'grid' ? 'bg-cyan-500 text-white' : 'text-slate-500'}`} title="Kaynak Grid">
+                              <Grid size={12} />
+                           </button>
+                        </div>
+                      )}
+                   </div>
                    {layers.map(layer => (
                       <button 
                         key={layer.id} 
@@ -176,7 +271,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
              )}
           </div>
 
-          {/* PROMPT ENGINEERING SECTION */}
+          {/* PROMPT ENGINEERING */}
           <div className="bg-slate-950 border border-slate-800 rounded-3xl p-5 space-y-3 mb-6 relative group/prompt">
              <div className="flex justify-between items-center">
                 <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
@@ -216,16 +311,37 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
         </div>
       </div>
 
+      {/* PREVIEW AREA */}
       <div className="xl:col-span-8 space-y-6">
         <div className="relative w-full aspect-square bg-slate-950 rounded-[4rem] border-4 border-slate-900 overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.8)] flex items-center justify-center group">
+          
+          {/* VIDEO MODE */}
           {activeTab === 'video' && videoUrl && !isGenerating && (
              <video src={videoUrl} autoPlay loop muted playsInline className="w-full h-full object-contain" />
           )}
 
+          {/* IMAGE / SPRITE MODE */}
           {activeTab === 'image' && previewUrl && !isGenerating && (
-             <img src={previewUrl} className="w-full h-full object-contain" />
+             <>
+               {viewMode === 'live' ? (
+                 <LiveSpritePlayer src={previewUrl} />
+               ) : (
+                 <img src={previewUrl} className="w-full h-full object-contain" alt="Sprite Sheet Source" />
+               )}
+               
+               {/* View Mode Switcher Overlay (Desktop Only) */}
+               <div className="absolute top-6 left-6 hidden group-hover:flex gap-2 bg-slate-900/80 backdrop-blur-md p-1.5 rounded-xl border border-white/10 animate-in fade-in transition-all">
+                  <button onClick={() => setViewMode('live')} className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${viewMode === 'live' ? 'bg-cyan-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>
+                     CANLI İZLE
+                  </button>
+                  <button onClick={() => setViewMode('grid')} className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${viewMode === 'grid' ? 'bg-cyan-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>
+                     KAYNAK (GRID)
+                  </button>
+               </div>
+             </>
           )}
 
+          {/* SLIDES MODE */}
           {activeTab === 'slides' && slideData && !isGenerating && (
              <div className="w-full h-full p-12 bg-white text-slate-900 flex flex-col justify-center">
                 <div className="border-4 border-slate-900 p-8 h-full rounded-3xl overflow-y-auto">
@@ -244,10 +360,12 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
              </div>
           )}
 
+          {/* VECTOR MODE */}
           {activeTab === 'vector' && svgContent && !isGenerating && (
              <div className="w-full h-full p-20 flex items-center justify-center" dangerouslySetInnerHTML={{ __html: svgContent }} />
           )}
 
+          {/* EMPTY STATE */}
           {!previewUrl && !videoUrl && !svgContent && !slideData && !isGenerating && (
             <div className="text-center opacity-20">
                <Box size={120} strokeWidth={0.5} className="mx-auto mb-8" />
@@ -255,6 +373,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
             </div>
           )}
 
+          {/* LOADING STATE */}
           {isGenerating && (
              <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-3xl flex flex-col items-center justify-center z-50">
                 <Loader2 className="animate-spin text-cyan-500 mb-8" size={64} />
