@@ -18,7 +18,7 @@ interface VisualStudioProps {
   onVisualGenerated: (url: string, style: string, isMotion: boolean, frameCount: number, layout: string) => void;
 }
 
-// --- INTERNAL LIVE PLAYER ENGINE ---
+// --- INTERNAL LIVE PLAYER ENGINE (FIXED ASPECT RATIO) ---
 const LiveSpritePlayer = ({ src, isPlaying = true }: { src: string, isPlaying?: boolean }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>();
@@ -26,6 +26,7 @@ const LiveSpritePlayer = ({ src, isPlaying = true }: { src: string, isPlaying?: 
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
+    imageRef.current.crossOrigin = "anonymous"; // CORS sorunlarını önle
     imageRef.current.src = src;
     imageRef.current.onload = () => setIsLoaded(true);
   }, [src]);
@@ -40,42 +41,54 @@ const LiveSpritePlayer = ({ src, isPlaying = true }: { src: string, isPlaying?: 
     const COLS = 4;
     const ROWS = 4;
     const TOTAL_FRAMES = 16;
-    const FPS = 12; // Sinematik hareket hızı
+    const FPS = 12; 
     let frameIndex = 0;
     let lastTime = 0;
+
+    // Canvas çözünürlüğünü yüksek tutalım
+    const canvas = canvasRef.current!;
+    if (canvas.width !== 1080) {
+        canvas.width = 1080;
+        canvas.height = 1080;
+    }
 
     const animate = (time: number) => {
       if (!isPlaying) return;
 
       if (time - lastTime > 1000 / FPS) {
         const img = imageRef.current;
+        
+        // 1. Kaynak Frame Boyutları (Sprite içindeki tek bir karenin boyutu)
         const frameW = img.width / COLS;
         const frameH = img.height / ROWS;
         
-        // Canvas Boyutlandırma (Aspect Ratio Korumalı)
-        const canvas = canvasRef.current!;
-        // Canvas boyutunu container'a uydur ama çizim çözünürlüğünü yüksek tut
-        if (canvas.width !== 1024) {
-            canvas.width = 1024;
-            canvas.height = 1024;
-        }
-
-        // Temizle
-        ctx.fillStyle = '#020617'; // Slate-950 background
+        // 2. Temizle (Sinematik Koyu Arkaplan)
+        ctx.fillStyle = '#020617'; 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Frame Koordinatları
+        // 3. Aspect Ratio Containment (Sığdırma Matematiği)
+        // Görüntüyü canvas'a sığdırmak için en uygun ölçeği bul
+        const scale = Math.min(canvas.width / frameW, canvas.height / frameH) * 0.90; // %90 doluluk (Kenar boşluğu bırak)
+        
+        const drawW = frameW * scale;
+        const drawH = frameH * scale;
+        
+        // 4. Merkezleme (Centering Offsets)
+        const dx = (canvas.width - drawW) / 2;
+        const dy = (canvas.height - drawH) / 2;
+
+        // 5. Frame Koordinatları (Sprite Sheet üzerinde)
         const sx = (frameIndex % COLS) * frameW;
         const sy = Math.floor(frameIndex / COLS) * frameH;
 
-        // Çizim (Contain mantığı ile merkeze oturt)
-        // Sprite kareleri genelde kare (1:1) olduğu için direkt scale edebiliriz
-        ctx.drawImage(img, sx, sy, frameW, frameH, 0, 0, canvas.width, canvas.height);
+        // 6. Çizim (Crop yapmadan, sığdırarak çiz)
+        // ctx.drawImage(source, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight)
+        ctx.drawImage(img, sx, sy, frameW, frameH, dx, dy, drawW, drawH);
 
-        // Watermark / Overlay (Opsiyonel: Profesyonel görünüm için)
-        ctx.fillStyle = 'rgba(6, 182, 212, 0.1)'; // Cyan tint
+        // Watermark / Overlay 
+        ctx.fillStyle = 'rgba(6, 182, 212, 0.1)'; 
         ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
-        ctx.font = 'bold 20px monospace';
+        ctx.font = 'bold 24px monospace';
         ctx.fillStyle = '#06b6d4';
         ctx.textAlign = 'right';
         ctx.fillText(`LIVE PREVIEW | FRAME ${frameIndex + 1}/${TOTAL_FRAMES}`, canvas.width - 20, canvas.height - 15);
