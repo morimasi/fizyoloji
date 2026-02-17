@@ -91,11 +91,15 @@ export const ExerciseActions: React.FC<ExerciseActionsProps> = ({ exercise, onUp
     { id: 'mobile', icon: Smartphone, color: 'hover:text-cyan-500', label: 'App Sync', bg: 'bg-cyan-500/10' }
   ];
 
+  // Expanded Export Options
   const exportOptions = [
-      { id: 'mp4', label: 'PC Uyumlu Video (MP4)', icon: FileVideo, desc: 'En Yüksek Uyumluluk' },
-      { id: 'gif', label: 'Sinematik Döngü', icon: Film, desc: 'Loop Video (Modern GIF)' },
-      { id: 'jpg', label: 'Poster (JPG)', icon: FileImage, desc: 'Klinik Çıktı İçin' },
-      { id: 'ppt', label: 'Analiz Datası (JSON)', icon: Presentation, desc: 'Veri Portabilitesi' },
+      { id: 'mp4', label: 'MP4 Video', icon: FileVideo, desc: 'Universal' },
+      { id: 'avi', label: 'AVI Video', icon: Film, desc: 'Legacy Windows' },
+      { id: 'mov', label: 'QuickTime (MOV)', icon: Film, desc: 'Apple/Mac' },
+      { id: 'mpeg', label: 'MPEG Video', icon: Film, desc: 'Broadcast' },
+      { id: 'gif', label: 'Loop GIF', icon: FileImage, desc: 'Web/Social' },
+      { id: 'ppt', label: 'PowerPoint Data', icon: Presentation, desc: 'Presentation' },
+      { id: 'jpg', label: 'Poster (JPG)', icon: FileImage, desc: 'Print' },
   ];
 
   if (variant === 'player') {
@@ -142,9 +146,9 @@ export const ExerciseActions: React.FC<ExerciseActionsProps> = ({ exercise, onUp
                         <span className="text-[9px] font-black text-cyan-500 uppercase tracking-widest flex items-center gap-2">
                            <Zap size={10} fill="currentColor" /> Convert Studio
                         </span>
-                        <span className="text-[8px] font-bold text-slate-500 bg-slate-950 px-2 py-0.5 rounded">V11.0</span>
+                        <span className="text-[8px] font-bold text-slate-500 bg-slate-950 px-2 py-0.5 rounded">ULTRA-PRO</span>
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-1 max-h-[300px] overflow-y-auto custom-scrollbar">
                       {exportOptions.map((opt) => (
                           <button
                               key={opt.id}

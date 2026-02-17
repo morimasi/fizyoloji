@@ -68,7 +68,8 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
     }
   }, [exercise, activeLayer]);
 
-  // FIXED: Draw logic with Aspect Ratio Preservation (No More Zoom Issue)
+  // --- SMART SCALE RENDER ENGINE ---
+  // Calculates perfect aspect ratio fit to prevent zooming/cropping
   const drawFrame = (progress: number) => {
     const canvas = canvasRef.current;
     const img = imageCacheRef.current;
@@ -79,42 +80,42 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
     const cols = 4; const rows = 4; const totalFrames = 16;
     const frameIndex = Math.floor(progress) % totalFrames;
     
-    // Sprite boyutları
+    // 1. Source Dimensions (Single Frame)
     const spriteW = img.width / cols;
     const spriteH = img.height / rows;
 
-    // Temizle
+    // 2. Clear & FX
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Efektler
     if (activeLayer === 'xray') ctx.filter = 'invert(1) hue-rotate(180deg) brightness(1.2)';
     else if (activeLayer === 'muscles') ctx.filter = 'sepia(1) saturate(5) hue-rotate(-50deg)';
     else ctx.filter = 'none';
 
-    // SMART SCALE HESAPLAMA
-    // Canvas boyutuna sığacak en büyük oranı bul (Contain)
-    const scale = Math.min(canvas.width / spriteW, canvas.height / spriteH) * 0.85; // %85 doluluk ile kenar boşluğu bırak
+    // 3. Aspect Ratio Calculation (CONTAIN)
+    // Scale factor to fit image within canvas without cropping
+    const scale = Math.min(canvas.width / spriteW, canvas.height / spriteH) * 0.90; // 90% size for safety margin
     
     const destW = spriteW * scale;
     const destH = spriteH * scale;
-    const dx = (canvas.width - destW) / 2; // Yatay ortala
-    const dy = (canvas.height - destH) / 2; // Dikey ortala
+    
+    // 4. Center Position
+    const dx = (canvas.width - destW) / 2;
+    const dy = (canvas.height - destH) / 2;
 
-    // Kaynak koordinatları
+    // 5. Source Coordinates
     const sx = (frameIndex % cols) * spriteW;
     const sy = Math.floor(frameIndex / cols) * spriteH;
 
+    // 6. Draw
     ctx.drawImage(img, sx, sy, spriteW, spriteH, dx, dy, destW, destH);
     ctx.filter = 'none';
 
-    // Ritmik Çember (Görselin etrafında değil, canvas merkezinde dönsün)
+    // 7. Visual Rhythm Guide (Overlay)
     if (isPlaying) {
-      ctx.strokeStyle = '#06B6D4';
+      ctx.strokeStyle = 'rgba(6, 182, 212, 0.3)'; // Cyan low opacity
       ctx.lineWidth = 2;
-      ctx.setLineDash([10, 20]);
       ctx.beginPath();
-      // Çemberi görselin etrafına çiz
-      const radius = Math.max(destW, destH) / 2 + 20 + Math.sin(progress) * 5;
+      // Draw circle around the centered content
+      const radius = Math.max(destW, destH) / 2 * 1.1; 
       ctx.arc(canvas.width/2, canvas.height/2, radius, 0, Math.PI * 2);
       ctx.stroke();
     }
@@ -125,7 +126,6 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
       if (!isPlaying || activeLayer === '3d') return;
       const dt = time - lastTimeRef.current;
       lastTimeRef.current = time;
-      // Hızı biraz düşürdük (daha sinematik)
       progressRef.current = (progressRef.current + dt * 0.008) % 16;
       drawFrame(progressRef.current);
       requestAnimationFrame(animate);
@@ -156,7 +156,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
         </div>
 
         <div className="flex gap-4">
-           {/* Medya Dönüştürücü Entegre Edildi */}
+           {/* New Actions Component */}
            <ExerciseActions exercise={exercise} variant="player" />
            <button onClick={() => setShowLiveCoach(!showLiveCoach)} className={`px-6 py-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${showLiveCoach ? 'bg-cyan-500 text-white border-cyan-400 shadow-xl' : 'bg-slate-900 text-slate-400 border-slate-800'}`}>
              {showLiveCoach ? 'KOÇU GİZLE' : 'LIVE AI COACH'}
