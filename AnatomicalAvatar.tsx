@@ -1,3 +1,4 @@
+
 import React, { useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera, Stars, Float, Text, MeshDistortMaterial } from '@react-three/drei';
@@ -15,6 +16,19 @@ declare global {
       meshStandardMaterial: any;
       ambientLight: any;
       pointLight: any;
+    }
+  }
+  namespace React {
+    namespace JSX {
+      interface IntrinsicElements {
+        mesh: any;
+        group: any;
+        cylinderGeometry: any;
+        sphereGeometry: any;
+        meshStandardMaterial: any;
+        ambientLight: any;
+        pointLight: any;
+      }
     }
   }
 }

@@ -1,3 +1,4 @@
+
 // Replaced missing /// <reference types="vite/client" /> with manual definitions
 
 interface ImportMetaEnv {
@@ -15,5 +16,12 @@ interface ImportMeta {
 declare namespace JSX {
   interface IntrinsicElements {
     [elemName: string]: any;
+    mesh: any;
+    group: any;
+    cylinderGeometry: any;
+    sphereGeometry: any;
+    meshStandardMaterial: any;
+    ambientLight: any;
+    pointLight: any;
   }
 }

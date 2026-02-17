@@ -58,6 +58,7 @@ export const generateExerciseVideo = async (exercise: Partial<Exercise>): Promis
   const ai = getAI();
   
   // Veo Fast modeli kullanılıyor (Daha hızlı, daha az maliyetli)
+  // FIX: Aspect Ratio '1:1' is not supported by Veo models. Changed to '16:9' for cinematic clinical view.
   let operation = await ai.models.generateVideos({
     model: 'veo-3.1-fast-generate-preview',
     prompt: `Medical 3D animation of ${exercise.titleTr || exercise.title}. 
@@ -67,7 +68,7 @@ export const generateExerciseVideo = async (exercise: Partial<Exercise>): Promis
     config: {
       numberOfVideos: 1,
       resolution: '720p', // Fast model supports 720p efficiently
-      aspectRatio: '1:1'
+      aspectRatio: '16:9' // Changed from 1:1 to 16:9 to fix API error
     }
   });
 
