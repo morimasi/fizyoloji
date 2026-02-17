@@ -3,7 +3,7 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql } from '@vercel/postgres';
 
 /**
- * PHYSIOCORE SYNC ENGINE v9.6 (Schema Fix & Robustness)
+ * PHYSIOCORE SYNC ENGINE v9.7 (Exercise Schema Refinement)
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -80,16 +80,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // --- STUDIO EXERCISE SYNC ---
     if (syncType === 'STUDIO_EXERCISE') {
-      const { id, code, title, titleTr, category, difficulty, description, biomechanics } = payload;
+      const { id, code, title, titleTr, category, difficulty, description, biomechanics, visualUrl, videoUrl, isMotion } = payload;
       
       const validId = isValidUUID(id) ? id : null;
       
-      // FIX: 'difficulty_level' yerine 'difficulty' kullanıldı.
-      // FIX: 'biomechanics_notes' yerine 'biomechanics_notes' (veya 'biomechanics' denenebilir ama şimdilik difficulty hatasını çözelim)
+      // SQL Şemasındaki media_assets JSONB yapısına uygun veri hazırlama
+      const mediaAssets = {
+        visual_url: visualUrl || null,
+        video_url: videoUrl || null,
+        is_motion: isMotion || false
+      };
+
       await sql`
-        INSERT INTO exercises (id, code, title, title_tr, category, difficulty, description, biomechanics_notes)
-        VALUES (${validId || 'gen_random_uuid()'}, ${code}, ${title}, ${titleTr}, ${category}, ${difficulty}, ${description}, ${biomechanics})
-        ON CONFLICT (code) DO UPDATE SET title = EXCLUDED.title, description = EXCLUDED.description, difficulty = EXCLUDED.difficulty;
+        INSERT INTO exercises (id, code, title, title_tr, category, difficulty, description, biomechanics_notes, media_assets, is_motion)
+        VALUES (
+          ${validId || 'gen_random_uuid()'}, 
+          ${code}, 
+          ${title}, 
+          ${titleTr || null}, 
+          ${category}, 
+          ${difficulty || 5}, 
+          ${description}, 
+          ${biomechanics},
+          ${JSON.stringify(mediaAssets)},
+          ${isMotion || false}
+        )
+        ON CONFLICT (code) DO UPDATE SET 
+          title = EXCLUDED.title, 
+          title_tr = EXCLUDED.title_tr,
+          description = EXCLUDED.description, 
+          difficulty = EXCLUDED.difficulty,
+          biomechanics_notes = EXCLUDED.biomechanics_notes,
+          media_assets = EXCLUDED.media_assets,
+          updated_at = CURRENT_TIMESTAMP;
       `;
       return res.status(200).json({ success: true });
     }

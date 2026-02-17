@@ -4,7 +4,7 @@ import {
   Plus, FlaskConical, ShieldCheck, Database, 
   Zap, Activity, BarChart3, Settings2, 
   Search, Filter, LayoutGrid, List,
-  Cpu, Terminal, History
+  Cpu, Terminal, History, CloudSync, RefreshCw, CheckCircle2
 } from 'lucide-react';
 import { PhysioDB } from './db-repository.ts';
 import { Exercise } from './types.ts';
@@ -17,6 +17,8 @@ export const ExerciseStudio = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [isSyncingGlobal, setIsSyncingGlobal] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
   
   const initialDraft: Partial<Exercise> = {
     title: '',
@@ -29,7 +31,6 @@ export const ExerciseStudio = () => {
     biomechanics: '',
     safetyFlags: [],
     equipment: [],
-    // Fix: Updated muscleGroups to primaryMuscles and added secondaryMuscles
     primaryMuscles: [],
     secondaryMuscles: [],
     rehabPhase: 'Sub-Akut',
@@ -49,6 +50,24 @@ export const ExerciseStudio = () => {
     setExercises(data);
   };
 
+  const handleGlobalSync = async () => {
+    if (!confirm("Yereldeki tüm egzersiz verileri bulut veritabanına senkronize edilecek. Devam edilsin mi?")) return;
+    
+    setIsSyncingGlobal(true);
+    setSyncStatus("Veriler hazırlanıyor...");
+    
+    try {
+      const result = await PhysioDB.syncAllLocalToCloud();
+      setSyncStatus(`${result.count} egzersiz başarıyla buluta aktarıldı.`);
+      setTimeout(() => setSyncStatus(null), 5000);
+      await loadExercises();
+    } catch (e) {
+      setSyncStatus("Hata: Senkronizasyon başarısız.");
+    } finally {
+      setIsSyncingGlobal(false);
+    }
+  };
+
   const handleStartNew = () => {
     setActiveDraft(initialDraft);
     setEditingId(null);
@@ -56,32 +75,25 @@ export const ExerciseStudio = () => {
   };
 
   const handleEdit = (ex: Exercise) => {
-    // CRITICAL: Ensure we pass a clean object copy to avoid reference bugs
     setActiveDraft({ ...ex });
     setEditingId(ex.id);
     setIsAdding(true);
   };
 
   const handleSave = async (data: Exercise) => {
-    // 1. Construct the final object
-    // If we are editing, preserve the ID. If new, generate ID.
     const finalEx: Exercise = {
       ...data,
-      id: editingId || Date.now().toString(),
+      id: editingId || crypto.randomUUID(),
       code: data.code || `PRO-${Math.floor(Math.random() * 900) + 100}`
     };
 
-    // 2. Perform DB Operation
     if (editingId) {
-      // Update logic
       await PhysioDB.updateExercise(finalEx);
     } else {
-      // Create logic
       await PhysioDB.addExercise(finalEx);
     }
 
-    // 3. Refresh and Close
-    await loadExercises(); // Await is important here to show updated list immediately
+    await loadExercises();
     setIsAdding(false);
     setEditingId(null);
   };
@@ -106,25 +118,43 @@ export const ExerciseStudio = () => {
                 <h2 className="text-3xl font-semibold tracking-tighter text-white italic">GENESIS <span className="text-cyan-400 uppercase">Studio</span></h2>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="flex items-center gap-1 text-[9px] font-bold text-slate-500 uppercase tracking-widest bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
-                    <Terminal size={10} className="text-cyan-500" /> V3.6 CLOUD-DASHBOARD
+                    <Terminal size={10} className="text-cyan-500" /> V4.0 CLOUD-SYNC MASTER
                   </span>
                 </div>
               </div>
             </div>
             
-            <button 
-              onClick={handleStartNew}
-              className="group relative flex items-center justify-center gap-3 bg-cyan-500 hover:bg-cyan-600 px-10 py-5 rounded-2xl font-semibold text-xs transition-all shadow-2xl shadow-cyan-500/30 active:scale-95 text-white overflow-hidden"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-              <Plus size={18} /> YENİ PROTOKOL ÜRET
-            </button>
+            <div className="flex gap-4">
+              <button 
+                onClick={handleGlobalSync}
+                disabled={isSyncingGlobal}
+                className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 px-6 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all text-slate-300 disabled:opacity-50"
+              >
+                {isSyncingGlobal ? <RefreshCw size={16} className="animate-spin text-cyan-500" /> : <CloudSync size={16} className="text-cyan-500" />} 
+                {isSyncingGlobal ? 'SENKRONİZE EDİLİYOR' : 'BULUTA AKTAR'}
+              </button>
+              
+              <button 
+                onClick={handleStartNew}
+                className="group relative flex items-center justify-center gap-3 bg-cyan-500 hover:bg-cyan-600 px-10 py-5 rounded-2xl font-semibold text-xs transition-all shadow-2xl shadow-cyan-500/30 active:scale-95 text-white overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                <Plus size={18} /> YENİ PROTOKOL ÜRET
+              </button>
+            </div>
           </div>
+
+          {syncStatus && (
+            <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-2xl flex items-center gap-3 animate-in slide-in-from-top-2">
+              <CheckCircle2 size={16} className="text-emerald-500" />
+              <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">{syncStatus}</p>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <StudioStatCard icon={Database} label="Klinik Envanter" value={exercises.length.toString()} sub="Aktif Egzersiz" color="text-cyan-400" />
-            <StudioStatCard icon={Cpu} label="AI Üretimleri" value={exercises.filter(e => e.isPersonalized).length.toString()} sub="Optimize Edilmiş" color="text-emerald-400" />
-            <StudioStatCard icon={History} label="Son Revizyon" value="Bugün" sub="Sistem Güncel" color="text-amber-400" />
+            <StudioStatCard icon={Cpu} label="Global Master" value={exercises.filter(e => !e._sync?.isDirty).length.toString()} sub="Bulutla Eşit" color="text-emerald-400" />
+            <StudioStatCard icon={History} label="Son Revizyon" value="Bugün" sub="Global Update" color="text-amber-400" />
             <StudioStatCard icon={ShieldCheck} label="Validasyon" value="Tamam" sub="Biyomekanik Onaylı" color="text-blue-400" />
           </div>
         </div>
