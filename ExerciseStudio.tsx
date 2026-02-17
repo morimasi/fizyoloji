@@ -5,7 +5,7 @@ import {
   Zap, Activity, BarChart3, Settings2, 
   Search, Filter, LayoutGrid, List,
   Cpu, Terminal, History, CloudSync, RefreshCw, CheckCircle2,
-  Wifi, WifiOff
+  Globe, Trash2
 } from 'lucide-react';
 import { PhysioDB } from './db-repository.ts';
 import { Exercise } from './types.ts';
@@ -18,9 +18,7 @@ export const ExerciseStudio = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [isSyncingGlobal, setIsSyncingGlobal] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<string | null>(null);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isLoading, setIsLoading] = useState(false);
   
   const initialDraft: Partial<Exercise> = {
     title: '',
@@ -45,43 +43,13 @@ export const ExerciseStudio = () => {
 
   useEffect(() => {
     loadExercises();
-    
-    // Bağlantı durumunu izle
-    const handleStatus = () => setIsOnline(navigator.onLine);
-    window.addEventListener('online', handleStatus);
-    window.addEventListener('offline', handleStatus);
-    
-    // Otomatik yenileme için periyodik kontrol (UI verisi için)
-    const interval = setInterval(loadExercises, 10000);
-
-    return () => {
-      window.removeEventListener('online', handleStatus);
-      window.removeEventListener('offline', handleStatus);
-      clearInterval(interval);
-    };
   }, []);
 
   const loadExercises = async () => {
+    setIsLoading(true);
     const data = await PhysioDB.getExercises();
     setExercises(data);
-  };
-
-  const handleGlobalSync = async () => {
-    if (!confirm("Bulut veritabanı ile tam senkronizasyon (Force Sync) başlatılsın mı?")) return;
-    
-    setIsSyncingGlobal(true);
-    setSyncStatus("Global senkronizasyon zorlanıyor...");
-    
-    try {
-      const result = await PhysioDB.syncAllLocalToCloud();
-      setSyncStatus(`İşlem Tamam: ${result.count} kayıt doğrulandı.`);
-      setTimeout(() => setSyncStatus(null), 5000);
-      await loadExercises();
-    } catch (e) {
-      setSyncStatus("Hata: Bulut bağlantısı kurulamadı.");
-    } finally {
-      setIsSyncingGlobal(false);
-    }
+    setIsLoading(false);
   };
 
   const handleStartNew = () => {
@@ -115,13 +83,11 @@ export const ExerciseStudio = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Bu egzersiz klinik kütüphaneden kalıcı olarak silinecek. Onaylıyor musunuz?')) {
+    if (window.confirm('Bu egzersiz bulut sunucusundan kalıcı olarak silinecek. Onaylıyor musunuz?')) {
       await PhysioDB.deleteExercise(id);
       await loadExercises();
     }
   };
-
-  const dirtyCount = exercises.filter(e => e._sync?.isDirty).length;
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -136,11 +102,11 @@ export const ExerciseStudio = () => {
                 <h2 className="text-3xl font-semibold tracking-tighter text-white italic">GENESIS <span className="text-cyan-400 uppercase">Studio</span></h2>
                 <div className="flex items-center gap-3 mt-1">
                   <span className="flex items-center gap-1 text-[9px] font-bold text-slate-500 uppercase tracking-widest bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
-                    <Terminal size={10} className="text-cyan-500" /> V5.0 AUTO-SYNC ENGINE
+                    <Terminal size={10} className="text-cyan-500" /> V7.0 CLOUD NATIVE
                   </span>
-                  <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter ${isOnline ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-500'}`}>
-                    {isOnline ? <Wifi size={10} /> : <WifiOff size={10} />}
-                    {isOnline ? 'Cloud Linked' : 'Offline Mode'}
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter bg-emerald-500/10 text-emerald-400">
+                    <Globe size={10} />
+                    Live Database
                   </div>
                 </div>
               </div>
@@ -148,12 +114,11 @@ export const ExerciseStudio = () => {
             
             <div className="flex gap-4">
               <button 
-                onClick={handleGlobalSync}
-                disabled={isSyncingGlobal || !isOnline}
-                className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 px-6 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all text-slate-300 disabled:opacity-30"
+                onClick={loadExercises}
+                className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 px-6 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all text-slate-300"
               >
-                {isSyncingGlobal ? <RefreshCw size={16} className="animate-spin text-cyan-500" /> : <CloudSync size={16} className="text-cyan-400" />} 
-                {isSyncingGlobal ? 'SYCHRONIZING...' : 'FORCE CLOUD SYNC'}
+                <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} /> 
+                {isLoading ? 'YÜKLENİYOR...' : 'YENİLE'}
               </button>
               
               <button 
@@ -166,25 +131,17 @@ export const ExerciseStudio = () => {
             </div>
           </div>
 
-          {syncStatus && (
-            <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-2xl flex items-center gap-3 animate-in slide-in-from-top-2">
-              <CheckCircle2 size={16} className="text-emerald-500" />
-              <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">{syncStatus}</p>
-            </div>
-          )}
-
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <StudioStatCard icon={Database} label="Klinik Envanter" value={exercises.length.toString()} sub="Aktif Egzersiz" color="text-cyan-400" />
             <StudioStatCard 
-              icon={dirtyCount > 0 ? RefreshCw : CheckCircle2} 
-              label="Sync Status" 
-              value={dirtyCount > 0 ? dirtyCount.toString() : 'Live'} 
-              sub={dirtyCount > 0 ? 'Pending Cloud' : 'Global Master'} 
-              color={dirtyCount > 0 ? 'text-amber-400' : 'text-emerald-400'}
-              animateIcon={dirtyCount > 0}
+              icon={CheckCircle2} 
+              label="Veri Durumu" 
+              value="Canlı" 
+              sub="PostgreSQL Master" 
+              color="text-emerald-400"
             />
-            <StudioStatCard icon={History} label="Son Revizyon" value="Anlık" sub="7/24 Monitoring" color="text-amber-400" />
-            <StudioStatCard icon={ShieldCheck} label="Güvenlik" value="AES-256" sub="Klinik Şifreleme" color="text-blue-400" />
+            <StudioStatCard icon={History} label="Son Erişim" value="Anlık" sub="Realtime API" color="text-amber-400" />
+            <StudioStatCard icon={ShieldCheck} label="Güvenlik" value="SSL/TLS" sub="End-to-End" color="text-blue-400" />
           </div>
         </div>
       )}
@@ -231,10 +188,10 @@ export const ExerciseStudio = () => {
   );
 };
 
-const StudioStatCard = ({ icon: Icon, label, value, sub, color, animateIcon }: any) => (
+const StudioStatCard = ({ icon: Icon, label, value, sub, color }: any) => (
   <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-[2rem] flex items-center gap-5 hover:border-slate-700 transition-all group">
     <div className={`w-14 h-14 rounded-2xl flex items-center justify-center bg-slate-950 border border-slate-800 ${color} group-hover:scale-105 transition-transform shadow-inner`}>
-      <Icon size={24} className={animateIcon ? 'animate-spin' : ''} />
+      <Icon size={24} />
     </div>
     <div>
       <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.2em] mb-1">{label}</p>
