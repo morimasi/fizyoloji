@@ -4,8 +4,9 @@ import { sql } from '@vercel/postgres';
 import crypto from 'crypto';
 
 /**
- * PHYSIOCORE UNIVERSAL DATA API v2.0 (Full Schema Mapping)
+ * PHYSIOCORE UNIVERSAL DATA API v2.1 (Resilient UUID Handling)
  * Handles direct CRUD operations for the Cloud-Only architecture.
+ * Automatically corrects invalid UUIDs to prevent SQL errors.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS Config
@@ -15,6 +16,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  // Helper: Validate UUID format
+  const getValidUUID = (input: any) => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    // If input is a valid UUID, return it. Otherwise, generate a new one.
+    if (typeof input === 'string' && uuidRegex.test(input)) {
+        return input;
+    }
+    return crypto.randomUUID();
+  };
 
   try {
     // --- GET (READ) ---
@@ -86,7 +97,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // --- POST (CREATE / UPDATE) ---
     if (req.method === 'POST') {
       const { table, data } = req.body;
-      const id = data.id || crypto.randomUUID();
+      
+      // Auto-Healing ID Logic: Ensures SQL never fails on invalid ID syntax
+      const id = getValidUUID(data.id);
 
       if (table === 'exercises') {
         // SQL şemasında olmayan alanları media_assets (JSONB) içine saklıyoruz
@@ -137,9 +150,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       
       if (table === 'tasks') {
+          // Handle assignments safely
+          const therapistId = getValidUUID(data.assignedTo) === data.assignedTo ? data.assignedTo : null;
+
           await sql`
             INSERT INTO clinical_tasks (id, title, priority, status, ai_recommendation, therapist_id)
-            VALUES (${id}, ${data.title}, ${data.priority}::task_priority, ${data.status}, ${data.aiRecommendation}, ${data.assignedTo || null})
+            VALUES (${id}, ${data.title}, ${data.priority}::task_priority, ${data.status}, ${data.aiRecommendation}, ${therapistId})
             ON CONFLICT (id) DO UPDATE SET
                 status = EXCLUDED.status,
                 updated_at = CURRENT_TIMESTAMP;

@@ -92,7 +92,20 @@ export class PhysioDB {
     
     for (let i = 0; i < total; i += BATCH_SIZE) {
       const batch = SEED_EXERCISES.slice(i, i + BATCH_SIZE);
-      await Promise.all(batch.map(ex => this.addExercise(ex)));
+      
+      // FIX: Ensure seed data has valid UUIDs before sending to Cloud
+      // Legacy IDs (like 'sp-01') cause "invalid input syntax for type uuid" errors in Postgres.
+      const sanitizedBatch = batch.map(ex => {
+        const isLegacyId = !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ex.id); 
+        if (isLegacyId) {
+            // Generate a valid UUID if ID is invalid. 
+            // Note: crypto.randomUUID() is available in secure contexts (HTTPS/Localhost).
+            return { ...ex, id: crypto.randomUUID() };
+        }
+        return ex;
+      });
+
+      await Promise.all(sanitizedBatch.map(ex => this.addExercise(ex)));
       console.log(`[Cloud Seed] Paket işlendi: ${i + batch.length}/${total}`);
       await new Promise(r => setTimeout(r, 500)); 
     }
