@@ -4,8 +4,7 @@ import { getAI } from "./ai-core.ts";
 import { Exercise, AnatomicalLayer } from "./types.ts";
 
 /**
- * PHYSIOCORE VISUAL PRODUCTION ENGINE v13.5 (Anatomical Integrity Update)
- * Optimized for Speed, Cost Efficiency & Multimodal Output.
+ * PHYSIOCORE VISUAL PRODUCTION ENGINE v14.0 (Cinematic Focus)
  */
 
 export const generateExerciseVisual = async (
@@ -14,47 +13,23 @@ export const generateExerciseVisual = async (
 ): Promise<{ url: string, frameCount: number, layout: 'grid-4x4' | 'grid-5x5' }> => {
   const ai = getAI();
   
-  const isCinematic = layer === 'Cinematic-Motion';
+  // SİNEMATİK MOD: Daima 5x5 grid (25 kare) kullanırız ki akış 24 FPS'te gerçekçi olsun.
+  const isCinematic = true; 
   
-  // Prompt Strategy:
-  // Standard: 4x4 Grid (16 frames) -> Good for basic movements.
-  // Cinematic: 5x5 Grid (25 frames) -> Necessary for 24fps smooth playback perception in a single sheet.
-  
-  let prompt = exercise.generatedPrompt;
-  
-  if (!prompt) {
-      if (isCinematic) {
-          // CINEMATIC MODE: 24 FPS / 25 FRAMES / 5x5 GRID
-          // CRITICAL FIX: "Full Body Visibility" and "No Cropping" enforced via camera distance instructions.
-          prompt = `
-          Type: High-End Medical Sprite Sheet (5x5 Grid, 25 Frames).
-          Subject: Human performing ${exercise.titleTr || exercise.title}.
-          
-          --- CRITICAL ANATOMICAL RULES ---
-          1. CAMERA DISTANCE: Wide Shot (Long Shot). The entire character MUST be visible.
-          2. PADDING: Leave 15% empty space around the character in EVERY grid cell.
-          3. INTEGRITY: Do NOT crop head, feet, or hands. Legs must be fully visible in all frames.
-          4. STABILIZATION: Character's center of mass must remain fixed in the center of each cell.
-          
-          Style: Photorealistic cinematic lighting, dark slate background (#020617).
-          Motion: ULTRA-SMOOTH, continuous loop, consistent lighting.
-          Technical: 5 columns, 5 rows. High contrast for medical clarity.
-          `;
-      } else {
-          // STANDARD MODE: 12 FPS / 16 FRAMES / 4x4 GRID
-          prompt = `
-          Medical 3D Sprite Sheet (4x4 Grid). 
-          Subject: Human performing ${exercise.titleTr || exercise.title}. 
-          Style: ${layer} medical illustration. 
-          Biomechanics Focus: ${exercise.biomechanics}. 
-          
-          --- SAFETY CONSTRAINTS ---
-          - View: Full Body Zoom Out. Ensure feet and hands are inside the frame.
-          - Background: Dark clinical slate. 
-          - Motion: 16 distinct phases of movement. High clarity.
-          `;
-      }
-  }
+  const prompt = `
+    TASK: Medical Sprite Sheet Generation (5x5 Grid - 25 Sequential Frames).
+    SUBJECT: Human body performing: ${exercise.titleTr || exercise.title}.
+    
+    --- CINEMATOGRAPHY SPECS ---
+    1. VIEW: Wide Shot (Long Shot). Entire body must be visible from head to toes in EVERY frame.
+    2. PADDING: Maintain 15% clear margin around the body to prevent limb cutting.
+    3. STABILITY: The pelvis/center-of-gravity must stay in the center of each cell.
+    4. SEQUENCE: Chronological movement from start position to max range. 
+    5. STYLE: Clinical 4K Render, dark background (#020617), photorealistic human anatomy.
+    
+    --- MEDICAL PRECISION ---
+    Ensure joints (knees, elbows, spine) move anatomically correct for: ${exercise.biomechanics}.
+  `;
 
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image', 
@@ -69,34 +44,28 @@ export const generateExerciseVisual = async (
       if (part.inlineData) {
         return { 
           url: `data:image/png;base64,${part.inlineData.data}`, 
-          frameCount: isCinematic ? 25 : 16, 
-          layout: isCinematic ? 'grid-5x5' : 'grid-4x4' 
+          frameCount: 25, 
+          layout: 'grid-5x5' 
         };
       }
     }
   }
-  throw new Error("Görsel üretim hatası (Flash Engine).");
+  throw new Error("Görsel üretim hatası (Flash Cinema Engine).");
 };
 
-/**
- * Veo 3.1 Fast ile Hızlı Video Üretimi (Pro yerine Fast tercih edildi)
- */
 export const generateExerciseVideo = async (exercise: Partial<Exercise>): Promise<string> => {
   const ai = getAI();
-  
-  // Use custom prompt if available
-  const prompt = exercise.generatedPrompt || `Medical 3D animation of ${exercise.titleTr || exercise.title}. 
-             Focus: ${exercise.biomechanics}. 
-             Style: Clinical, clean, 4K texture feel, dark background, perfect loop. 
-             Smooth motion, educational medical standard. Ensure full body is visible, no cropping.`;
+  const prompt = `Ultra-smooth 4K medical 3D animation: ${exercise.titleTr || exercise.title}. 
+             Entire body visible, cinematic lighting, slate dark background. 
+             Slow controlled movement demonstrating ${exercise.biomechanics}. Full body long shot.`;
 
   let operation = await ai.models.generateVideos({
     model: 'veo-3.1-fast-generate-preview',
     prompt: prompt,
     config: {
       numberOfVideos: 1,
-      resolution: '720p', // Fast model supports 720p efficiently
-      aspectRatio: '16:9' // Changed from 1:1 to 16:9 to fix API error
+      resolution: '720p',
+      aspectRatio: '16:9'
     }
   });
 
@@ -110,35 +79,13 @@ export const generateExerciseVideo = async (exercise: Partial<Exercise>): Promis
   return `${downloadLink}&key=${apiKey}`;
 };
 
-/**
- * Gemini Flash ile PPT (Sunum) İçeriği Üretimi
- */
 export const generateClinicalSlides = async (exercise: Partial<Exercise>) => {
   const ai = getAI();
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
-    contents: [{ parts: [{ text: `
-      Create a 4-slide clinical presentation structure for the exercise: "${exercise.titleTr || exercise.title}".
-      Target Audience: Patients.
-      
-      Output JSON format:
-      {
-        "slides": [
-          {"title": "Title", "bullets": ["point 1", "point 2"], "footer": "PhysioCore AI"},
-          ...
-        ]
-      }
-      
-      Slide 1: Introduction & Goal.
-      Slide 2: Step-by-Step Technique.
-      Slide 3: Common Mistakes & Corrections.
-      Slide 4: Dosage & Safety Warning.
-    ` }] }],
-    config: {
-      responseMimeType: "application/json"
-    }
+    contents: [{ parts: [{ text: `Create 4-slide presentation for ${exercise.title} in JSON.` }] }],
+    config: { responseMimeType: "application/json" }
   });
-  
   return JSON.parse(response.text || '{"slides": []}');
 };
 
@@ -146,8 +93,7 @@ export const generateVectorAnimation = async (exercise: Partial<Exercise>): Prom
   const ai = getAI();
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: [{ parts: [{ text: `Generate SVG animation code for: "${exercise.titleTr || exercise.title}". 
-      Style: Cyan lines #06B6D4 on dark bg. Minimalist medical vector. Return only SVG.` }] }]
+    contents: [{ parts: [{ text: `SVG animation for ${exercise.title}.` }] }]
   });
   return response.text || "";
 };
