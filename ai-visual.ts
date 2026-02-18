@@ -4,8 +4,8 @@ import { getAI } from "./ai-core.ts";
 import { Exercise, AnatomicalLayer } from "./types.ts";
 
 /**
- * PHYSIOCORE VISUAL PRODUCTION ENGINE v14.0 (Stabilized Cinematic Edition)
- * Anti-Jitter Protocol & Absolute Coordinate Locking Enforced.
+ * PHYSIOCORE VISUAL PRODUCTION ENGINE v14.2 (Resilient Edition)
+ * Enhanced Safety Handling & Detailed Error Reporting
  */
 
 export const generateExerciseVisual = async (
@@ -18,59 +18,71 @@ export const generateExerciseVisual = async (
   let prompt = exercise.generatedPrompt;
   
   if (!prompt) {
+      const baseStyle = "Professional medical 3D illustration style, clean lines, high contrast, studio lighting on dark slate background #020617.";
+      
       if (isCinematic) {
-          // CINEMATIC MODE: 24 FPS / 25 FRAMES / 5x5 GRID
-          // ENFORCING TEMPORAL STABILITY & COORDINATE LOCKING
           prompt = `
           Type: High-End Medical Sprite Sheet (5x5 Grid, 25 Frames).
-          Subject: Human performing ${exercise.titleTr || exercise.title}.
+          Subject: Professional clinical demonstration of ${exercise.titleTr || exercise.title}.
+          Perspective: Full body wide shot, perfectly centered.
           
-          --- CRITICAL STABILIZATION PROTOCOL (ANTI-JITTER) ---
-          1. ABSOLUTE COORDINATE LOCKING: The character's head, torso, and hips MUST be anchored to the same absolute X-Y coordinates in every single grid cell.
-          2. ZERO-DRIFT CAMERA: The virtual camera must remain perfectly static. No zoom-in, no zoom-out, no perspective shifting between frames.
-          3. CHARACTER CENTERING: Subject's center of mass must be locked to the exact center of each cell with 15% safety padding.
-          4. FEATURE TRACKING CONSISTENCY: Anatomical landmarks (joints, shoulders, feet) must not drift or shift pixel positions independently.
-          5. NO BACKGROUND SHIMMER: Arka plan dokusu (#020617) tüm karelerde pikseller bazında özdeş olmalıdır.
+          --- STABILIZATION RULES ---
+          - Absolute coordinate locking: Subject must remain at exact cell center (X,Y).
+          - No camera movement. No perspective drift.
+          - Solid background: Deep Navy #020617.
           
-          Style: Photorealistic cinematic lighting, dark slate background.
-          Motion: Fluid and consistent eccentric/concentric phases.
-          Technical: 5 columns, 5 rows. High medical contrast.
+          Style: ${baseStyle}
+          Technical: 5 columns, 5 rows. Smooth cinematic transitions.
           `;
       } else {
-          // STANDARD MODE: 12 FPS / 16 FRAMES / 4x4 GRID
           prompt = `
           Medical 3D Sprite Sheet (4x4 Grid). 
-          Subject: Human performing ${exercise.titleTr || exercise.title}. 
-          Style: ${layer} medical illustration. 
-          
-          --- RIGID POSITIONING RULES ---
-          - Anchor character position to center. No position drift between frames.
-          - Maintain 100% identity and scale consistency across the sequence.
-          - Background: Pure solid clinical dark slate. No texture noise.
+          Subject: Anatomical demonstration of ${exercise.titleTr || exercise.title}. 
+          Focus: ${layer} visualization.
+          Style: ${baseStyle}
+          Rules: Centered, static camera, dark background.
           `;
       }
   }
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash-image', 
-    contents: [{ parts: [{ text: prompt }] }],
-    config: { 
-      imageConfig: { aspectRatio: "1:1" } 
-    } 
-  });
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image', 
+      contents: [{ parts: [{ text: prompt }] }],
+      config: { 
+        imageConfig: { aspectRatio: "1:1" } 
+      } 
+    });
 
-  if (response.candidates?.[0]?.content?.parts) {
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        return { 
-          url: `data:image/png;base64,${part.inlineData.data}`, 
-          frameCount: isCinematic ? 25 : 16, 
-          layout: isCinematic ? 'grid-5x5' : 'grid-4x4' 
-        };
+    let modelFeedback = "";
+
+    if (response.candidates?.[0]?.content?.parts) {
+      for (const part of response.candidates[0].content.parts) {
+        // GÖRSEL VARSA DÖNDÜR
+        if (part.inlineData) {
+          return { 
+            url: `data:image/png;base64,${part.inlineData.data}`, 
+            frameCount: isCinematic ? 25 : 16, 
+            layout: isCinematic ? 'grid-5x5' : 'grid-4x4' 
+          };
+        }
+        // GÖRSEL YOKSA METİN GERİ BİLDİRİMİNİ BİRİKTİR
+        if (part.text) {
+          modelFeedback += part.text;
+        }
       }
     }
+
+    // Eğer buraya ulaştıysa görsel üretilmemiştir, modelin metin açıklamasını hata olarak fırlat
+    if (modelFeedback) {
+        throw new Error(`AI Reddi: ${modelFeedback}`);
+    }
+    
+    throw new Error("Görsel verisi alınamadı (Boş Yanıt).");
+  } catch (error: any) {
+    console.error("Visual Engine Crash:", error);
+    throw error; // Üst katmana hatayı ilet
   }
-  throw new Error("Görsel üretim hatası (Flash Engine).");
 };
 
 /**
@@ -80,13 +92,11 @@ export const generateExerciseVideo = async (exercise: Partial<Exercise>): Promis
   const ai = getAI();
   
   const prompt = exercise.generatedPrompt || `
-    Subject: ${exercise.titleTr || exercise.title}. 
-    Style: Clinical 4K medical animation. 
-    Motion: Smooth, zero-jitter, fluid. 
-    --- CINEMATIC STABILIZATION ---
-    Locked camera perspective. Perfect frame-to-frame temporal consistency. 
-    Fixed lighting. Character identity and position locking in absolute 3D space. 
-    No flickering background. Dark background (#020617).
+    Subject: Medical demonstration of ${exercise.titleTr || exercise.title}. 
+    Style: Professional 3D clinical animation, 4K render quality. 
+    Motion: Perfectly smooth, stable, zero-jitter. 
+    Scene: Solid dark background #020617, cinematic lighting.
+    Temporal: Perfect frame-to-frame consistency.
   `;
 
   let operation = await ai.models.generateVideos({

@@ -68,8 +68,6 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
         ctx.fillStyle = '#020617'; 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // --- STABILIZED SCALE CALCULATION ---
-        // Using Math.floor to snap to physical pixels to avoid sub-pixel shimmering
         const scale = Math.min(canvas.width / frameW, canvas.height / frameH) * 0.96;
         const drawW = Math.floor(frameW * scale);
         const drawH = Math.floor(frameH * scale);
@@ -82,7 +80,6 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
 
         ctx.drawImage(img, sx, sy, frameW, frameH, dx, dy, drawW, drawH);
 
-        // STABILIZATION OVERLAY
         ctx.fillStyle = 'rgba(6, 182, 212, 0.05)'; 
         ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
         ctx.font = 'bold 20px monospace';
@@ -153,7 +150,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
 
   const constructPrompt = () => {
     if (activeLayer === 'Cinematic-Motion') {
-        setGeneratedPrompt(`High-End Medical Sprite Sheet (5x5 Grid, 25 frames). Anchored character position. Absolute coordinate locking for anatomical landmarks. Subject: ${exercise.title}. Perfect temporal consistency.`);
+        setGeneratedPrompt(`High-End Medical Sprite Sheet (5x5 Grid, 25 frames). Subject: Human performing ${exercise.title}. Professional anatomical demonstration. Absolute stability. Dark background.`);
         return;
     }
 
@@ -162,9 +159,9 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                             activeLayer === 'xray' ? 'in a radiographic blue/white x-ray style' : 
                             'showing a photorealistic athletic human figure';
     
-    const context = `Subject: Human performing ${exercise.title || 'movement'}. 
-    Style: ${anatomicalFocus}. 
-    Technical: Absolute character stability, frame-locked position, dark slate background.`;
+    const context = `Subject: Anatomical study of human performing ${exercise.title || 'movement'}. 
+    Style: Professional clinical illustration, ${anatomicalFocus}. 
+    Technical: Absolute stability, frame-locked center, dark slate background #020617.`;
 
     setGeneratedPrompt(context);
   };
@@ -175,7 +172,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
         const ai = getAI();
         const res = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
-            contents: `Expand this medical visual prompt. Enforce absolute coordinate stability and no background jitter. Max 50 words: "${generatedPrompt}"`
+            contents: `Rewrite this image prompt for a medical sprite sheet. Focus on clinical accuracy and ensure the model does not trigger safety filters. Keep it professional. Max 40 words: "${generatedPrompt}"`
         });
         if (res.text) setGeneratedPrompt(res.text);
     } catch (e) { console.error(e); }
@@ -219,12 +216,12 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
         setSlideData(slides);
       }
     } catch (err: any) {
-      console.error("Production Error:", err);
+      console.error("Production Error Details:", err);
       if (isApiKeyError(err)) {
-        setError("Lütfen geçerli bir API Anahtarı seçin.");
+        setError("Geçersiz API Anahtarı.");
         (window as any).aistudio?.openSelectKey?.();
       } else {
-        setError(`Üretim Hatası: Bağlantınızı kontrol edin.`);
+        setError(`AI Hatası: ${err.message || 'Üretim başarısız.'}`);
       }
     } finally {
       setIsGenerating(false);
@@ -257,7 +254,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
             </div>
             <div>
                <h4 className="font-black text-2xl uppercase italic text-white tracking-tighter">Genesis <span className="text-cyan-400">Renderer</span></h4>
-               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1 italic">Anti-Jitter v14.0 Stable</p>
+               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1 italic">Anti-Jitter v14.2 Stable</p>
             </div>
           </div>
 
@@ -302,14 +299,13 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
              )}
           </div>
 
-          {/* PROMPT ENGINEERING */}
           <div className="bg-slate-950 border border-slate-800 rounded-3xl p-5 space-y-3 mb-6 relative group/prompt">
              <div className="flex justify-between items-center">
                 <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                    <Sparkles size={12} className="text-amber-400" /> Stabilizasyon Promptu
                 </h5>
                 <div className="flex gap-2">
-                   <button onClick={handleAiExpand} disabled={isAiExpanding} className="p-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 rounded-lg transition-all" title="Stabilizasyon Analizi">
+                   <button onClick={handleAiExpand} disabled={isAiExpanding} className="p-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 rounded-lg transition-all" title="Güvenli AI Revizyonu">
                       {isAiExpanding ? <RefreshCw className="animate-spin" size={12} /> : <Wand2 size={12} />}
                    </button>
                    <button onClick={() => setIsPromptEditing(!isPromptEditing)} className="p-1.5 bg-slate-800 hover:text-white text-slate-400 rounded-lg transition-all">
@@ -330,7 +326,17 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
              )}
           </div>
 
-          {error && <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-start gap-3 animate-in shake duration-300"><AlertCircle className="text-rose-500 shrink-0" size={16} /><p className="text-[10px] text-rose-200 font-bold uppercase italic">{error}</p></div>}
+          {error && (
+            <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/30 rounded-2xl space-y-2 animate-in shake duration-300">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="text-rose-500 shrink-0" size={16} />
+                <p className="text-[10px] text-rose-200 font-bold uppercase italic leading-tight">{error}</p>
+              </div>
+              <p className="text-[8px] text-rose-300/60 pl-7 italic">
+                * Tıbbi içerik filtreleri bazen bu hataya neden olabilir. Promptu düzenleyip tekrar deneyin.
+              </p>
+            </div>
+          )}
 
           <div className="space-y-3">
             <button 
@@ -356,7 +362,6 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
         </div>
       </div>
 
-      {/* PREVIEW AREA */}
       <div className="xl:col-span-8 space-y-6">
         <div className="relative w-full aspect-square bg-slate-950 rounded-[4rem] border-4 border-slate-900 overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.8)] flex items-center justify-center group">
           
@@ -383,7 +388,6 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
              </>
           )}
 
-          {/* ... slides and vector parts remain identical ... */}
           {activeTab === 'slides' && slideData && !isGenerating && (
              <div className="w-full h-full p-12 bg-white text-slate-900 flex flex-col justify-center">
                 <div className="border-4 border-slate-900 p-8 h-full rounded-3xl overflow-y-auto custom-scrollbar">
