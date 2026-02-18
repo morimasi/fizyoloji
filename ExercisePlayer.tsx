@@ -31,7 +31,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageCacheRef = useRef<HTMLImageElement | null>(null);
-  const progressRef = useRef<number>(0);
+  const virtualProgressRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
 
   useEffect(() => {
@@ -68,51 +68,58 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
     }
   }, [exercise, activeLayer]);
 
-  // --- SMART SCALE RENDER ENGINE ---
-  const drawFrame = (progress: number) => {
+  // --- SMART SCALE PING-PONG RENDER ENGINE ---
+  const drawFrame = (vProgress: number) => {
     const canvas = canvasRef.current;
     const img = imageCacheRef.current;
     if (!canvas || !img || activeLayer === '3d') return;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) return;
 
+    // Sprite Config
     const cols = 4; const rows = 4; const totalFrames = 16;
-    const frameIndex = Math.floor(progress) % totalFrames;
-    
-    // 1. Source Dimensions
+    const virtualLength = (totalFrames * 2) - 2;
+    const currentVFrame = Math.floor(vProgress) % virtualLength;
+
+    // Ping-Pong Calculation
+    let actualFrame = 0;
+    if (currentVFrame < totalFrames) {
+        actualFrame = currentVFrame;
+    } else {
+        actualFrame = (totalFrames - 2) - (currentVFrame - totalFrames);
+    }
+
     const spriteW = img.width / cols;
     const spriteH = img.height / rows;
 
-    // 2. Clear & FX
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Clear with Deep Base
+    ctx.fillStyle = '#020617';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Filters
     if (activeLayer === 'xray') ctx.filter = 'invert(1) hue-rotate(180deg) brightness(1.2)';
     else if (activeLayer === 'muscles') ctx.filter = 'sepia(1) saturate(5) hue-rotate(-50deg)';
     else ctx.filter = 'none';
 
-    // 3. Aspect Ratio Calculation (CONTAIN)
-    const scale = Math.min(canvas.width / spriteW, canvas.height / spriteH) * 0.90;
-    
+    // Aspect Ratio "Contain"
+    const scale = Math.min(canvas.width / spriteW, canvas.height / spriteH) * 0.95;
     const destW = spriteW * scale;
     const destH = spriteH * scale;
-    
-    // 4. Center Position
     const dx = (canvas.width - destW) / 2;
     const dy = (canvas.height - destH) / 2;
 
-    // 5. Source Coordinates
-    const sx = (frameIndex % cols) * spriteW;
-    const sy = Math.floor(frameIndex / cols) * spriteH;
+    const sx = (actualFrame % cols) * spriteW;
+    const sy = Math.floor(actualFrame / cols) * spriteH;
 
-    // 6. Draw
     ctx.drawImage(img, sx, sy, spriteW, spriteH, dx, dy, destW, destH);
     ctx.filter = 'none';
 
-    // 7. Visual Rhythm Guide (Overlay)
+    // Visual Pulse Overlay
     if (isPlaying) {
-      ctx.strokeStyle = 'rgba(6, 182, 212, 0.3)';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(6, 182, 212, 0.2)';
+      ctx.lineWidth = 1;
       ctx.beginPath();
-      const radius = Math.max(destW, destH) / 2 * 1.1; 
+      const radius = Math.max(destW, destH) / 2 * (1.05 + Math.sin(vProgress * 0.5) * 0.02); 
       ctx.arc(canvas.width/2, canvas.height/2, radius, 0, Math.PI * 2);
       ctx.stroke();
     }
@@ -121,12 +128,21 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
   useEffect(() => {
     const animate = (time: number) => {
       if (!isPlaying || activeLayer === '3d') return;
+      
       const dt = time - lastTimeRef.current;
       lastTimeRef.current = time;
-      progressRef.current = (progressRef.current + dt * 0.008) % 16;
-      drawFrame(progressRef.current);
+      
+      // Target 24 FPS perceived speed
+      const totalFrames = 16;
+      const virtualLength = (totalFrames * 2) - 2;
+      const speedFactor = 0.012; 
+      
+      virtualProgressRef.current = (virtualProgressRef.current + dt * speedFactor) % virtualLength;
+      drawFrame(virtualProgressRef.current);
+      
       requestAnimationFrame(animate);
     };
+
     if (isPlaying) {
       lastTimeRef.current = performance.now();
       requestAnimationFrame(animate);
@@ -139,37 +155,34 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
       {/* Header */}
       <div className="p-4 md:p-6 flex justify-between items-center bg-slate-950/80 backdrop-blur-3xl border-b border-white/5 z-50 shrink-0">
         <button onClick={() => onClose(false)} className="flex items-center gap-3 text-slate-500 hover:text-white transition-all group">
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-slate-900 flex items-center justify-center border border-slate-800 group-hover:border-cyan-500/50">
+          <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-slate-900 flex items-center justify-center border border-slate-800 group-hover:border-cyan-500/50 shadow-xl">
             <ChevronLeft size={20} />
           </div>
-          <span className="font-black text-[10px] uppercase tracking-widest hidden sm:block">GERİ DÖN</span>
+          <span className="font-black text-[10px] uppercase tracking-widest hidden sm:block">DURDUR</span>
         </button>
 
-        <div className="text-center truncate px-2">
+        <div className="text-center truncate px-4">
           <h2 className="text-lg md:text-2xl font-black italic uppercase text-white tracking-tighter leading-none truncate">{exercise.titleTr || exercise.title}</h2>
-          <p className="text-[8px] md:text-[9px] text-cyan-500 font-bold uppercase mt-1 md:mt-2 tracking-widest flex items-center justify-center gap-2">
-             <Sparkles size={10} /> CLINICAL MODE: {activeLayer.toUpperCase()}
+          <p className="text-[8px] md:text-[9px] text-cyan-500 font-bold uppercase mt-2 tracking-[0.3em] flex items-center justify-center gap-2">
+             <Sparkles size={10} className="animate-pulse" /> PING-PONG FLUID REHAB
           </p>
         </div>
 
         <div className="flex gap-2 md:gap-4 items-center">
-           {/* New Actions Component */}
            <div className="hidden sm:block">
              <ExerciseActions exercise={exercise} variant="player" />
            </div>
-           <button onClick={() => setShowLiveCoach(!showLiveCoach)} className={`px-4 py-2 md:px-6 md:py-3 rounded-xl border text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${showLiveCoach ? 'bg-cyan-500 text-white border-cyan-400 shadow-xl' : 'bg-slate-900 text-slate-400 border-slate-800'}`}>
+           <button onClick={() => setShowLiveCoach(!showLiveCoach)} className={`px-4 py-2 md:px-6 md:py-3 rounded-xl border text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${showLiveCoach ? 'bg-cyan-500 text-white border-cyan-400 shadow-[0_0_25px_rgba(6,182,212,0.4)]' : 'bg-slate-900 text-slate-400 border-slate-800'}`}>
              {showLiveCoach ? 'GİZLE' : 'LIVE AI'}
            </button>
         </div>
       </div>
 
-      {/* Responsive Content: Flex-col on mobile, Flex-row on Desktop */}
       <div className="flex-1 flex flex-col lg:flex-row relative overflow-hidden">
         
         {/* Visual Area */}
         <div className="flex-1 relative flex items-center justify-center bg-black min-h-[45vh] lg:min-h-auto">
            
-           {/* Live Coach Overlay */}
            {showLiveCoach && (
               <div className="absolute top-10 left-1/2 -translate-x-1/2 z-[60] w-[90%] max-w-xl animate-in slide-in-from-top-4 duration-500">
                  <LiveCoach exerciseTitle={exercise.title} systemInstruction={exercise.biomechanics} />
@@ -203,7 +216,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
                  <LayerBtn active={activeLayer === '3d'} onClick={() => setActiveLayer('3d')} icon={Box} label="3D" />
               </div>
 
-              <div className="absolute top-4 left-4 md:top-10 md:left-10 p-4 md:p-8 bg-slate-900/40 backdrop-blur-3xl border border-white/5 rounded-2xl md:rounded-[2.5rem] min-w-[140px] md:min-w-[280px]">
+              <div className="absolute top-4 left-4 md:top-10 md:left-10 p-4 md:p-8 bg-slate-900/40 backdrop-blur-3xl border border-white/5 rounded-2xl md:rounded-[2.5rem] min-w-[140px] md:min-w-[280px] shadow-2xl">
                  <div className="space-y-2 md:space-y-6">
                     <div className="flex justify-between items-end">
                        <div><p className="text-[8px] md:text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Set</p><span className="text-2xl md:text-4xl font-black text-white italic">{currentSet}</span></div>
@@ -215,41 +228,41 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
 
               {activeLayer !== '3d' && !isPlaying && !isResting && (
                  <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-20">
-                    <button onClick={() => setIsPlaying(true)} className="w-20 h-20 md:w-32 md:h-32 bg-cyan-600 rounded-3xl md:rounded-[3rem] flex items-center justify-center text-white shadow-[0_0_80px_rgba(6,182,212,0.4)] hover:scale-110 active:scale-90 transition-all"><Play className="w-8 h-8 md:w-14 md:h-14" fill="currentColor" /></button>
-                    <p className="mt-4 md:mt-8 text-xs md:text-sm font-black italic text-white uppercase tracking-[0.3em] animate-pulse">DOKUN VE BAŞLA</p>
+                    <button onClick={() => setIsPlaying(true)} className="w-24 h-24 md:w-32 md:h-32 bg-cyan-600 rounded-3xl md:rounded-[3rem] flex items-center justify-center text-white shadow-[0_0_80px_rgba(6,182,212,0.4)] hover:scale-110 active:scale-95 transition-all"><Play className="w-10 h-10 md:w-14 md:h-14" fill="currentColor" /></button>
+                    <p className="mt-4 md:mt-8 text-xs md:text-sm font-black italic text-white uppercase tracking-[0.3em] animate-pulse">BAŞLATMAK İÇİN DOKUNUN</p>
                  </div>
               )}
            </div>
 
            {/* Mobile Floating Controls */}
-           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 md:gap-6 bg-slate-950/90 backdrop-blur-3xl p-3 md:p-5 rounded-[2.5rem] border border-white/10 shadow-[0_30px_100px_rgba(0,0,0,0.8)] z-30 scale-90 md:scale-110">
-              <button onClick={() => {setCurrentRep(0); setIsPlaying(false)}} className="p-3 md:p-4 text-slate-500 hover:text-white transition-all"><RotateCcw className="w-5 h-5 md:w-6 md:h-6"/></button>
-              <button onClick={() => setIsPlaying(!isPlaying)} className={`w-14 h-14 md:w-20 md:h-20 rounded-[1.5rem] md:rounded-[2rem] flex items-center justify-center text-white shadow-2xl transition-all ${isPlaying ? 'bg-slate-800' : 'bg-cyan-600'}`}>{isPlaying ? <Pause className="w-6 h-6 md:w-9 md:h-9" /> : <Play className="w-6 h-6 md:w-9 md:h-9" fill="currentColor" />}</button>
-              <button onClick={handleRepComplete} className="p-3 md:p-4 text-cyan-500 hover:scale-110 transition-all"><CheckCircle2 className="w-6 h-6 md:w-8 md:h-8" /></button>
+           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 md:gap-8 bg-slate-950/90 backdrop-blur-3xl p-4 md:p-6 rounded-[2.5rem] border border-white/10 shadow-[0_30px_100px_rgba(0,0,0,1)] z-30 scale-90 md:scale-105">
+              <button onClick={() => {virtualProgressRef.current = 0; setCurrentRep(0); setIsPlaying(false)}} className="p-3 md:p-4 text-slate-500 hover:text-white transition-all"><RotateCcw className="w-6 h-6"/></button>
+              <button onClick={() => setIsPlaying(!isPlaying)} className={`w-16 h-16 md:w-20 md:h-20 rounded-[1.5rem] md:rounded-[2rem] flex items-center justify-center text-white shadow-2xl transition-all ${isPlaying ? 'bg-slate-800' : 'bg-cyan-600'}`}>{isPlaying ? <Pause className="w-8 h-8 md:w-10 md:h-10" /> : <Play className="w-8 h-8 md:w-10 md:h-10" fill="currentColor" />}</button>
+              <button onClick={handleRepComplete} className="p-3 md:p-4 text-cyan-500 hover:scale-110 transition-all"><CheckCircle2 className="w-8 h-8 md:w-10 md:h-10" /></button>
            </div>
         </div>
 
         {/* Info Area (Scrollable on mobile) */}
-        <div className="w-full lg:w-[450px] bg-slate-950 border-t lg:border-t-0 lg:border-l border-white/5 flex flex-col p-6 md:p-10 space-y-8 md:space-y-12 overflow-y-auto max-h-[40vh] lg:max-h-full">
+        <div className="w-full lg:w-[450px] bg-slate-950 border-t lg:border-t-0 lg:border-l border-white/5 flex flex-col p-8 md:p-10 space-y-8 md:space-y-12 overflow-y-auto max-h-[40vh] lg:max-h-full custom-scrollbar">
            <div className="space-y-4 md:space-y-6">
               <div className="flex items-center gap-3 text-cyan-400"><BrainCircuit size={20} /><h3 className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.3em]">Biyomekanik Motoru</h3></div>
-              <div className="p-6 md:p-8 bg-slate-900/40 border border-slate-800 rounded-[2rem]"><p className="text-xs text-slate-300 leading-loose italic">{exercise.biomechanics}</p></div>
+              <div className="p-6 md:p-8 bg-slate-900/40 border border-slate-800 rounded-[2.5rem] shadow-inner"><p className="text-xs text-slate-300 leading-loose italic">{exercise.biomechanics}</p></div>
            </div>
 
            <div className="space-y-4 md:space-y-6">
               <div className="flex items-center gap-3 text-emerald-400"><Microscope size={20} /><h3 className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.3em]">Hedef Kas Grupları</h3></div>
               <div className="flex flex-wrap gap-2">
-                 {exercise.primaryMuscles.map(m => <span key={m} className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] md:text-[10px] font-black uppercase rounded-lg">{m}</span>)}
+                 {exercise.primaryMuscles.map(m => <span key={m} className="px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase rounded-xl">{m}</span>)}
               </div>
            </div>
            
            {activeLayer === '3d' && (
-              <div className="p-6 bg-cyan-500/5 border border-cyan-500/10 rounded-2xl">
-                 <p className="text-[10px] text-cyan-400 font-bold uppercase tracking-widest flex items-center gap-2">
+              <div className="p-8 bg-cyan-500/5 border border-cyan-500/10 rounded-[2.5rem] shadow-inner">
+                 <p className="text-[10px] text-cyan-400 font-black uppercase tracking-widest flex items-center gap-2">
                     <Target size={14} /> 3D Kinematik Notu
                  </p>
-                 <p className="text-xs text-slate-500 italic mt-2">
-                    Model üzerindeki mavi bölgeler bu egzersizde aktif olan birincil eklem ve kemik segmentlerini temsil eder.
+                 <p className="text-xs text-slate-500 italic mt-4 leading-relaxed">
+                    Model üzerindeki mavi/cyan bölgeler bu protokolde aktif olan birincil eklem ve kemik segmentlerini temsil eder.
                  </p>
               </div>
            )}
@@ -260,8 +273,8 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
 };
 
 const LayerBtn = ({ active, onClick, icon: Icon, label }: any) => (
-  <button onClick={onClick} className={`w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl flex flex-col items-center justify-center gap-0.5 md:gap-1 transition-all border ${active ? 'bg-cyan-500 text-white border-cyan-400 shadow-xl' : 'bg-slate-900/60 text-slate-500 border-slate-800 backdrop-blur-xl'}`}>
-    <Icon className="w-4 h-4 md:w-5 md:h-5" />
-    <span className="text-[6px] md:text-[7px] font-black uppercase">{label}</span>
+  <button onClick={onClick} className={`w-12 h-12 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex flex-col items-center justify-center gap-1 transition-all border ${active ? 'bg-cyan-500 text-white border-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.5)] scale-110' : 'bg-slate-900/60 text-slate-500 border-slate-800 backdrop-blur-xl'}`}>
+    <Icon className="w-5 h-5 md:w-6 md:h-6" />
+    <span className="text-[7px] md:text-[8px] font-black uppercase tracking-tighter">{label}</span>
   </button>
 );
