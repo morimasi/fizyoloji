@@ -4,8 +4,8 @@ import { getAI } from "./ai-core.ts";
 import { Exercise, AnatomicalLayer } from "./types.ts";
 
 /**
- * PHYSIOCORE VISUAL PRODUCTION ENGINE v15.0 (Time-Mapped Cinematic)
- * Anti-Jitter Protocol & Temporal Pacing Enforced.
+ * PHYSIOCORE VISUAL PRODUCTION ENGINE v16.0 (Absolute Registration)
+ * Hard-Lock Centering Protocol.
  */
 
 export const generateExerciseVisual = async (
@@ -20,38 +20,34 @@ export const generateExerciseVisual = async (
   if (!prompt) {
       if (isCinematic) {
           // CINEMATIC MODE: 25 FRAMES (5x5 GRID)
-          // NEW: TIME-MAP DISTRIBUTION & ANCHOR LOCK
           prompt = `
-          Type: Clinical Sprite Sheet (5x5 Grid, 25 Frames).
+          Type: Medical Sprite Sheet (5x5 Grid).
           Subject: Human performing ${exercise.titleTr || exercise.title}.
           
-          --- TEMPORAL DISTRIBUTION (TIME-MAP) ---
-          Generate a full continuous loop spread evenly across 25 frames:
-          [Frames 1-4]: Neutral Start Position (Preparation).
-          [Frames 5-13]: Slow Concentric Phase (Moving towards target).
-          [Frame 14]: PEAK CONTRACTION (Hold pose).
-          [Frames 15-23]: Slow Eccentric Phase (Controlled return).
-          [Frames 24-25]: Return to Neutral.
-
-          --- STABILIZATION RULES ---
-          1. PELVIC ANCHOR: The character's hips/pelvis must remain at the EXACT SAME screen coordinates in every frame. Do not move the camera.
-          2. GROUND LOCK: Feet must not slide unless the exercise requires stepping.
-          3. CONSTANT SCALE: Do not zoom in/out. Subject size must remain identical.
+          --- OPTICAL REGISTRATION RULES (CRITICAL) ---
+          1. STATIC CAMERA: The camera MUST NOT move. Fixed tripod perspective.
+          2. DEAD CENTER: The character's TORSO (Core) must be in the EXACT center of every single grid cell.
+          3. NO PANNING: Do not show the character moving across the frame. Keep them anchored in place.
+          4. ISOLATION: Dark Slate background (#020617) for easy background removal.
           
-          Style: Photorealistic clinical lighting, dark slate background (#020617).
-          Technical: 5 columns, 5 rows. High contrast. No blur.
+          Sequence:
+          - Rows 1-2: Preparation & Concentric phase.
+          - Row 3: Peak contraction (Hold).
+          - Rows 4-5: Eccentric phase & Return.
+          
+          Style: 4K Clinical Photorealism.
           `;
       } else {
           // STANDARD MODE: 16 FRAMES (4x4 GRID)
           prompt = `
-          Medical 3D Sprite Sheet (4x4 Grid). 
-          Subject: Human performing ${exercise.titleTr || exercise.title}. 
-          Style: ${layer} medical illustration. 
+          Medical Illustration Sprite Sheet (4x4 Grid). 
+          Subject: ${exercise.titleTr || exercise.title}. 
+          Style: ${layer} view.
           
-          --- RIGID POSITIONING RULES ---
-          - Anchor character position to center. No position drift between frames.
-          - Maintain 100% identity and scale consistency across the sequence.
-          - Background: Pure solid clinical dark slate. No texture noise.
+          --- ALIGNMENT RULES ---
+          - Draw the subject in the EXACT center of each cell.
+          - No camera movement.
+          - Background: Solid #020617.
           `;
       }
   }
@@ -87,12 +83,9 @@ export const generateExerciseVideo = async (exercise: Partial<Exercise>): Promis
   const prompt = exercise.generatedPrompt || `
     Subject: ${exercise.titleTr || exercise.title}. 
     Style: Clinical 4K medical animation. 
-    Motion: Slow-motion, controlled, fluid.
-    --- CINEMATIC STABILIZATION ---
-    Locked camera perspective (Tripod Mode). 
-    Perfect temporal consistency. 
-    Character must stay in center.
-    Dark background (#020617).
+    Motion: Slow, fluid, anchored.
+    Camera: Tripod mode (Fixed).
+    Background: Dark Slate (#020617).
   `;
 
   let operation = await ai.models.generateVideos({
