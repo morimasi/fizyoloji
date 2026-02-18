@@ -4,7 +4,7 @@ import { getAI } from "./ai-core.ts";
 import { Exercise, AnatomicalLayer } from "./types.ts";
 
 /**
- * PHYSIOCORE VISUAL PRODUCTION ENGINE v13.1 (Cinematic Update)
+ * PHYSIOCORE VISUAL PRODUCTION ENGINE v13.5 (Anatomical Integrity Update)
  * Optimized for Speed, Cost Efficiency & Multimodal Output.
  */
 
@@ -24,15 +24,35 @@ export const generateExerciseVisual = async (
   
   if (!prompt) {
       if (isCinematic) {
-          prompt = `High-End Medical Sprite Sheet (5x5 Grid, 25 Frames). 
+          // CINEMATIC MODE: 24 FPS / 25 FRAMES / 5x5 GRID
+          // CRITICAL FIX: "Full Body Visibility" and "No Cropping" enforced via camera distance instructions.
+          prompt = `
+          Type: High-End Medical Sprite Sheet (5x5 Grid, 25 Frames).
           Subject: Human performing ${exercise.titleTr || exercise.title}.
-          Style: Photorealistic cinematic lighting, dark slate background.
-          Motion: ULTRA-SMOOTH, high framerate (24fps feel), continuous loop.
-          Technical: Character must remain centered. No crop. 5 columns, 5 rows.`;
+          
+          --- CRITICAL ANATOMICAL RULES ---
+          1. CAMERA DISTANCE: Wide Shot (Long Shot). The entire character MUST be visible.
+          2. PADDING: Leave 15% empty space around the character in EVERY grid cell.
+          3. INTEGRITY: Do NOT crop head, feet, or hands. Legs must be fully visible in all frames.
+          4. STABILIZATION: Character's center of mass must remain fixed in the center of each cell.
+          
+          Style: Photorealistic cinematic lighting, dark slate background (#020617).
+          Motion: ULTRA-SMOOTH, continuous loop, consistent lighting.
+          Technical: 5 columns, 5 rows. High contrast for medical clarity.
+          `;
       } else {
-          prompt = `Medical 3D Sprite Sheet (4x4 Grid). Subject: Human performing ${exercise.titleTr || exercise.title}. 
-          Style: ${layer} medical illustration. Biomechanics Focus: ${exercise.biomechanics}. 
-          Background: Dark clinical slate. 16 distinct phases of movement. High clarity.`;
+          // STANDARD MODE: 12 FPS / 16 FRAMES / 4x4 GRID
+          prompt = `
+          Medical 3D Sprite Sheet (4x4 Grid). 
+          Subject: Human performing ${exercise.titleTr || exercise.title}. 
+          Style: ${layer} medical illustration. 
+          Biomechanics Focus: ${exercise.biomechanics}. 
+          
+          --- SAFETY CONSTRAINTS ---
+          - View: Full Body Zoom Out. Ensure feet and hands are inside the frame.
+          - Background: Dark clinical slate. 
+          - Motion: 16 distinct phases of movement. High clarity.
+          `;
       }
   }
 
@@ -68,7 +88,7 @@ export const generateExerciseVideo = async (exercise: Partial<Exercise>): Promis
   const prompt = exercise.generatedPrompt || `Medical 3D animation of ${exercise.titleTr || exercise.title}. 
              Focus: ${exercise.biomechanics}. 
              Style: Clinical, clean, 4K texture feel, dark background, perfect loop. 
-             Smooth motion, educational medical standard.`;
+             Smooth motion, educational medical standard. Ensure full body is visible, no cropping.`;
 
   let operation = await ai.models.generateVideos({
     model: 'veo-3.1-fast-generate-preview',

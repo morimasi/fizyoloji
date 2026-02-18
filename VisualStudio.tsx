@@ -18,7 +18,7 @@ interface VisualStudioProps {
   onVisualGenerated: (url: string, style: string, isMotion: boolean, frameCount: number, layout: string) => void;
 }
 
-// --- GENESIS CINEMATIC ENGINE (FIXED STEP LOOP) ---
+// --- GENESIS CINEMATIC ENGINE (STABILIZED & SMOOTHED) ---
 const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src: string, isPlaying?: boolean, layout?: string }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>();
@@ -34,8 +34,14 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
   useEffect(() => {
     if (!isLoaded || !canvasRef.current) return;
 
+    // ALPHA: FALSE performansı artırır ancak sinematik overlay için TRUE da tutulabilir.
+    // Burada, görüntü yırtılmalarını önlemek için high quality smoothing açıyoruz.
     const ctx = canvasRef.current.getContext('2d', { alpha: false }); 
     if (!ctx) return;
+
+    // Enable High-Quality Scaling to prevent pixelated limbs
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
 
     // --- CINEMATIC CONFIG ---
     const isCinematic = layout === 'grid-5x5';
@@ -43,7 +49,7 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
     const ROWS = isCinematic ? 5 : 4;
     const TOTAL_FRAMES = isCinematic ? 25 : 16;
     
-    // Gerçek sinema hızı (24 FPS) veya Standart (12 FPS)
+    // Sinematik modda 24 FPS (Film Look), Standartta 12 FPS
     const TARGET_FPS = isCinematic ? 24 : 12; 
     const FRAME_INTERVAL = 1000 / TARGET_FPS;
 
@@ -70,7 +76,8 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
 
         // 3. Aspect Ratio Containment (Matematiksel Merkezleme)
         // Görüntüyü canvas'ın tam ortasına, taşmadan sığdır.
-        const scale = Math.min(canvas.width / frameW, canvas.height / frameH) * 0.90;
+        // Scale oranını %98'e çekerek (Zoom Out), AI'ın kenarlara çok yakın çizimlerini kurtarıyoruz.
+        const scale = Math.min(canvas.width / frameW, canvas.height / frameH) * 0.98;
         const drawW = frameW * scale;
         const drawH = frameH * scale;
         
@@ -82,7 +89,7 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
         const sx = (frameIndex % COLS) * frameW;
         const sy = Math.floor(frameIndex / COLS) * frameH;
 
-        // 5. Çizim (Net, Keskin, Alpha-Blending Yok)
+        // 5. Çizim (Net, Keskin, Alpha-Blending Yok - Tam Film Şeridi Etkisi)
         ctx.drawImage(img, sx, sy, frameW, frameH, dx, dy, drawW, drawH);
     };
 
@@ -93,24 +100,18 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
       lastTime = time;
       accumulatedTime += deltaTime;
 
-      // FIXED STEP UPDATE:
-      // Eğer ekran 60Hz veya 144Hz ise bile, biz sadece 
-      // FRAME_INTERVAL (örn: 41ms) dolduğunda kare değiştiriyoruz.
-      // Bu, videonun hızlanmasını veya yavaşlamasını engeller.
+      // FIXED STEP UPDATE (Oyun Motoru Mantığı):
+      // Zaman farkını biriktirip, tam kare süresi dolunca çizim yapıyoruz.
+      // Bu sayede tarayıcı yavaşlasa bile animasyon hızı sabit kalır (atlama yapmaz).
       if (accumulatedTime >= FRAME_INTERVAL) {
-          // Kaç kare atlamamız gerektiğini hesapla (Lag durumunda senkronu korur)
           const framesToAdvance = Math.floor(accumulatedTime / FRAME_INTERVAL);
           currentFrame = (currentFrame + framesToAdvance) % TOTAL_FRAMES;
           accumulatedTime -= framesToAdvance * FRAME_INTERVAL;
           
-          // Çizimi güncelle
           drawFrame(currentFrame);
       }
 
-      // Watermark / Overlay (Her render döngüsünde çizilmeli)
-      // Ancak drawFrame içinde clearRect yaptığımız için drawFrame çağrılmadığı
-      // frame'lerde overlay titreyebilir. Bu yüzden overlay'i statik olarak canvas üstünde React ile de yapabiliriz
-      // ama performans için burada tutuyoruz.
+      // Watermark / Overlay (Her döngüde yenilenmeli)
       ctx.fillStyle = isCinematic ? 'rgba(6, 182, 212, 0.15)' : 'rgba(148, 163, 184, 0.1)'; 
       ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
       ctx.font = 'bold 24px monospace';
@@ -122,7 +123,7 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
       requestRef.current = requestAnimationFrame(animate);
     };
 
-    // İlk kareyi hemen çiz (Beklemeden)
+    // İlk kareyi hemen çiz
     drawFrame(0);
     requestRef.current = requestAnimationFrame(animate);
 
@@ -137,7 +138,7 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
     <div className="relative w-full h-full group">
         <canvas ref={canvasRef} className="w-full h-full object-contain rounded-[3rem]" />
         <div className="absolute top-4 right-4 bg-black/50 px-3 py-1 rounded-full text-[9px] font-mono text-white opacity-0 group-hover:opacity-100 transition-opacity">
-            RENDER: NATIVE CANVAS
+            RENDER: NATIVE CANVAS (HQ)
         </div>
     </div>
   );
@@ -282,7 +283,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
             </div>
             <div>
                <h4 className="font-black text-2xl uppercase italic text-white tracking-tighter">Flash <span className="text-cyan-400">Engine</span></h4>
-               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1 italic">Genesis v13.3 Cinematic Core</p>
+               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1 italic">Genesis v13.5 Stable Core</p>
             </div>
           </div>
 
