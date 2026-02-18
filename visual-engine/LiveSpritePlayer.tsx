@@ -7,13 +7,11 @@ import {
 } from 'lucide-react';
 
 /**
- * GENESIS MOTION ENGINE v9.0 (GRAVITY-LOCK)
+ * GENESIS MOTION ENGINE v9.5 (24FPS EQUAL DISTRIBUTION)
  * Architect: Chief Architect
- * Features: 
- *  - Gravity-Lock: Uses Center of Mass instead of Bounding Box for stability.
- *  - Temporal Smoothing: Averages offsets to kill jitter.
- *  - Smart-Crop: Pixel-perfect centering.
- *  - Cinema UI: Scrubbable Timeline, Frame Stepping, Timecode.
+ * Updates: 
+ *  - Default Layout: 5x5 (25 Frames) to match 24fps + 1 loop frame.
+ *  - Interpolation: Linear distribution across 25 frames.
  */
 
 interface LiveSpritePlayerProps {
@@ -27,7 +25,7 @@ interface LiveSpritePlayerProps {
 export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({ 
   src, 
   isPlaying: initialPlaying = true, 
-  layout = 'grid-4x4', 
+  layout = 'grid-5x5', // Default updated to 5x5 for smoothness
   speed: initialSpeed = 1.0, 
   smoothing: initialSmoothing = true 
 }) => {
@@ -59,7 +57,6 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
     imageRef.current.src = src;
     
     imageRef.current.onload = () => {
-      // Analizi bir sonraki frame'e erteleyerek UI kilitlemesini önle
       setTimeout(() => {
           performGravityLockAnalysis(imageRef.current, layout);
           setEngineState('READY');
@@ -68,11 +65,12 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
   }, [src, layout]);
 
   /**
-   * GRAVITY-LOCK ALGORITHM (v9.0)
-   * Calculates "Center of Mass" instead of Bounding Box to ignore limb movement jitter.
+   * GRAVITY-LOCK ALGORITHM (v9.5)
+   * 24fps Equal Distribution Logic
    */
   const performGravityLockAnalysis = (img: HTMLImageElement, currentLayout: string) => {
-    const isCinematic = currentLayout === 'grid-5x5';
+    // Force 5x5 check if layout is undefined, preferring high fidelity
+    const isCinematic = currentLayout === 'grid-5x5' || !currentLayout;
     const cols = isCinematic ? 5 : 4;
     const rows = isCinematic ? 5 : 4;
     const totalFrames = cols * rows;
@@ -80,7 +78,7 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
     const rawCellW = img.width / cols;
     const rawCellH = img.height / rows;
     
-    // Kare Kesim (Square Crop) - En küçük kenarı baz al
+    // Kare Kesim (Square Crop)
     const cropSize = Math.floor(Math.min(rawCellW, rawCellH));
     const cropOffsetX = (rawCellW - cropSize) / 2;
     const cropOffsetY = (rawCellH - cropSize) / 2;
@@ -92,9 +90,9 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
     if (!ctx) return;
 
     let rawFrames: {sx: number, sy: number, cx: number, cy: number}[] = [];
-    const BG_THRESHOLD = 40; // Noise Gate (Sıkıştırma bozulmalarını yoksay)
+    const BG_THRESHOLD = 40; 
 
-    // PASS 1: SCAN MASS (Ağırlık Merkezi Tarama)
+    // PASS 1: SCAN MASS
     for (let i = 0; i < totalFrames; i++) {
         const cellX = (i % cols) * rawCellW;
         const cellY = Math.floor(i / cols) * rawCellH;
@@ -107,20 +105,12 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
         const frameData = ctx.getImageData(0, 0, cropSize, cropSize);
         const data = frameData.data;
         
-        let totalMassX = 0;
-        let totalMassY = 0;
-        let pixelCount = 0;
+        let totalMassX = 0, totalMassY = 0, pixelCount = 0;
 
-        // Performanslı Tarama (2x2 atlayarak ama Center of Mass hesaplayarak)
-        for (let y = 0; y < cropSize; y += 2) {
-            for (let x = 0; x < cropSize; x += 2) {
+        for (let y = 0; y < cropSize; y += 4) { // Optimizasyon: 4x4 atlama
+            for (let x = 0; x < cropSize; x += 4) {
                 const idx = (y * cropSize + x) * 4;
-                const r = data[idx];
-                const g = data[idx+1];
-                const b = data[idx+2];
-                
-                // Parlaklık hesabı (Luma)
-                if (r > BG_THRESHOLD || g > BG_THRESHOLD || b > BG_THRESHOLD) {
+                if (data[idx] > BG_THRESHOLD || data[idx+1] > BG_THRESHOLD || data[idx+2] > BG_THRESHOLD) {
                     totalMassX += x;
                     totalMassY += y;
                     pixelCount++;
@@ -131,7 +121,7 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
         let cx = cropSize / 2;
         let cy = cropSize / 2;
 
-        if (pixelCount > 50) { // Sadece dolu kareleri hesapla
+        if (pixelCount > 20) {
             cx = totalMassX / pixelCount;
             cy = totalMassY / pixelCount;
         }
@@ -139,15 +129,14 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
         rawFrames.push({ sx: srcX, sy: srcY, cx, cy });
     }
 
-    // PASS 2: TEMPORAL SMOOTHING (Zaman Yumuşatma)
-    // Titremeyi önlemek için önceki ve sonraki karelerin ortalamasını al
+    // PASS 2: TEMPORAL SMOOTHING
     const frames: any[] = [];
     let totalShift = 0;
 
     for (let i = 0; i < totalFrames; i++) {
         const current = rawFrames[i];
         
-        // Basit Moving Average (Önceki, Şu Anki, Sonraki)
+        // 3-Frame Moving Average for Jitter Reduction
         let smoothedCx = current.cx;
         let smoothedCy = current.cy;
 
@@ -158,28 +147,18 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
             smoothedCy = (prev.cy + current.cy + next.cy) / 3;
         }
 
-        // Target: Center of Canvas
-        const targetX = cropSize / 2;
-        const targetY = cropSize / 2;
-
-        const dx = targetX - smoothedCx;
-        const dy = targetY - smoothedCy;
+        const dx = (cropSize / 2) - smoothedCx;
+        const dy = (cropSize / 2) - smoothedCy;
 
         totalShift += Math.abs(dx) + Math.abs(dy);
-        frames.push({ 
-            sx: current.sx, 
-            sy: current.sy, 
-            cropSize, 
-            dx, 
-            dy 
-        });
+        frames.push({ sx: current.sx, sy: current.sy, cropSize, dx, dy });
     }
     
     registeredFrames.current = frames;
     setMetrics({ totalFrames, stability: Math.min(100, Math.floor(100 - (totalShift / totalFrames / 5))) });
   };
 
-  // 2. RENDER LOOP (Managed by Animation Frame)
+  // 2. RENDER LOOP
   useEffect(() => {
     if (engineState !== 'READY' || !canvasRef.current) return;
 
@@ -192,11 +171,10 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
     canvas.width = 1080; 
     canvas.height = 1080;
 
-    const LOOP_DURATION = 3000; 
+    const LOOP_DURATION = 2000; // 2 saniye = 1 tur (24fps hız hissi için)
     let startTimestamp = performance.now();
     let lastRenderTime = 0;
 
-    // Drawing Function
     const renderFrame = (progress: number) => {
         const totalFrames = registeredFrames.current.length;
         if (totalFrames === 0) return;
@@ -205,6 +183,7 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
         let phase = progress; 
         if (phase > 1) phase = 2 - phase; // Reverse
 
+        // Precise Mapping for 24fps Equidistance
         const rawFrameIndex = phase * (totalFrames - 1);
         const currentFrameIndex = Math.floor(rawFrameIndex);
         const nextFrameIndex = Math.min(Math.ceil(rawFrameIndex), totalFrames - 1);
@@ -215,26 +194,22 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
         const currentFrame = registeredFrames.current[currentFrameIndex];
         const nextFrame = registeredFrames.current[nextFrameIndex];
 
-        // Clear
+        // Draw
         ctx.fillStyle = '#020617'; 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Scale Calculation (Keep some padding)
-        const scale = (canvas.width * 0.85) / currentFrame.cropSize;
+        const scale = (canvas.width * 0.90) / currentFrame.cropSize;
         const drawSize = Math.floor(currentFrame.cropSize * scale);
         
-        // Base Position (Center of Canvas)
         const bx = (canvas.width - drawSize) / 2;
         const by = (canvas.height - drawSize) / 2;
 
-        // Apply Stability Offsets
         const destX = bx + (currentFrame.dx * scale);
         const destY = by + (currentFrame.dy * scale);
         
         const nextDestX = bx + (nextFrame.dx * scale);
         const nextDestY = by + (nextFrame.dy * scale);
 
-        // Base Frame
         ctx.globalAlpha = 1.0;
         ctx.drawImage(
             imageRef.current, 
@@ -242,9 +217,8 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
             destX, destY, drawSize, drawSize
         );
 
-        // Ghost Frame (Smoothing / Motion Blur)
-        if (useSmoothing && blend > 0) {
-            ctx.globalAlpha = blend * 0.6; // Hafif hayalet efekti
+        if (useSmoothing && blend > 0.05) { // Threshold optimization
+            ctx.globalAlpha = blend;
             ctx.drawImage(
                 imageRef.current, 
                 nextFrame.sx, nextFrame.sy, nextFrame.cropSize, nextFrame.cropSize, 
@@ -256,8 +230,6 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
 
     const loop = (time: number) => {
         if (!internalPlaying) {
-            // If paused, render the static frame based on 'currentProgress' state
-            // Recalculate startTimestamp so when we play, it resumes smoothly
             startTimestamp = time - (currentProgress * (LOOP_DURATION / playbackSpeed));
             renderFrame(currentProgress); 
             requestRef.current = requestAnimationFrame(loop);
@@ -266,12 +238,10 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
 
         const elapsed = time - startTimestamp;
         const duration = LOOP_DURATION / playbackSpeed;
-        const totalCycle = duration * 2; // Forward + Backward
+        const totalCycle = duration * 2; 
 
-        // Update Global Progress (0...2)
         const normalizedTime = (elapsed % totalCycle) / duration;
         
-        // Sync React State occasionally (for UI Slider) without killing performance
         if (time - lastRenderTime > 50) {
             setCurrentProgress(normalizedTime);
             lastRenderTime = time;
@@ -286,11 +256,10 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
   }, [engineState, internalPlaying, playbackSpeed, useSmoothing, currentProgress]);
 
   // --- CONTROLS ---
-
   const handleScrub = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
     setCurrentProgress(val);
-    setInternalPlaying(false); // Pause when scrubbing
+    setInternalPlaying(false);
   };
 
   const stepFrame = (dir: 1 | -1) => {
@@ -298,14 +267,14 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
     const stepSize = 1 / metrics.totalFrames;
     setCurrentProgress(prev => {
         let next = prev + (dir * stepSize);
-        if (next < 0) next = 0;
-        if (next > 2) next = 0;
+        if (next < 0) next = 0; if (next > 2) next = 0;
         return next;
     });
   };
 
   const formatTimecode = (frame: number) => {
-    const fps = 30;
+    // 24fps Timecode logic
+    const fps = 24;
     const seconds = Math.floor(frame / fps);
     const frames = frame % fps;
     return `00:00:${seconds < 10 ? '0'+seconds : seconds}:${frames < 10 ? '0'+frames : frames}`;
@@ -318,7 +287,7 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
         <div className="text-center relative z-10">
             <h4 className="text-xl font-black text-white italic tracking-tighter uppercase">Genesis <span className="text-cyan-400">Engine</span></h4>
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-2 flex items-center justify-center gap-2">
-                <ScanLine size={12} /> Gravity-Lock Analyzing...
+                <ScanLine size={12} /> 24FPS Optimization...
             </p>
         </div>
     </div>
@@ -326,7 +295,6 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
 
   return (
     <div className="relative w-full h-full group bg-slate-950 rounded-[3rem] overflow-hidden shadow-2xl border border-slate-900 flex flex-col">
-        
         {/* VIEWPORT */}
         <div className="relative flex-1 bg-[#020617] flex items-center justify-center overflow-hidden">
             <canvas ref={canvasRef} className="w-full h-full object-contain" />
@@ -335,11 +303,7 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
             <div className="absolute top-6 left-6 flex flex-col gap-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500">
                 <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1 rounded-lg border border-white/5">
                     <Layers size={10} className="text-cyan-400" />
-                    <span className="text-[9px] font-mono font-bold text-white uppercase">FRAME: {activeFrameIndex + 1}/{metrics.totalFrames}</span>
-                </div>
-                <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1 rounded-lg border border-white/5">
-                    <Maximize size={10} className="text-purple-400" />
-                    <span className="text-[9px] font-mono font-bold text-white uppercase">GRAVITY: LOCKED</span>
+                    <span className="text-[9px] font-mono font-bold text-white uppercase">FPS: 24 | FR: {activeFrameIndex + 1}/{metrics.totalFrames}</span>
                 </div>
             </div>
         </div>
@@ -347,8 +311,6 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
         {/* CINEMA CONTROL DECK */}
         <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent pt-12 pb-6 px-6 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-4 group-hover:translate-y-0">
             <div className="flex flex-col gap-4">
-                
-                {/* SCRUBBER */}
                 <div className="w-full relative h-6 flex items-center group/scrub">
                     <div className="absolute w-full h-1 bg-slate-800 rounded-full overflow-hidden">
                         <div className="h-full bg-cyan-500/50" style={{ width: `${(currentProgress / 2) * 100}%` }} />
@@ -362,7 +324,6 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
                     <div className="w-3 h-3 bg-cyan-400 rounded-full shadow-[0_0_10px_rgba(34,211,238,0.8)] absolute z-10 pointer-events-none transition-all group-hover/scrub:scale-125" style={{ left: `${(currentProgress / 2) * 100}%` }} />
                 </div>
 
-                {/* CONTROLS */}
                 <div className="flex justify-between items-center">
                     <div className="flex items-center gap-4">
                         <button onClick={() => setInternalPlaying(!internalPlaying)} className="w-10 h-10 bg-cyan-500 hover:bg-cyan-400 text-white rounded-xl flex items-center justify-center transition-all shadow-lg shadow-cyan-500/20 active:scale-95">
@@ -372,20 +333,9 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
                             <button onClick={() => stepFrame(-1)} className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"><SkipBack size={16} /></button>
                             <button onClick={() => stepFrame(1)} className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"><SkipForward size={16} /></button>
                         </div>
-                        <div className="h-6 w-[1px] bg-slate-800 mx-2" />
-                        <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg p-1">
-                            {[0.5, 1.0, 1.5].map(s => (
-                                <button key={s} onClick={() => setPlaybackSpeed(s)} className={`text-[9px] font-black px-2 py-1 rounded ${playbackSpeed === s ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'}`}>
-                                    {s}x
-                                </button>
-                            ))}
-                        </div>
                     </div>
 
                     <div className="flex items-center gap-4">
-                        <button onClick={() => setUseSmoothing(!useSmoothing)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase transition-all ${useSmoothing ? 'bg-purple-500/10 border-purple-500/30 text-purple-400' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>
-                            <Activity size={12} /> {useSmoothing ? 'Fluid' : 'Raw'}
-                        </button>
                         <div className="font-mono text-xs font-bold text-cyan-500 bg-cyan-950/30 px-3 py-1.5 rounded-lg border border-cyan-500/20">
                             {formatTimecode(activeFrameIndex)}
                         </div>

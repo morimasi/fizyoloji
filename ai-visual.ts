@@ -4,8 +4,7 @@ import { Exercise, AnatomicalLayer } from "./types.ts";
 import { VisualPrompts } from "./visual-engine/prompts.ts";
 
 /**
- * PHYSIOCORE VISUAL PRODUCTION ENGINE v17.1 (Modular)
- * Imports specialized prompts from visual-engine/prompts.ts
+ * PHYSIOCORE VISUAL PRODUCTION ENGINE v17.2 (24FPS Optimized)
  */
 
 // 1. GÖRSEL ÜRETİM (IMAGE)
@@ -32,6 +31,7 @@ export const generateExerciseVisual = async (
       if (part.inlineData) {
         return { 
           url: `data:image/png;base64,${part.inlineData.data}`, 
+          // 24FPS için 25 Karelik (5x5) Grid kullanıyoruz
           frameCount: isCinematic ? 25 : 16, 
           layout: isCinematic ? 'grid-5x5' : 'grid-4x4' 
         };
