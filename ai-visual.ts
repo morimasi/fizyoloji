@@ -4,8 +4,8 @@ import { getAI } from "./ai-core.ts";
 import { Exercise, AnatomicalLayer } from "./types.ts";
 
 /**
- * PHYSIOCORE VISUAL PRODUCTION ENGINE v16.0 (Absolute Registration)
- * Hard-Lock Centering Protocol.
+ * PHYSIOCORE VISUAL PRODUCTION ENGINE v17.0 (Square-Crop Protocol)
+ * Enforcing 1:1 Aspect Ratio Grid Cells for Perfect Stacking.
  */
 
 export const generateExerciseVisual = async (
@@ -24,11 +24,11 @@ export const generateExerciseVisual = async (
           Type: Medical Sprite Sheet (5x5 Grid).
           Subject: Human performing ${exercise.titleTr || exercise.title}.
           
-          --- OPTICAL REGISTRATION RULES (CRITICAL) ---
-          1. STATIC CAMERA: The camera MUST NOT move. Fixed tripod perspective.
-          2. DEAD CENTER: The character's TORSO (Core) must be in the EXACT center of every single grid cell.
-          3. NO PANNING: Do not show the character moving across the frame. Keep them anchored in place.
-          4. ISOLATION: Dark Slate background (#020617) for easy background removal.
+          --- GEOMETRY RULES (MANDATORY) ---
+          1. GRID STRUCTURE: Strictly 5 columns x 5 rows.
+          2. CELL RATIO: Every individual cell MUST be a PERFECT SQUARE (1:1 aspect ratio). No rectangular frames.
+          3. ALIGNMENT: The character must be centered in each square cell.
+          4. BACKGROUND: Solid Dark Slate (#020617).
           
           Sequence:
           - Rows 1-2: Preparation & Concentric phase.
@@ -44,9 +44,10 @@ export const generateExerciseVisual = async (
           Subject: ${exercise.titleTr || exercise.title}. 
           Style: ${layer} view.
           
-          --- ALIGNMENT RULES ---
-          - Draw the subject in the EXACT center of each cell.
-          - No camera movement.
+          --- GEOMETRY RULES ---
+          - Output Format: 1:1 Aspect Ratio Image containing 4x4 uniform square cells.
+          - Each frame must have identical dimensions.
+          - Subject anchored to center.
           - Background: Solid #020617.
           `;
       }
@@ -56,7 +57,7 @@ export const generateExerciseVisual = async (
     model: 'gemini-2.5-flash-image', 
     contents: [{ parts: [{ text: prompt }] }],
     config: { 
-      imageConfig: { aspectRatio: "1:1" } 
+      imageConfig: { aspectRatio: "1:1" } // Zorunlu Kare Çıktı
     } 
   });
 

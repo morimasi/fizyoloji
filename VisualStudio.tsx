@@ -18,8 +18,8 @@ interface VisualStudioProps {
   onVisualGenerated: (url: string, style: string, isMotion: boolean, frameCount: number, layout: string) => void;
 }
 
-// --- GENESIS "HARD-LOCK" ENGINE v3.0 ---
-// Protocol: Absolute Frame Registration. No Smoothing. No Sliding.
+// --- GENESIS "SQUARE-CROP" ENGINE v4.0 ---
+// Protocol: Normalize all frames to 1:1 square ratio before stacking.
 const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src: string, isPlaying?: boolean, layout?: string }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>(0);
@@ -27,69 +27,86 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
   const [isLoaded, setIsLoaded] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   
-  // Store EXACT offsets for each frame (No smoothing)
-  const registeredOffsets = useRef<{dx: number, dy: number}[]>([]);
+  // Store crop coordinates and offsets
+  const registeredFrames = useRef<{
+      sx: number, sy: number, 
+      cropSize: number, // The size of the square to cut
+      dx: number, dy: number // Stabilization offset
+  }[]>([]);
 
   useEffect(() => {
     setIsLoaded(false);
     setIsAnalyzing(true);
-    registeredOffsets.current = [];
+    registeredFrames.current = [];
 
     imageRef.current.crossOrigin = "anonymous"; 
     imageRef.current.src = src;
     
     imageRef.current.onload = () => {
-      // Analyze immediately
-      registerFrames(imageRef.current, layout);
+      normalizeAndRegisterFrames(imageRef.current, layout);
       setIsAnalyzing(false);
       setIsLoaded(true);
     };
   }, [src, layout]);
 
   /**
-   * FRAME REGISTRATION ALGORITHM
-   * Scans each frame, finds the optical center of the subject,
-   * and calculates the EXACT vector needed to pin it to the canvas center.
+   * SQUARE NORMALIZATION & REGISTRATION
+   * 1. Calculates the grid cell size (W x H).
+   * 2. Determines the "Safe Square Size" = min(W, H).
+   * 3. Calculates the center crop coordinates for each cell.
+   * 4. Scans pixel data WITHIN that crop to find center of mass.
    */
-  const registerFrames = (img: HTMLImageElement, currentLayout: string) => {
+  const normalizeAndRegisterFrames = (img: HTMLImageElement, currentLayout: string) => {
     const isCinematic = currentLayout === 'grid-5x5';
     const cols = isCinematic ? 5 : 4;
     const rows = isCinematic ? 5 : 4;
     const totalFrames = cols * rows;
     
-    const frameW = Math.floor(img.width / cols);
-    const frameH = Math.floor(img.height / rows);
+    // Raw Grid Dimensions (Might be rectangular)
+    const rawCellW = img.width / cols;
+    const rawCellH = img.height / rows;
+
+    // FORCE SQUARE: Use the smaller dimension to crop a perfect square from the center
+    const cropSize = Math.floor(Math.min(rawCellW, rawCellH));
+    
+    // Offsets to center the crop within the rectangular cell
+    const cropOffsetX = (rawCellW - cropSize) / 2;
+    const cropOffsetY = (rawCellH - cropSize) / 2;
 
     const offCanvas = document.createElement('canvas');
-    offCanvas.width = frameW;
-    offCanvas.height = frameH;
+    offCanvas.width = cropSize;
+    offCanvas.height = cropSize;
     const ctx = offCanvas.getContext('2d', { willReadFrequently: true });
     
     if (!ctx) return;
 
-    const offsets: {dx: number, dy: number}[] = [];
-    const BG_COLOR = { r: 2, g: 6, b: 23 }; // #020617 Reference
-    const THRESHOLD = 35; // Sensitivity
+    const frames: any[] = [];
+    const BG_COLOR = { r: 2, g: 6, b: 23 }; 
+    const THRESHOLD = 35; 
 
-    // 1. SCAN PASS
     for (let i = 0; i < totalFrames; i++) {
-        const sx = (i % cols) * frameW;
-        const sy = Math.floor(i / cols) * frameH;
+        // Calculate Top-Left of the Grid Cell
+        const cellX = (i % cols) * rawCellW;
+        const cellY = Math.floor(i / cols) * rawCellH;
 
-        ctx.clearRect(0, 0, frameW, frameH);
-        ctx.drawImage(img, sx, sy, frameW, frameH, 0, 0, frameW, frameH);
+        // Calculate Top-Left of the CROP (Centered in Cell)
+        const srcX = Math.floor(cellX + cropOffsetX);
+        const srcY = Math.floor(cellY + cropOffsetY);
 
-        const frameData = ctx.getImageData(0, 0, frameW, frameH);
+        // Draw ONLY the cropped square to analysis canvas
+        ctx.clearRect(0, 0, cropSize, cropSize);
+        ctx.drawImage(img, srcX, srcY, cropSize, cropSize, 0, 0, cropSize, cropSize);
+
+        const frameData = ctx.getImageData(0, 0, cropSize, cropSize);
         const data = frameData.data;
         
-        let minX = frameW, maxX = 0, minY = frameH, maxY = 0;
+        let minX = cropSize, maxX = 0, minY = cropSize, maxY = 0;
         let found = false;
 
-        // Optimized Scanline
-        for (let y = 0; y < frameH; y += 2) {
-            for (let x = 0; x < frameW; x += 2) {
-                const idx = (y * frameW + x) * 4;
-                // Calculate Euclidean Distance from Background Color
+        // Scan pixels inside the SQUARE crop
+        for (let y = 0; y < cropSize; y += 2) {
+            for (let x = 0; x < cropSize; x += 2) {
+                const idx = (y * cropSize + x) * 4;
                 const dist = Math.sqrt(
                     Math.pow(data[idx] - BG_COLOR.r, 2) + 
                     Math.pow(data[idx+1] - BG_COLOR.g, 2) + 
@@ -106,25 +123,26 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
             }
         }
 
+        let dx = 0, dy = 0;
         if (found) {
-            // Determine Optical Center (Centroid)
             const subjectCenterX = (minX + maxX) / 2;
             const subjectCenterY = (minY + maxY) / 2;
             
-            // Calculate Vector to Center
-            // If subject is at (100, 100) and frame center is (150, 150),
-            // we need to move it +50, +50.
-            offsets.push({
-                dx: (frameW / 2) - subjectCenterX,
-                dy: (frameH / 2) - subjectCenterY
-            });
-        } else {
-            offsets.push({ dx: 0, dy: 0 });
+            // Calculate offset to move Subject Center -> Crop Center
+            dx = (cropSize / 2) - subjectCenterX;
+            dy = (cropSize / 2) - subjectCenterY;
         }
+
+        frames.push({
+            sx: srcX,
+            sy: srcY,
+            cropSize: cropSize,
+            dx: dx,
+            dy: dy
+        });
     }
     
-    // Store offsets directly. NO SMOOTHING. Hard Lock.
-    registeredOffsets.current = offsets;
+    registeredFrames.current = frames;
   };
 
   useEffect(() => {
@@ -133,17 +151,13 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
     const ctx = canvasRef.current.getContext('2d', { alpha: false }); 
     if (!ctx) return;
 
-    // Crisp edges for medical precision
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
 
     const isCinematic = layout === 'grid-5x5';
-    const COLS = isCinematic ? 5 : 4;
-    const ROWS = isCinematic ? 5 : 4;
-    const TOTAL_FRAMES = isCinematic ? 25 : 16;
+    const totalFrames = isCinematic ? 25 : 16;
     
-    // Time-Mapped Loop (Same logic as before, just rendering differs)
-    const TARGET_FPS = 12; // Lower FPS prevents flickering in "Hard Cut" mode
+    const TARGET_FPS = 12; 
     const FRAME_INTERVAL = 1000 / TARGET_FPS;
 
     let lastTime = performance.now();
@@ -151,47 +165,48 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
     let currentFrame = 0;
 
     const canvas = canvasRef.current!;
+    // Force Canvas to be Square
     canvas.width = 1080;
     canvas.height = 1080;
 
     const drawFrame = (frameIdx: number) => {
         const img = imageRef.current;
-        const frameW = img.width / COLS;
-        const frameH = img.height / ROWS;
+        const frameData = registeredFrames.current[frameIdx];
+        if (!frameData) return;
 
-        // 1. HARD CLEAR (Ensures no "trails" or stacking artifacts)
+        // 1. HARD CLEAR (Black)
         ctx.fillStyle = '#020617'; 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        const scale = Math.min(canvas.width / frameW, canvas.height / frameH) * 0.85;
-        const drawW = Math.floor(frameW * scale);
-        const drawH = Math.floor(frameH * scale);
+        // 2. SCALE CALCULATION
+        // Scale the CROP size to fit the canvas (with padding)
+        const scale = (canvas.width * 0.85) / frameData.cropSize;
+        const drawSize = Math.floor(frameData.cropSize * scale);
         
-        let dx = (canvas.width - drawW) / 2;
-        let dy = (canvas.height - drawH) / 2;
+        // 3. BASE POSITION (Center of Canvas)
+        let destX = (canvas.width - drawSize) / 2;
+        let destY = (canvas.height - drawSize) / 2;
 
-        // 2. APPLY REGISTRATION (INSTANT SNAP)
-        if (registeredOffsets.current[frameIdx]) {
-            const offset = registeredOffsets.current[frameIdx];
-            dx += offset.dx * scale;
-            dy += offset.dy * scale;
-        }
+        // 4. APPLY STABILIZATION OFFSET
+        destX += frameData.dx * scale;
+        destY += frameData.dy * scale;
 
-        const sx = (frameIdx % COLS) * frameW;
-        const sy = Math.floor(frameIdx / COLS) * frameH;
+        // 5. DRAW (Source is the Calculated CROP, Destination is Scaled Square)
+        ctx.drawImage(
+            img, 
+            frameData.sx, frameData.sy, frameData.cropSize, frameData.cropSize, 
+            Math.floor(destX), Math.floor(destY), drawSize, drawSize
+        );
 
-        // 3. DRAW FRAME (Stamped on top)
-        ctx.drawImage(img, sx, sy, frameW, frameH, Math.floor(dx), Math.floor(dy), drawW, drawH);
-
-        // 4. OVERLAY
-        ctx.fillStyle = 'rgba(2, 6, 23, 0.7)';
-        ctx.fillRect(20, canvas.height - 50, 200, 30);
+        // 6. HUD OVERLAY
+        ctx.fillStyle = 'rgba(2, 6, 23, 0.8)';
+        ctx.fillRect(20, canvas.height - 50, 240, 30);
         ctx.font = 'bold 12px monospace';
         ctx.fillStyle = '#22d3ee';
-        ctx.fillText(`FRAME ${frameIdx+1}/${TOTAL_FRAMES} [LOCKED]`, 30, canvas.height - 30);
+        ctx.fillText(`CROP: ${frameData.cropSize}x${frameData.cropSize} | OFFSET: [${Math.floor(frameData.dx)},${Math.floor(frameData.dy)}]`, 30, canvas.height - 30);
         
-        // Center Crosshair (Proof of Lock)
-        ctx.strokeStyle = 'rgba(6, 182, 212, 0.15)';
+        // Center Crosshair
+        ctx.strokeStyle = 'rgba(6, 182, 212, 0.2)';
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(canvas.width/2, 0); ctx.lineTo(canvas.width/2, canvas.height);
@@ -211,7 +226,7 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
 
       if (accumulatedTime >= FRAME_INTERVAL) {
           const framesToAdvance = Math.floor(accumulatedTime / FRAME_INTERVAL);
-          currentFrame = (currentFrame + framesToAdvance) % TOTAL_FRAMES;
+          currentFrame = (currentFrame + framesToAdvance) % totalFrames;
           accumulatedTime -= framesToAdvance * FRAME_INTERVAL;
           drawFrame(currentFrame);
       }
@@ -234,8 +249,8 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
             <div className="absolute inset-0 border-2 border-cyan-500 rounded-lg animate-ping opacity-50"></div>
         </div>
         <div className="text-center">
-            <p className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.3em]">OPTICAL REGISTRATION</p>
-            <p className="text-[8px] text-slate-500 font-bold mt-1">Calculating Center of Mass...</p>
+            <p className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.3em]">SQUARE-CROP ENGINE</p>
+            <p className="text-[8px] text-slate-500 font-bold mt-1">Normalizing Frame Dimensions...</p>
         </div>
     </div>
   );
@@ -245,7 +260,7 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
         <canvas ref={canvasRef} className="w-full h-full object-contain rounded-[3rem] shadow-2xl" />
         <div className="absolute top-6 right-6 flex items-center gap-2 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 opacity-0 group-hover:opacity-100 transition-all">
             <Target size={14} className="text-emerald-500" />
-            <span className="text-[10px] font-black font-mono text-white uppercase tracking-widest">HARD-LOCK ACTIVE</span>
+            <span className="text-[10px] font-black font-mono text-white uppercase tracking-widest">SIZE EQUALIZED</span>
         </div>
     </div>
   );
@@ -376,7 +391,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
             </div>
             <div>
                <h4 className="font-black text-2xl uppercase italic text-white tracking-tighter">Genesis <span className="text-cyan-400">Renderer</span></h4>
-               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1 italic">Anti-Jitter v16.0 (Hard-Lock)</p>
+               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1 italic">Anti-Jitter v17.0 (Square-Crop)</p>
             </div>
           </div>
 
@@ -538,7 +553,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                     <div className="absolute inset-0 bg-cyan-500/20 blur-[60px] animate-pulse" />
                 </div>
                 <h4 className="text-3xl font-black italic tracking-[0.4em] text-white uppercase">SYNC <span className="text-cyan-400">LOCK</span></h4>
-                <p className="text-[10px] text-slate-500 mt-6 uppercase font-black tracking-[0.2em] italic animate-pulse">Calculating Optical Centers...</p>
+                <p className="text-[10px] text-slate-500 mt-6 uppercase font-black tracking-[0.2em] italic animate-pulse">Normalizing Aspect Ratio...</p>
              </div>
           )}
 
