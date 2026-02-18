@@ -18,13 +18,12 @@ interface VisualStudioProps {
   onVisualGenerated: (url: string, style: string, isMotion: boolean, frameCount: number, layout: string) => void;
 }
 
-// --- GENESIS FLUID-MOTION ENGINE (INTERPOLATED) ---
+// --- GENESIS CINEMATIC ENGINE (FIXED STEP LOOP) ---
 const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src: string, isPlaying?: boolean, layout?: string }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>();
   const imageRef = useRef<HTMLImageElement>(new Image());
   const [isLoaded, setIsLoaded] = useState(false);
-  const [useInterpolation, setUseInterpolation] = useState(true); // Akıcı mod varsayılan açık
 
   useEffect(() => {
     imageRef.current.crossOrigin = "anonymous"; 
@@ -35,21 +34,22 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
   useEffect(() => {
     if (!isLoaded || !canvasRef.current) return;
 
-    const ctx = canvasRef.current.getContext('2d', { alpha: false }); // Alpha false performans artırır
+    const ctx = canvasRef.current.getContext('2d', { alpha: false }); 
     if (!ctx) return;
 
-    // --- DYNAMIC SPRITE CONFIG ---
+    // --- CINEMATIC CONFIG ---
     const isCinematic = layout === 'grid-5x5';
     const COLS = isCinematic ? 5 : 4;
     const ROWS = isCinematic ? 5 : 4;
     const TOTAL_FRAMES = isCinematic ? 25 : 16;
     
-    // Gerçekçi hız için hedef süre
-    const FPS = isCinematic ? 24 : 12; 
-    const FRAME_DURATION = 1000 / FPS;
+    // Gerçek sinema hızı (24 FPS) veya Standart (12 FPS)
+    const TARGET_FPS = isCinematic ? 24 : 12; 
+    const FRAME_INTERVAL = 1000 / TARGET_FPS;
 
-    let startTime = performance.now();
-    let frameFloat = 0; // Kayan nokta kare sayısı (örn: 1.45)
+    let lastTime = performance.now();
+    let accumulatedTime = 0;
+    let currentFrame = 0;
 
     const canvas = canvasRef.current!;
     if (canvas.width !== 1080) {
@@ -57,97 +57,88 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
         canvas.height = 1080;
     }
 
-    const drawFrame = (frameIndex: number, opacity: number = 1) => {
+    const drawFrame = (frameIndex: number) => {
         const img = imageRef.current;
+        
+        // 1. Kaynak Kare Boyutları (Sprite içindeki tek kare)
         const frameW = img.width / COLS;
         const frameH = img.height / ROWS;
 
-        // Aspect Ratio Containment
+        // 2. Temizle (Sinematik Siyah - Artifact Önleme)
+        ctx.fillStyle = '#020617'; 
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 3. Aspect Ratio Containment (Matematiksel Merkezleme)
+        // Görüntüyü canvas'ın tam ortasına, taşmadan sığdır.
         const scale = Math.min(canvas.width / frameW, canvas.height / frameH) * 0.90;
         const drawW = frameW * scale;
         const drawH = frameH * scale;
+        
+        // Bu ofsetler her kare için SABİT kalmalı ki görüntü titremesin.
         const dx = (canvas.width - drawW) / 2;
         const dy = (canvas.height - drawH) / 2;
 
-        const safeIndex = Math.floor(frameIndex) % TOTAL_FRAMES;
-        const sx = (safeIndex % COLS) * frameW;
-        const sy = Math.floor(safeIndex / COLS) * frameH;
+        // 4. Kaynak Koordinatları (Sprite Sheet üzerinde gezinme)
+        const sx = (frameIndex % COLS) * frameW;
+        const sy = Math.floor(frameIndex / COLS) * frameH;
 
-        ctx.globalAlpha = opacity;
+        // 5. Çizim (Net, Keskin, Alpha-Blending Yok)
         ctx.drawImage(img, sx, sy, frameW, frameH, dx, dy, drawW, drawH);
-        ctx.globalAlpha = 1.0;
     };
 
     const animate = (time: number) => {
       if (!isPlaying) return;
 
-      const elapsed = time - startTime;
-      
-      // Clear Canvas (Sinematik Siyah)
-      // Interpolation modunda her karede temizlemek yerine üstüne çizim yapılır (blend için), 
-      // ama base frame temiz olmalı.
-      ctx.fillStyle = '#020617'; 
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const deltaTime = time - lastTime;
+      lastTime = time;
+      accumulatedTime += deltaTime;
 
-      if (useInterpolation) {
-          // --- FLUID MOTION ALGORITHM ---
-          // Zaman bazlı sürekli akış (Discrete Frame yerine Continuous Flow)
-          frameFloat = (elapsed / FRAME_DURATION) % TOTAL_FRAMES;
+      // FIXED STEP UPDATE:
+      // Eğer ekran 60Hz veya 144Hz ise bile, biz sadece 
+      // FRAME_INTERVAL (örn: 41ms) dolduğunda kare değiştiriyoruz.
+      // Bu, videonun hızlanmasını veya yavaşlamasını engeller.
+      if (accumulatedTime >= FRAME_INTERVAL) {
+          // Kaç kare atlamamız gerektiğini hesapla (Lag durumunda senkronu korur)
+          const framesToAdvance = Math.floor(accumulatedTime / FRAME_INTERVAL);
+          currentFrame = (currentFrame + framesToAdvance) % TOTAL_FRAMES;
+          accumulatedTime -= framesToAdvance * FRAME_INTERVAL;
           
-          const currentFrame = Math.floor(frameFloat);
-          const nextFrame = (currentFrame + 1) % TOTAL_FRAMES;
-          const blendFactor = frameFloat - currentFrame; // 0.0 ile 1.0 arası
-
-          // 1. Mevcut kareyi çiz (Zemin)
-          drawFrame(currentFrame, 1);
-
-          // 2. Sonraki kareyi "Blend Factor" kadar opaklıkla üstüne çiz
-          // Bu, iki kare arasında yumuşak bir geçiş (morphing) sağlar.
-          drawFrame(nextFrame, blendFactor);
-
-      } else {
-          // --- CLASSIC STOP-MOTION ALGORITHM ---
-          const currentFrame = Math.floor(elapsed / FRAME_DURATION) % TOTAL_FRAMES;
-          drawFrame(currentFrame, 1);
+          // Çizimi güncelle
+          drawFrame(currentFrame);
       }
 
-      // Watermark / Overlay 
+      // Watermark / Overlay (Her render döngüsünde çizilmeli)
+      // Ancak drawFrame içinde clearRect yaptığımız için drawFrame çağrılmadığı
+      // frame'lerde overlay titreyebilir. Bu yüzden overlay'i statik olarak canvas üstünde React ile de yapabiliriz
+      // ama performans için burada tutuyoruz.
       ctx.fillStyle = isCinematic ? 'rgba(6, 182, 212, 0.15)' : 'rgba(148, 163, 184, 0.1)'; 
       ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
       ctx.font = 'bold 24px monospace';
       ctx.fillStyle = isCinematic ? '#22d3ee' : '#94a3b8';
       ctx.textAlign = 'right';
       const modeLabel = isCinematic ? 'CINEMATIC 24FPS' : 'STANDARD 12FPS';
-      const techLabel = useInterpolation ? 'FLUID-MOTION' : 'RAW-STEP';
-      const frameDisp = Math.floor(frameFloat % TOTAL_FRAMES) + 1;
-      
-      ctx.fillText(`${modeLabel} | ${techLabel} | FRAME ${frameDisp}/${TOTAL_FRAMES}`, canvas.width - 30, canvas.height - 25);
+      ctx.fillText(`${modeLabel} | FRAME ${currentFrame + 1}/${TOTAL_FRAMES}`, canvas.width - 30, canvas.height - 25);
 
       requestRef.current = requestAnimationFrame(animate);
     };
 
+    // İlk kareyi hemen çiz (Beklemeden)
+    drawFrame(0);
     requestRef.current = requestAnimationFrame(animate);
 
     return () => {
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
     };
-  }, [isLoaded, isPlaying, layout, useInterpolation]);
+  }, [isLoaded, isPlaying, layout]);
 
   if (!isLoaded) return <div className="w-full h-full flex items-center justify-center"><Loader2 className="animate-spin text-slate-600" /></div>;
 
   return (
-    <div className="relative w-full h-full">
+    <div className="relative w-full h-full group">
         <canvas ref={canvasRef} className="w-full h-full object-contain rounded-[3rem]" />
-        
-        {/* Interpolation Toggle - Kullanıcıya Kontrol Verme */}
-        <button 
-            onClick={() => setUseInterpolation(!useInterpolation)}
-            className="absolute bottom-6 left-6 px-4 py-2 bg-slate-900/80 backdrop-blur border border-white/10 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-white hover:bg-cyan-500/20 transition-all flex items-center gap-2 group"
-            title={useInterpolation ? "Ham kare moduna geç" : "Akıcı moda geç"}
-        >
-            <Gauge size={14} className={useInterpolation ? "text-cyan-400" : "text-slate-500"} />
-            {useInterpolation ? "AKIŞ: AKTİF" : "AKIŞ: KAPALI"}
-        </button>
+        <div className="absolute top-4 right-4 bg-black/50 px-3 py-1 rounded-full text-[9px] font-mono text-white opacity-0 group-hover:opacity-100 transition-opacity">
+            RENDER: NATIVE CANVAS
+        </div>
     </div>
   );
 };
@@ -291,7 +282,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
             </div>
             <div>
                <h4 className="font-black text-2xl uppercase italic text-white tracking-tighter">Flash <span className="text-cyan-400">Engine</span></h4>
-               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1 italic">Genesis v13.2 Fluid-Motion</p>
+               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1 italic">Genesis v13.3 Cinematic Core</p>
             </div>
           </div>
 
