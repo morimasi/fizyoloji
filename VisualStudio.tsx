@@ -18,7 +18,7 @@ interface VisualStudioProps {
   onVisualGenerated: (url: string, style: string, isMotion: boolean, frameCount: number, layout: string) => void;
 }
 
-// --- GENESIS CINEMATIC ENGINE (ANTI-JITTER & PIXEL-SNAP ENABLED) ---
+// --- GENESIS CINEMATIC ENGINE (STABILIZED & PING-PONG ENABLED) ---
 const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src: string, isPlaying?: boolean, layout?: string }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>(0);
@@ -45,7 +45,10 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
     const ROWS = isCinematic ? 5 : 4;
     const TOTAL_FRAMES = isCinematic ? 25 : 16;
     
+    // PING-PONG LOGIC: Total virtual sequence length
     const VIRTUAL_SEQUENCE_LENGTH = (TOTAL_FRAMES * 2) - 2;
+    
+    // Hard-locked 24 FPS for Cinematic, 12 FPS for Standard
     const TARGET_FPS = isCinematic ? 24 : 12; 
     const FRAME_INTERVAL = 1000 / TARGET_FPS;
 
@@ -60,32 +63,42 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
     const drawFrame = (vFrame: number) => {
         const img = imageRef.current;
         
-        let actualFrame = vFrame < TOTAL_FRAMES ? vFrame : (TOTAL_FRAMES - 2) - (vFrame - TOTAL_FRAMES);
+        // Ping-Pong Mapping
+        let actualFrame = 0;
+        if (vFrame < TOTAL_FRAMES) {
+            actualFrame = vFrame;
+        } else {
+            actualFrame = (TOTAL_FRAMES - 2) - (vFrame - TOTAL_FRAMES);
+        }
 
         const frameW = img.width / COLS;
         const frameH = img.height / ROWS;
 
+        // Reset with Cinematic Deep Blue
         ctx.fillStyle = '#020617'; 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+        // MATHEMATICAL "CONTAIN" PROJECTION
         const scale = Math.min(canvas.width / frameW, canvas.height / frameH) * 0.96;
-        const drawW = Math.floor(frameW * scale);
-        const drawH = Math.floor(frameH * scale);
+        const drawW = frameW * scale;
+        const drawH = frameH * scale;
         
-        const dx = Math.floor((canvas.width - drawW) / 2);
-        const dy = Math.floor((canvas.height - drawH) / 2);
+        const dx = (canvas.width - drawW) / 2;
+        const dy = (canvas.height - drawH) / 2;
 
         const sx = (actualFrame % COLS) * frameW;
         const sy = Math.floor(actualFrame / COLS) * frameH;
 
         ctx.drawImage(img, sx, sy, frameW, frameH, dx, dy, drawW, drawH);
 
-        ctx.fillStyle = 'rgba(6, 182, 212, 0.05)'; 
+        // CLINICAL OVERLAY
+        ctx.fillStyle = isCinematic ? 'rgba(6, 182, 212, 0.15)' : 'rgba(148, 163, 184, 0.1)'; 
         ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
-        ctx.font = 'bold 20px monospace';
-        ctx.fillStyle = '#22d3ee';
+        ctx.font = 'bold 22px monospace';
+        ctx.fillStyle = isCinematic ? '#22d3ee' : '#94a3b8';
         ctx.textAlign = 'right';
-        ctx.fillText(`STABILIZED ENGINE | FRAME ${actualFrame + 1}/${TOTAL_FRAMES}`, canvas.width - 40, canvas.height - 25);
+        const phaseLabel = vFrame < TOTAL_FRAMES ? 'CONCENTRIC' : 'ECCENTRIC';
+        ctx.fillText(`${phaseLabel} | ${TARGET_FPS} FPS | FRAME ${actualFrame + 1}/${TOTAL_FRAMES}`, canvas.width - 40, canvas.height - 25);
     };
 
     const animate = (time: number) => {
@@ -123,7 +136,7 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
         <canvas ref={canvasRef} className="w-full h-full object-contain rounded-[3rem] shadow-2xl" />
         <div className="absolute top-6 right-6 flex items-center gap-2 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 opacity-0 group-hover:opacity-100 transition-all">
             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-            <span className="text-[10px] font-black font-mono text-white uppercase tracking-widest">STABLE-RENDER ACTIVE</span>
+            <span className="text-[10px] font-black font-mono text-white uppercase tracking-widest">RENDER: GENESIS PRO-FLUID</span>
         </div>
     </div>
   );
@@ -150,7 +163,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
 
   const constructPrompt = () => {
     if (activeLayer === 'Cinematic-Motion') {
-        setGeneratedPrompt(`High-End Medical Sprite Sheet (5x5 Grid, 25 frames). Subject: Human performing ${exercise.title}. Professional anatomical demonstration. Absolute stability. Dark background.`);
+        setGeneratedPrompt(`High-End Medical Sprite Sheet (5x5 Grid, 25 frames). Subject: Human performing ${exercise.title}. Action: Fluid continuous motion for physical therapy visualization. View: Full Body Wide Shot. Centered. Dark background.`);
         return;
     }
 
@@ -159,9 +172,11 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                             activeLayer === 'xray' ? 'in a radiographic blue/white x-ray style' : 
                             'showing a photorealistic athletic human figure';
     
-    const context = `Subject: Anatomical study of human performing ${exercise.title || 'movement'}. 
-    Style: Professional clinical illustration, ${anatomicalFocus}. 
-    Technical: Absolute stability, frame-locked center, dark slate background #020617.`;
+    const context = `Subject: Human performing ${exercise.title || 'movement'}. 
+    Action: ${exercise.titleTr || exercise.title}. 
+    Biomechanics: ${exercise.biomechanics || 'Neutral spine'}. 
+    Style: ${anatomicalFocus}. 
+    Technical: 4K resolution, sprite sheet grid, dark slate background, high contrast clinical lighting.`;
 
     setGeneratedPrompt(context);
   };
@@ -172,7 +187,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
         const ai = getAI();
         const res = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
-            contents: `Rewrite this image prompt for a medical sprite sheet. Focus on clinical accuracy and ensure the model does not trigger safety filters. Keep it professional. Max 40 words: "${generatedPrompt}"`
+            contents: `Expand this image generation prompt for a medical sprite sheet. Ensure full body visibility and smooth transitions between frames. Max 50 words: "${generatedPrompt}"`
         });
         if (res.text) setGeneratedPrompt(res.text);
     } catch (e) { console.error(e); }
@@ -216,12 +231,12 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
         setSlideData(slides);
       }
     } catch (err: any) {
-      console.error("Production Error Details:", err);
+      console.error("Production Error:", err);
       if (isApiKeyError(err)) {
-        setError("Geçersiz API Anahtarı.");
+        setError("Lütfen geçerli bir API Anahtarı seçin.");
         (window as any).aistudio?.openSelectKey?.();
       } else {
-        setError(`AI Hatası: ${err.message || 'Üretim başarısız.'}`);
+        setError(`Üretim Hatası: Bağlantınızı kontrol edin.`);
       }
     } finally {
       setIsGenerating(false);
@@ -254,13 +269,13 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
             </div>
             <div>
                <h4 className="font-black text-2xl uppercase italic text-white tracking-tighter">Genesis <span className="text-cyan-400">Renderer</span></h4>
-               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1 italic">Anti-Jitter v14.2 Stable</p>
+               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1 italic">Flash v13.5 Stable Engine</p>
             </div>
           </div>
 
           <div className="space-y-6 mb-8">
              <div className="grid grid-cols-2 gap-2 bg-slate-950 p-2 rounded-2xl border border-slate-800">
-                <ModeBtn active={activeTab === 'image'} onClick={() => setActiveTab('image')} icon={FileVideo} label="STABLE SPRITE" />
+                <ModeBtn active={activeTab === 'image'} onClick={() => setActiveTab('image')} icon={FileVideo} label="SPRITE (HQ)" />
                 <ModeBtn active={activeTab === 'video'} onClick={() => setActiveTab('video')} icon={Video} label="VEO FAST" />
                 <ModeBtn active={activeTab === 'slides'} onClick={() => setActiveTab('slides')} icon={Presentation} label="SUNUM" />
                 <ModeBtn active={activeTab === 'vector'} onClick={() => setActiveTab('vector')} icon={Wand2} label="VECTOR" />
@@ -269,7 +284,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
              {activeTab === 'image' && (
                 <div className="grid grid-cols-1 gap-2 animate-in slide-in-from-left-2">
                    <div className="flex justify-between items-center px-1 mb-2">
-                      <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Stabilizasyon Katmanı</p>
+                      <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Görsel Katman / Mod</p>
                       
                       {previewUrl && (
                         <div className="flex bg-slate-950 rounded-lg p-0.5 border border-slate-800">
@@ -299,13 +314,14 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
              )}
           </div>
 
+          {/* PROMPT ENGINEERING */}
           <div className="bg-slate-950 border border-slate-800 rounded-3xl p-5 space-y-3 mb-6 relative group/prompt">
              <div className="flex justify-between items-center">
                 <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                   <Sparkles size={12} className="text-amber-400" /> Stabilizasyon Promptu
+                   <Sparkles size={12} className="text-amber-400" /> Prompt Mühendisliği
                 </h5>
                 <div className="flex gap-2">
-                   <button onClick={handleAiExpand} disabled={isAiExpanding} className="p-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 rounded-lg transition-all" title="Güvenli AI Revizyonu">
+                   <button onClick={handleAiExpand} disabled={isAiExpanding} className="p-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 rounded-lg transition-all" title="AI ile Genişlet">
                       {isAiExpanding ? <RefreshCw className="animate-spin" size={12} /> : <Wand2 size={12} />}
                    </button>
                    <button onClick={() => setIsPromptEditing(!isPromptEditing)} className="p-1.5 bg-slate-800 hover:text-white text-slate-400 rounded-lg transition-all">
@@ -326,17 +342,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
              )}
           </div>
 
-          {error && (
-            <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/30 rounded-2xl space-y-2 animate-in shake duration-300">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="text-rose-500 shrink-0" size={16} />
-                <p className="text-[10px] text-rose-200 font-bold uppercase italic leading-tight">{error}</p>
-              </div>
-              <p className="text-[8px] text-rose-300/60 pl-7 italic">
-                * Tıbbi içerik filtreleri bazen bu hataya neden olabilir. Promptu düzenleyip tekrar deneyin.
-              </p>
-            </div>
-          )}
+          {error && <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-start gap-3 animate-in shake duration-300"><AlertCircle className="text-rose-500 shrink-0" size={16} /><p className="text-[10px] text-rose-200 font-bold uppercase italic">{error}</p></div>}
 
           <div className="space-y-3">
             <button 
@@ -344,7 +350,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                 disabled={isGenerating || !exercise.title} 
                 className="w-full py-5 bg-slate-800 hover:bg-slate-700 text-white rounded-[2rem] text-xs font-black uppercase tracking-widest border border-slate-700 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-30"
             >
-                {isGenerating ? <><Loader2 className="animate-spin" size={20} /> İŞLENİYOR...</> : <><Rocket size={20} /> STANDART (LOCK-POS)</>}
+                {isGenerating ? <><Loader2 className="animate-spin" size={20} /> İŞLENİYOR...</> : <><Rocket size={20} /> STANDART ÜRETİM (12 FPS)</>}
             </button>
 
             {activeTab === 'image' && (
@@ -355,13 +361,14 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                 >
                     <div className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-12" />
                     {isGenerating ? <Loader2 className="animate-spin" size={20} /> : <Aperture size={20} className="animate-pulse" />} 
-                    CINEMATIC STABLE MOTION
+                    24 FPS PING-PONG MOTION
                 </button>
             )}
           </div>
         </div>
       </div>
 
+      {/* PREVIEW AREA */}
       <div className="xl:col-span-8 space-y-6">
         <div className="relative w-full aspect-square bg-slate-950 rounded-[4rem] border-4 border-slate-900 overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.8)] flex items-center justify-center group">
           
@@ -413,7 +420,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
           {!previewUrl && !videoUrl && !svgContent && !slideData && !isGenerating && (
             <div className="text-center opacity-20 group-hover:opacity-40 transition-opacity">
                <Aperture size={120} strokeWidth={0.5} className="mx-auto mb-8 animate-spin-slow" />
-               <p className="text-[11px] font-black uppercase tracking-[0.6em] italic">BEKLEMEDE: STABLE ENGINE</p>
+               <p className="text-[11px] font-black uppercase tracking-[0.6em] italic">BEKLEMEDE: PROTOKOL SEÇİN</p>
             </div>
           )}
 
@@ -423,8 +430,8 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                     <Loader2 className="animate-spin text-cyan-500 mb-8" size={80} />
                     <div className="absolute inset-0 bg-cyan-500/20 blur-[60px] animate-pulse" />
                 </div>
-                <h4 className="text-3xl font-black italic tracking-[0.4em] text-white uppercase">SYNC <span className="text-cyan-400">LOCK</span></h4>
-                <p className="text-[10px] text-slate-500 mt-6 uppercase font-black tracking-[0.2em] italic animate-pulse">Temporal consistency processing...</p>
+                <h4 className="text-3xl font-black italic tracking-[0.4em] text-white uppercase">RENDER <span className="text-cyan-400">ENGINE</span></h4>
+                <p className="text-[10px] text-slate-500 mt-6 uppercase font-black tracking-[0.2em] italic animate-pulse">Analitik model işleniyor...</p>
              </div>
           )}
 
