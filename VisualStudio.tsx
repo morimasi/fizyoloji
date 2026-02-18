@@ -6,7 +6,8 @@ import {
   AlertCircle, RefreshCw, Video, Film, Timer, Box,
   Bone, Flame, Heart, Scan, User, Layers, ChevronLeft, ChevronRight,
   Presentation, FileVideo, Cpu, Gift, Info, FileJson, Share2,
-  Edit3, Check, X, Grid, Eye, Aperture, Gauge, Target, Lock
+  Edit3, Check, X, Grid, Eye, Aperture, Gauge, Target, Lock,
+  FastForward, Rewind, Activity
 } from 'lucide-react';
 import { Exercise, AnatomicalLayer } from './types.ts';
 import { generateExerciseVisual, generateExerciseVideo, generateVectorAnimation, generateClinicalSlides } from './ai-visual.ts';
@@ -18,9 +19,9 @@ interface VisualStudioProps {
   onVisualGenerated: (url: string, style: string, isMotion: boolean, frameCount: number, layout: string) => void;
 }
 
-// --- GENESIS "SQUARE-CROP" ENGINE v4.0 ---
-// Protocol: Normalize all frames to 1:1 square ratio before stacking.
-const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src: string, isPlaying?: boolean, layout?: string }) => {
+// --- GENESIS "TEMPORAL-FLOW" ENGINE v5.0 ---
+// Protocol: Time-Mapped Frame Interpolation with Easing Functions.
+const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4', speed = 1.0, smoothing = true }: { src: string, isPlaying?: boolean, layout?: string, speed?: number, smoothing?: boolean }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>(0);
   const imageRef = useRef<HTMLImageElement>(new Image());
@@ -30,8 +31,8 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
   // Store crop coordinates and offsets
   const registeredFrames = useRef<{
       sx: number, sy: number, 
-      cropSize: number, // The size of the square to cut
-      dx: number, dy: number // Stabilization offset
+      cropSize: number, 
+      dx: number, dy: number 
   }[]>([]);
 
   useEffect(() => {
@@ -49,27 +50,16 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
     };
   }, [src, layout]);
 
-  /**
-   * SQUARE NORMALIZATION & REGISTRATION
-   * 1. Calculates the grid cell size (W x H).
-   * 2. Determines the "Safe Square Size" = min(W, H).
-   * 3. Calculates the center crop coordinates for each cell.
-   * 4. Scans pixel data WITHIN that crop to find center of mass.
-   */
   const normalizeAndRegisterFrames = (img: HTMLImageElement, currentLayout: string) => {
     const isCinematic = currentLayout === 'grid-5x5';
     const cols = isCinematic ? 5 : 4;
     const rows = isCinematic ? 5 : 4;
     const totalFrames = cols * rows;
     
-    // Raw Grid Dimensions (Might be rectangular)
     const rawCellW = img.width / cols;
     const rawCellH = img.height / rows;
 
-    // FORCE SQUARE: Use the smaller dimension to crop a perfect square from the center
     const cropSize = Math.floor(Math.min(rawCellW, rawCellH));
-    
-    // Offsets to center the crop within the rectangular cell
     const cropOffsetX = (rawCellW - cropSize) / 2;
     const cropOffsetY = (rawCellH - cropSize) / 2;
 
@@ -85,15 +75,11 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
     const THRESHOLD = 35; 
 
     for (let i = 0; i < totalFrames; i++) {
-        // Calculate Top-Left of the Grid Cell
         const cellX = (i % cols) * rawCellW;
         const cellY = Math.floor(i / cols) * rawCellH;
-
-        // Calculate Top-Left of the CROP (Centered in Cell)
         const srcX = Math.floor(cellX + cropOffsetX);
         const srcY = Math.floor(cellY + cropOffsetY);
 
-        // Draw ONLY the cropped square to analysis canvas
         ctx.clearRect(0, 0, cropSize, cropSize);
         ctx.drawImage(img, srcX, srcY, cropSize, cropSize, 0, 0, cropSize, cropSize);
 
@@ -103,7 +89,6 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
         let minX = cropSize, maxX = 0, minY = cropSize, maxY = 0;
         let found = false;
 
-        // Scan pixels inside the SQUARE crop
         for (let y = 0; y < cropSize; y += 2) {
             for (let x = 0; x < cropSize; x += 2) {
                 const idx = (y * cropSize + x) * 4;
@@ -127,21 +112,12 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
         if (found) {
             const subjectCenterX = (minX + maxX) / 2;
             const subjectCenterY = (minY + maxY) / 2;
-            
-            // Calculate offset to move Subject Center -> Crop Center
             dx = (cropSize / 2) - subjectCenterX;
             dy = (cropSize / 2) - subjectCenterY;
         }
 
-        frames.push({
-            sx: srcX,
-            sy: srcY,
-            cropSize: cropSize,
-            dx: dx,
-            dy: dy
-        });
+        frames.push({ sx: srcX, sy: srcY, cropSize, dx, dy });
     }
-    
     registeredFrames.current = frames;
   };
 
@@ -157,61 +133,49 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
     const isCinematic = layout === 'grid-5x5';
     const totalFrames = isCinematic ? 25 : 16;
     
-    const TARGET_FPS = 12; 
-    const FRAME_INTERVAL = 1000 / TARGET_FPS;
-
-    let lastTime = performance.now();
-    let accumulatedTime = 0;
-    let currentFrame = 0;
+    // TEMPORAL ENGINE CONFIG
+    const BASE_DURATION = 2500; // 2.5 seconds for a full loop at 1x speed
+    let startTimestamp = performance.now();
 
     const canvas = canvasRef.current!;
-    // Force Canvas to be Square
     canvas.width = 1080;
     canvas.height = 1080;
 
-    const drawFrame = (frameIdx: number) => {
+    const drawFrame = (frameIdx: number, progress: number) => {
         const img = imageRef.current;
         const frameData = registeredFrames.current[frameIdx];
         if (!frameData) return;
 
-        // 1. HARD CLEAR (Black)
         ctx.fillStyle = '#020617'; 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // 2. SCALE CALCULATION
-        // Scale the CROP size to fit the canvas (with padding)
         const scale = (canvas.width * 0.85) / frameData.cropSize;
         const drawSize = Math.floor(frameData.cropSize * scale);
         
-        // 3. BASE POSITION (Center of Canvas)
         let destX = (canvas.width - drawSize) / 2;
         let destY = (canvas.height - drawSize) / 2;
 
-        // 4. APPLY STABILIZATION OFFSET
         destX += frameData.dx * scale;
         destY += frameData.dy * scale;
 
-        // 5. DRAW (Source is the Calculated CROP, Destination is Scaled Square)
         ctx.drawImage(
             img, 
             frameData.sx, frameData.sy, frameData.cropSize, frameData.cropSize, 
             Math.floor(destX), Math.floor(destY), drawSize, drawSize
         );
 
-        // 6. HUD OVERLAY
-        ctx.fillStyle = 'rgba(2, 6, 23, 0.8)';
-        ctx.fillRect(20, canvas.height - 50, 240, 30);
-        ctx.font = 'bold 12px monospace';
-        ctx.fillStyle = '#22d3ee';
-        ctx.fillText(`CROP: ${frameData.cropSize}x${frameData.cropSize} | OFFSET: [${Math.floor(frameData.dx)},${Math.floor(frameData.dy)}]`, 30, canvas.height - 30);
+        // Progress Bar Overlay
+        ctx.fillStyle = 'rgba(6, 182, 212, 0.3)';
+        ctx.fillRect(0, canvas.height - 6, canvas.width * progress, 6);
         
-        // Center Crosshair
-        ctx.strokeStyle = 'rgba(6, 182, 212, 0.2)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(canvas.width/2, 0); ctx.lineTo(canvas.width/2, canvas.height);
-        ctx.moveTo(0, canvas.height/2); ctx.lineTo(canvas.width, canvas.height/2);
-        ctx.stroke();
+        // Tech Stats
+        ctx.fillStyle = 'rgba(2, 6, 23, 0.6)';
+        ctx.fillRect(20, 20, 140, 50);
+        ctx.font = 'bold 10px monospace';
+        ctx.fillStyle = '#22d3ee';
+        ctx.fillText(`FRAME: ${frameIdx + 1}/${totalFrames}`, 30, 40);
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText(`SPEED: ${speed.toFixed(1)}x`, 30, 55);
     };
 
     const animate = (time: number) => {
@@ -220,38 +184,41 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
           return;
       }
 
-      const deltaTime = time - lastTime;
-      lastTime = time;
-      accumulatedTime += deltaTime;
+      // 1. Calculate Global Progress (0.0 -> 1.0)
+      const duration = BASE_DURATION / speed;
+      const elapsed = time - startTimestamp;
+      const rawProgress = (elapsed % duration) / duration;
 
-      if (accumulatedTime >= FRAME_INTERVAL) {
-          const framesToAdvance = Math.floor(accumulatedTime / FRAME_INTERVAL);
-          currentFrame = (currentFrame + framesToAdvance) % totalFrames;
-          accumulatedTime -= framesToAdvance * FRAME_INTERVAL;
-          drawFrame(currentFrame);
+      // 2. Apply Easing (Smoother motion perception)
+      // Linear is robotic. Ease-In-Out is organic.
+      let adjustedProgress = rawProgress;
+      if (smoothing) {
+          // SmoothStep function: 3x^2 - 2x^3
+          adjustedProgress = rawProgress * rawProgress * (3 - 2 * rawProgress);
       }
 
+      // 3. Map to Discrete Frame
+      // We clamp the index to ensure it never hits 'totalFrames' (which is out of bounds)
+      const frameIndex = Math.min(
+          Math.floor(adjustedProgress * totalFrames), 
+          totalFrames - 1
+      );
+
+      drawFrame(frameIndex, rawProgress);
       requestRef.current = requestAnimationFrame(animate);
     };
 
-    drawFrame(0);
     requestRef.current = requestAnimationFrame(animate);
 
     return () => {
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
     };
-  }, [isLoaded, isPlaying, layout]);
+  }, [isLoaded, isPlaying, layout, speed, smoothing]);
 
   if (!isLoaded || isAnalyzing) return (
     <div className="w-full h-full flex flex-col items-center justify-center bg-slate-950/20 gap-4">
-        <div className="relative">
-            <Lock size={48} className="text-cyan-500 animate-pulse" />
-            <div className="absolute inset-0 border-2 border-cyan-500 rounded-lg animate-ping opacity-50"></div>
-        </div>
-        <div className="text-center">
-            <p className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.3em]">SQUARE-CROP ENGINE</p>
-            <p className="text-[8px] text-slate-500 font-bold mt-1">Normalizing Frame Dimensions...</p>
-        </div>
+        <Loader2 size={48} className="text-cyan-500 animate-spin" />
+        <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">TEMPORAL SYNC</p>
     </div>
   );
 
@@ -259,8 +226,10 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
     <div className="relative w-full h-full group">
         <canvas ref={canvasRef} className="w-full h-full object-contain rounded-[3rem] shadow-2xl" />
         <div className="absolute top-6 right-6 flex items-center gap-2 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 opacity-0 group-hover:opacity-100 transition-all">
-            <Target size={14} className="text-emerald-500" />
-            <span className="text-[10px] font-black font-mono text-white uppercase tracking-widest">SIZE EQUALIZED</span>
+            <Activity size={14} className={smoothing ? "text-emerald-500" : "text-amber-500"} />
+            <span className="text-[10px] font-black font-mono text-white uppercase tracking-widest">
+                {smoothing ? 'ORGANIC FLOW' : 'LINEAR STEP'}
+            </span>
         </div>
     </div>
   );
@@ -280,6 +249,10 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
   const [generatedPrompt, setGeneratedPrompt] = useState('');
   const [isPromptEditing, setIsPromptEditing] = useState(false);
   const [isAiExpanding, setIsAiExpanding] = useState(false);
+  
+  // New Playback Controls
+  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
+  const [isSmoothingEnabled, setIsSmoothingEnabled] = useState(true);
 
   useEffect(() => {
     constructPrompt();
@@ -501,11 +474,12 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
           {activeTab === 'image' && previewUrl && !isGenerating && (
              <>
                {viewMode === 'live' ? (
-                 <LiveSpritePlayer src={previewUrl} layout={currentLayout} />
+                 <LiveSpritePlayer src={previewUrl} layout={currentLayout} speed={playbackSpeed} smoothing={isSmoothingEnabled} />
                ) : (
                  <img src={previewUrl} className="w-full h-full object-contain" alt="Sprite Sheet Source" />
                )}
                
+               {/* View Modes */}
                <div className="absolute top-6 left-6 hidden group-hover:flex gap-2 bg-slate-900/80 backdrop-blur-md p-1.5 rounded-xl border border-white/10 animate-in fade-in transition-all">
                   <button onClick={() => setViewMode('live')} className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${viewMode === 'live' ? 'bg-cyan-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>
                      CANLI MOD
@@ -514,6 +488,26 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                      KAYNAK GRID
                   </button>
                </div>
+
+               {/* Playback Controls (Speed & Smooth) */}
+               {viewMode === 'live' && (
+                   <div className="absolute bottom-6 left-1/2 -translate-x-1/2 hidden group-hover:flex items-center gap-3 bg-slate-900/90 backdrop-blur-xl p-2 rounded-2xl border border-white/10 shadow-2xl animate-in slide-in-from-bottom-2">
+                       <button onClick={() => setPlaybackSpeed(0.5)} className={`p-3 rounded-xl transition-all ${playbackSpeed === 0.5 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/50' : 'text-slate-400 hover:text-white'}`} title="Yavaş (Analiz)">
+                           <Rewind size={16} />
+                       </button>
+                       <div className="px-4 text-[10px] font-mono text-cyan-400 font-bold min-w-[50px] text-center">{playbackSpeed}x</div>
+                       <button onClick={() => setPlaybackSpeed(1.0)} className={`p-3 rounded-xl transition-all ${playbackSpeed === 1.0 ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50' : 'text-slate-400 hover:text-white'}`} title="Normal">
+                           <Play size={16} />
+                       </button>
+                       <button onClick={() => setPlaybackSpeed(1.5)} className={`p-3 rounded-xl transition-all ${playbackSpeed === 1.5 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50' : 'text-slate-400 hover:text-white'}`} title="Hızlı">
+                           <FastForward size={16} />
+                       </button>
+                       <div className="w-[1px] h-6 bg-white/10 mx-1" />
+                       <button onClick={() => setIsSmoothingEnabled(!isSmoothingEnabled)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${isSmoothingEnabled ? 'bg-purple-500 text-white shadow-lg' : 'bg-slate-800 text-slate-500'}`}>
+                           {isSmoothingEnabled ? 'SMOOTH' : 'STEP'}
+                       </button>
+                   </div>
+               )}
              </>
           )}
 

@@ -4,9 +4,10 @@ import { sql } from '@vercel/postgres';
 import crypto from 'crypto';
 
 /**
- * PHYSIOCORE UNIVERSAL DATA API v2.1 (Resilient UUID Handling)
+ * PHYSIOCORE UNIVERSAL DATA API v2.2 (Extended Visual Metadata)
  * Handles direct CRUD operations for the Cloud-Only architecture.
  * Automatically corrects invalid UUIDs to prevent SQL errors.
+ * Now supports advanced visual layouts (5x5 Grid) persistence.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS Config
@@ -48,6 +49,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             videoUrl: row.media_assets?.video_url,
             isMotion: row.media_assets?.is_motion,
             visualStyle: row.visual_style,
+            
+            // New Visual Metadata for Cinematic Engine
+            visualLayout: row.media_assets?.layout || 'grid-4x4',
+            visualFrameCount: row.media_assets?.frame_count || 16,
             
             safetyFlags: row.safety_flags || [],
             primaryMuscles: row.primary_muscles || [],
@@ -110,7 +115,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             is_motion: data.isMotion || false,
             rehab_phase: data.rehabPhase,
             target_rpe: data.targetRpe,
-            movement_plane: data.movementPlane
+            movement_plane: data.movementPlane,
+            // Persist Advanced Visual Settings
+            layout: data.visualLayout || 'grid-4x4',
+            frame_count: data.visualFrameCount || 16
         };
 
         // Array sanitization
