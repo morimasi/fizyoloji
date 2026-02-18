@@ -1,8 +1,8 @@
 
 /**
- * PHYSIOCORE GENESIS MEDIA TRANSCODER (v13.0 ULTRA-PRO)
+ * PHYSIOCORE GENESIS MEDIA TRANSCODER (v13.5 GRAVITY-LOCK)
  * - "Smart-Scale" Engine: Fixes Zoom/Crop issues via Aspect Ratio Fitting.
- * - "Smart-Crop" Stabilizer: Applies Anti-Jitter analysis before rendering.
+ * - "Gravity-Lock" Stabilizer: Uses Center of Mass + Temporal Smoothing.
  * - "Ping-Pong" Loop: Creates seamless concentric/eccentric video flow.
  * - Multi-Format Support: MP4, AVI, MOV, MPEG, GIF, PPTX, SVG.
  */
@@ -87,8 +87,7 @@ export class MediaConverter {
   static async generateMediaBlob(sourceUrl: string, format: ExportFormat, res: Resolution): Promise<Blob | null> {
     const image = await this.loadImage(sourceUrl);
     
-    // ANALİZ: Görseldeki karakteri bul ve titremeyi yok edecek offsetleri hesapla (Faz 2 Mantığı)
-    // Varsayım: 4x4 Grid (16 Kare)
+    // ANALİZ: Gravity-Lock ile stabilizasyon
     const rows = 4;
     const cols = 4;
     const stabilizedFrames = this.analyzeStability(image, rows, cols);
@@ -102,7 +101,6 @@ export class MediaConverter {
 
     // A. Statik Görüntü (JPG)
     if (format === 'jpg') {
-        // İlk kareyi stabilize edilmiş haliyle çiz
         this.drawStabilizedFrame(ctx, image, stabilizedFrames[0], canvas.width, canvas.height, 0);
         return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
     }
@@ -112,15 +110,13 @@ export class MediaConverter {
   }
 
   /**
-   * SMART-CROP ALGORİTMASI (Faz 2'den Port Edildi)
-   * Görüntüyü tarar, ağırlık merkezini bulur ve her kare için düzeltme vektörü üretir.
+   * GRAVITY-LOCK STABILIZER (Center of Mass + Temporal Smoothing)
    */
   private static analyzeStability(img: HTMLImageElement, rows: number, cols: number): StabilizedFrame[] {
     const totalFrames = rows * cols;
     const rawCellW = img.width / cols;
     const rawCellH = img.height / rows;
     
-    // Kare Kesim (Square Crop)
     const cropSize = Math.floor(Math.min(rawCellW, rawCellH));
     const cropOffsetX = (rawCellW - cropSize) / 2;
     const cropOffsetY = (rawCellH - cropSize) / 2;
@@ -131,50 +127,61 @@ export class MediaConverter {
     const ctx = offCanvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return [];
 
-    const frames: StabilizedFrame[] = [];
-    const BG_THRESHOLD = 25; // Siyah arka plan eşiği
+    const rawFrames: {sx: number, sy: number, cx: number, cy: number}[] = [];
+    const BG_THRESHOLD = 40; 
 
+    // 1. Center of Mass Calculation
     for (let i = 0; i < totalFrames; i++) {
         const cellX = (i % cols) * rawCellW;
         const cellY = Math.floor(i / cols) * rawCellH;
-        
         const srcX = Math.floor(cellX + cropOffsetX);
         const srcY = Math.floor(cellY + cropOffsetY);
 
-        // Analiz için çiz
         ctx.clearRect(0, 0, cropSize, cropSize);
         ctx.drawImage(img, srcX, srcY, cropSize, cropSize, 0, 0, cropSize, cropSize);
 
         const frameData = ctx.getImageData(0, 0, cropSize, cropSize);
         const data = frameData.data;
         
-        let minX = cropSize, maxX = 0, minY = cropSize, maxY = 0;
-        let found = false;
+        let totalMassX = 0, totalMassY = 0, count = 0;
 
-        // Performanslı Tarama (4'er piksel atlayarak)
-        for (let y = 0; y < cropSize; y += 4) {
-            for (let x = 0; x < cropSize; x += 4) {
+        for (let y = 0; y < cropSize; y += 2) {
+            for (let x = 0; x < cropSize; x += 2) {
                 const idx = (y * cropSize + x) * 4;
-                // RGB kanallarından herhangi biri eşiği geçerse dolu piksel kabul et
                 if (data[idx] > BG_THRESHOLD || data[idx+1] > BG_THRESHOLD || data[idx+2] > BG_THRESHOLD) {
-                    if (x < minX) minX = x;
-                    if (x > maxX) maxX = x;
-                    if (y < minY) minY = y;
-                    if (y > maxY) maxY = y;
-                    found = true;
+                    totalMassX += x;
+                    totalMassY += y;
+                    count++;
                 }
             }
         }
 
-        let dx = 0, dy = 0;
-        if (found) {
-            const cx = (minX + maxX) / 2;
-            const cy = (minY + maxY) / 2;
-            // Merkezi (cropSize/2) hedefe kilitle
-            dx = (cropSize / 2) - cx;
-            dy = (cropSize / 2) - cy;
+        let cx = cropSize / 2, cy = cropSize / 2;
+        if (count > 50) {
+            cx = totalMassX / count;
+            cy = totalMassY / count;
         }
-        frames.push({ sx: srcX, sy: srcY, cropSize, dx, dy });
+        rawFrames.push({ sx: srcX, sy: srcY, cx, cy });
+    }
+
+    // 2. Temporal Smoothing & Final Offset Calculation
+    const frames: StabilizedFrame[] = [];
+    for (let i = 0; i < totalFrames; i++) {
+        const current = rawFrames[i];
+        let smoothedCx = current.cx;
+        let smoothedCy = current.cy;
+
+        if (i > 0 && i < totalFrames - 1) {
+            const prev = rawFrames[i - 1];
+            const next = rawFrames[i + 1];
+            smoothedCx = (prev.cx + current.cx + next.cx) / 3;
+            smoothedCy = (prev.cy + current.cy + next.cy) / 3;
+        }
+
+        const dx = (cropSize / 2) - smoothedCx;
+        const dy = (cropSize / 2) - smoothedCy;
+
+        frames.push({ sx: current.sx, sy: current.sy, cropSize, dx, dy });
     }
     return frames;
   }
@@ -275,9 +282,8 @@ export class MediaConverter {
       ctx.fillStyle = '#020617'; 
       ctx.fillRect(0, 0, canvasW, canvasH);
       
-      // 2. Ölçekleme ("Contain" mantığı)
-      // Karakteri canvas'a sığdır, taşma yapma.
-      const scale = Math.min(canvasW / frame.cropSize, canvasH / frame.cropSize) * 0.90; // %90 doluluk
+      // 2. Ölçekleme ("Contain" mantığı) - Biraz daha yakınlaştırma ile titremeyi gizle
+      const scale = Math.min(canvasW / frame.cropSize, canvasH / frame.cropSize) * 0.85; // %85 doluluk (Safe Zone)
       const drawSize = Math.floor(frame.cropSize * scale);
       
       // 3. Konumlandırma (Merkez + Stabilizasyon Offseti)

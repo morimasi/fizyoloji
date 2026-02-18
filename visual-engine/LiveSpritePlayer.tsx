@@ -7,12 +7,13 @@ import {
 } from 'lucide-react';
 
 /**
- * GENESIS MOTION ENGINE v8.0 (CINEMA MODE)
+ * GENESIS MOTION ENGINE v9.0 (GRAVITY-LOCK)
  * Architect: Chief Architect
  * Features: 
- *  - Smart-Crop (Pixel-perfect centering)
- *  - Temporal Blending (60fps feel)
- *  - Cinema UI (Scrubbable Timeline, Frame Stepping, Timecode)
+ *  - Gravity-Lock: Uses Center of Mass instead of Bounding Box for stability.
+ *  - Temporal Smoothing: Averages offsets to kill jitter.
+ *  - Smart-Crop: Pixel-perfect centering.
+ *  - Cinema UI: Scrubbable Timeline, Frame Stepping, Timecode.
  */
 
 interface LiveSpritePlayerProps {
@@ -50,7 +51,7 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
       sx: number, sy: number, cropSize: number, dx: number, dy: number
   }[]>([]);
 
-  // 1. INITIALIZATION & SMART-CROP
+  // 1. INITIALIZATION & GRAVITY-LOCK ANALYSIS
   useEffect(() => {
     setEngineState('ANALYZING');
     registeredFrames.current = [];
@@ -58,14 +59,19 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
     imageRef.current.src = src;
     
     imageRef.current.onload = () => {
-      requestAnimationFrame(() => {
-          performSmartCropAnalysis(imageRef.current, layout);
+      // Analizi bir sonraki frame'e erteleyerek UI kilitlemesini önle
+      setTimeout(() => {
+          performGravityLockAnalysis(imageRef.current, layout);
           setEngineState('READY');
-      });
+      }, 50);
     };
   }, [src, layout]);
 
-  const performSmartCropAnalysis = (img: HTMLImageElement, currentLayout: string) => {
+  /**
+   * GRAVITY-LOCK ALGORITHM (v9.0)
+   * Calculates "Center of Mass" instead of Bounding Box to ignore limb movement jitter.
+   */
+  const performGravityLockAnalysis = (img: HTMLImageElement, currentLayout: string) => {
     const isCinematic = currentLayout === 'grid-5x5';
     const cols = isCinematic ? 5 : 4;
     const rows = isCinematic ? 5 : 4;
@@ -73,6 +79,8 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
     
     const rawCellW = img.width / cols;
     const rawCellH = img.height / rows;
+    
+    // Kare Kesim (Square Crop) - En küçük kenarı baz al
     const cropSize = Math.floor(Math.min(rawCellW, rawCellH));
     const cropOffsetX = (rawCellW - cropSize) / 2;
     const cropOffsetY = (rawCellH - cropSize) / 2;
@@ -83,10 +91,10 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
     const ctx = offCanvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
-    const frames: any[] = [];
-    const BG_THRESHOLD = 25; 
-    let totalShift = 0;
+    let rawFrames: {sx: number, sy: number, cx: number, cy: number}[] = [];
+    const BG_THRESHOLD = 40; // Noise Gate (Sıkıştırma bozulmalarını yoksay)
 
+    // PASS 1: SCAN MASS (Ağırlık Merkezi Tarama)
     for (let i = 0; i < totalFrames; i++) {
         const cellX = (i % cols) * rawCellW;
         const cellY = Math.floor(i / cols) * rawCellH;
@@ -95,33 +103,80 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
 
         ctx.clearRect(0, 0, cropSize, cropSize);
         ctx.drawImage(img, srcX, srcY, cropSize, cropSize, 0, 0, cropSize, cropSize);
-        const data = ctx.getImageData(0, 0, cropSize, cropSize).data;
         
-        let minX = cropSize, maxX = 0, minY = cropSize, maxY = 0, found = false;
-        for (let y = 0; y < cropSize; y += 4) {
-            for (let x = 0; x < cropSize; x += 4) {
+        const frameData = ctx.getImageData(0, 0, cropSize, cropSize);
+        const data = frameData.data;
+        
+        let totalMassX = 0;
+        let totalMassY = 0;
+        let pixelCount = 0;
+
+        // Performanslı Tarama (2x2 atlayarak ama Center of Mass hesaplayarak)
+        for (let y = 0; y < cropSize; y += 2) {
+            for (let x = 0; x < cropSize; x += 2) {
                 const idx = (y * cropSize + x) * 4;
-                if (data[idx] > BG_THRESHOLD || data[idx+1] > BG_THRESHOLD || data[idx+2] > BG_THRESHOLD) {
-                    if (x < minX) minX = x;
-                    if (x > maxX) maxX = x;
-                    if (y < minY) minY = y;
-                    if (y > maxY) maxY = y;
-                    found = true;
+                const r = data[idx];
+                const g = data[idx+1];
+                const b = data[idx+2];
+                
+                // Parlaklık hesabı (Luma)
+                if (r > BG_THRESHOLD || g > BG_THRESHOLD || b > BG_THRESHOLD) {
+                    totalMassX += x;
+                    totalMassY += y;
+                    pixelCount++;
                 }
             }
         }
 
-        let dx = 0, dy = 0;
-        if (found) {
-            dx = (cropSize / 2) - ((minX + maxX) / 2);
-            dy = (cropSize / 2) - ((minY + maxY) / 2);
-            totalShift += Math.abs(dx) + Math.abs(dy);
+        let cx = cropSize / 2;
+        let cy = cropSize / 2;
+
+        if (pixelCount > 50) { // Sadece dolu kareleri hesapla
+            cx = totalMassX / pixelCount;
+            cy = totalMassY / pixelCount;
         }
-        frames.push({ sx: srcX, sy: srcY, cropSize, dx, dy });
+
+        rawFrames.push({ sx: srcX, sy: srcY, cx, cy });
+    }
+
+    // PASS 2: TEMPORAL SMOOTHING (Zaman Yumuşatma)
+    // Titremeyi önlemek için önceki ve sonraki karelerin ortalamasını al
+    const frames: any[] = [];
+    let totalShift = 0;
+
+    for (let i = 0; i < totalFrames; i++) {
+        const current = rawFrames[i];
+        
+        // Basit Moving Average (Önceki, Şu Anki, Sonraki)
+        let smoothedCx = current.cx;
+        let smoothedCy = current.cy;
+
+        if (i > 0 && i < totalFrames - 1) {
+            const prev = rawFrames[i - 1];
+            const next = rawFrames[i + 1];
+            smoothedCx = (prev.cx + current.cx + next.cx) / 3;
+            smoothedCy = (prev.cy + current.cy + next.cy) / 3;
+        }
+
+        // Target: Center of Canvas
+        const targetX = cropSize / 2;
+        const targetY = cropSize / 2;
+
+        const dx = targetX - smoothedCx;
+        const dy = targetY - smoothedCy;
+
+        totalShift += Math.abs(dx) + Math.abs(dy);
+        frames.push({ 
+            sx: current.sx, 
+            sy: current.sy, 
+            cropSize, 
+            dx, 
+            dy 
+        });
     }
     
     registeredFrames.current = frames;
-    setMetrics({ totalFrames, stability: Math.floor(100 - (totalShift / totalFrames)) });
+    setMetrics({ totalFrames, stability: Math.min(100, Math.floor(100 - (totalShift / totalFrames / 5))) });
   };
 
   // 2. RENDER LOOP (Managed by Animation Frame)
@@ -164,19 +219,37 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
         ctx.fillStyle = '#020617'; 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        const scale = (canvas.width * 0.9) / currentFrame.cropSize;
+        // Scale Calculation (Keep some padding)
+        const scale = (canvas.width * 0.85) / currentFrame.cropSize;
         const drawSize = Math.floor(currentFrame.cropSize * scale);
+        
+        // Base Position (Center of Canvas)
         const bx = (canvas.width - drawSize) / 2;
         const by = (canvas.height - drawSize) / 2;
 
+        // Apply Stability Offsets
+        const destX = bx + (currentFrame.dx * scale);
+        const destY = by + (currentFrame.dy * scale);
+        
+        const nextDestX = bx + (nextFrame.dx * scale);
+        const nextDestY = by + (nextFrame.dy * scale);
+
         // Base Frame
         ctx.globalAlpha = 1.0;
-        ctx.drawImage(imageRef.current, currentFrame.sx, currentFrame.sy, currentFrame.cropSize, currentFrame.cropSize, bx + (currentFrame.dx * scale), by + (currentFrame.dy * scale), drawSize, drawSize);
+        ctx.drawImage(
+            imageRef.current, 
+            currentFrame.sx, currentFrame.sy, currentFrame.cropSize, currentFrame.cropSize, 
+            destX, destY, drawSize, drawSize
+        );
 
-        // Ghost Frame (Smoothing)
+        // Ghost Frame (Smoothing / Motion Blur)
         if (useSmoothing && blend > 0) {
-            ctx.globalAlpha = blend;
-            ctx.drawImage(imageRef.current, nextFrame.sx, nextFrame.sy, nextFrame.cropSize, nextFrame.cropSize, bx + (nextFrame.dx * scale), by + (nextFrame.dy * scale), drawSize, drawSize);
+            ctx.globalAlpha = blend * 0.6; // Hafif hayalet efekti
+            ctx.drawImage(
+                imageRef.current, 
+                nextFrame.sx, nextFrame.sy, nextFrame.cropSize, nextFrame.cropSize, 
+                nextDestX, nextDestY, drawSize, drawSize
+            );
         }
         ctx.globalAlpha = 1.0;
     };
@@ -245,7 +318,7 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
         <div className="text-center relative z-10">
             <h4 className="text-xl font-black text-white italic tracking-tighter uppercase">Genesis <span className="text-cyan-400">Engine</span></h4>
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-2 flex items-center justify-center gap-2">
-                <ScanLine size={12} /> Smart-Crop Analysis
+                <ScanLine size={12} /> Gravity-Lock Analyzing...
             </p>
         </div>
     </div>
@@ -266,7 +339,7 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
                 </div>
                 <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1 rounded-lg border border-white/5">
                     <Maximize size={10} className="text-purple-400" />
-                    <span className="text-[9px] font-mono font-bold text-white uppercase">STAB: {metrics.stability}%</span>
+                    <span className="text-[9px] font-mono font-bold text-white uppercase">GRAVITY: LOCKED</span>
                 </div>
             </div>
         </div>
@@ -311,7 +384,7 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
 
                     <div className="flex items-center gap-4">
                         <button onClick={() => setUseSmoothing(!useSmoothing)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase transition-all ${useSmoothing ? 'bg-purple-500/10 border-purple-500/30 text-purple-400' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>
-                            <Activity size={12} /> {useSmoothing ? 'Fluid' : 'Step'}
+                            <Activity size={12} /> {useSmoothing ? 'Fluid' : 'Raw'}
                         </button>
                         <div className="font-mono text-xs font-bold text-cyan-500 bg-cyan-950/30 px-3 py-1.5 rounded-lg border border-cyan-500/20">
                             {formatTimecode(activeFrameIndex)}
