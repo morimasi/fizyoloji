@@ -1,31 +1,34 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, Activity, Zap, Maximize, ScanLine, Layers } from 'lucide-react';
+import { 
+  Loader2, Activity, Zap, Maximize, ScanLine, Layers, 
+  Play, Pause, SkipBack, SkipForward, Rewind, FastForward,
+  Settings2, Clock, MousePointer2
+} from 'lucide-react';
 
 /**
- * GENESIS MOTION ENGINE v8.0 (FLUID-FLOW RENDERER)
+ * GENESIS MOTION ENGINE v8.0 (CINEMA MODE)
  * Architect: Chief Architect
  * Features: 
- *  - Smart-Crop (Pixel-perfect centering to remove jitter)
- *  - Temporal Blending (Cross-dissolve between frames for 60fps feel)
- *  - Ping-Pong Looping (Seamless concentric/eccentric flow)
+ *  - Smart-Crop (Pixel-perfect centering)
+ *  - Temporal Blending (60fps feel)
+ *  - Cinema UI (Scrubbable Timeline, Frame Stepping, Timecode)
  */
 
 interface LiveSpritePlayerProps {
   src: string;
   isPlaying?: boolean;
-  layout?: 'grid-4x4' | 'grid-5x5'; // 16 or 25 frames
-  speed?: number; // Playback speed multiplier (0.5x - 2.0x)
-  smoothing?: boolean; // Enable Temporal Blending
-  quality?: 'High' | 'Low';
+  layout?: 'grid-4x4' | 'grid-5x5'; 
+  speed?: number; 
+  smoothing?: boolean; 
 }
 
 export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({ 
   src, 
-  isPlaying = true, 
+  isPlaying: initialPlaying = true, 
   layout = 'grid-4x4', 
-  speed = 1.0, 
-  smoothing = true 
+  speed: initialSpeed = 1.0, 
+  smoothing: initialSmoothing = true 
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>(0);
@@ -33,25 +36,28 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
   
   // SYSTEM STATE
   const [engineState, setEngineState] = useState<'IDLE' | 'ANALYZING' | 'READY'>('IDLE');
-  const [metrics, setMetrics] = useState({ activeFrame: 0, totalFrames: 0, stability: 0 });
+  const [metrics, setMetrics] = useState({ totalFrames: 0, stability: 0 });
+  
+  // CINEMA CONTROL STATE
+  const [internalPlaying, setInternalPlaying] = useState(initialPlaying);
+  const [playbackSpeed, setPlaybackSpeed] = useState(initialSpeed);
+  const [useSmoothing, setUseSmoothing] = useState(initialSmoothing);
+  const [currentProgress, setCurrentProgress] = useState(0); // 0.0 to 1.0 (Ping-Pong Cycle)
+  const [activeFrameIndex, setActiveFrameIndex] = useState(0);
 
-  // FRAME DATA CACHE (Stores crop coordinates for stability)
+  // FRAME DATA CACHE
   const registeredFrames = useRef<{
-      sx: number, sy: number, // Source coordinates
-      cropSize: number,       // Cutout size
-      dx: number, dy: number  // Stabilization offset (Anti-Jitter)
+      sx: number, sy: number, cropSize: number, dx: number, dy: number
   }[]>([]);
 
-  // 1. INITIALIZATION & SMART-CROP ANALYSIS
+  // 1. INITIALIZATION & SMART-CROP
   useEffect(() => {
     setEngineState('ANALYZING');
     registeredFrames.current = [];
-
     imageRef.current.crossOrigin = "anonymous"; 
     imageRef.current.src = src;
     
     imageRef.current.onload = () => {
-      // Run the heavy analysis in the next tick to allow UI to show "Analyzing"
       requestAnimationFrame(() => {
           performSmartCropAnalysis(imageRef.current, layout);
           setEngineState('READY');
@@ -59,11 +65,6 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
     };
   }, [src, layout]);
 
-  /**
-   * ALGORITHM: SMART-CROP
-   * Scans every frame, finds the character's bounding box, calculates the center of mass,
-   * and computes the offset needed to lock the character in the center of the viewport.
-   */
   const performSmartCropAnalysis = (img: HTMLImageElement, currentLayout: string) => {
     const isCinematic = currentLayout === 'grid-5x5';
     const cols = isCinematic ? 5 : 4;
@@ -72,84 +73,58 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
     
     const rawCellW = img.width / cols;
     const rawCellH = img.height / rows;
-
-    // Use a square crop based on the smaller dimension to ensure fit
     const cropSize = Math.floor(Math.min(rawCellW, rawCellH));
     const cropOffsetX = (rawCellW - cropSize) / 2;
     const cropOffsetY = (rawCellH - cropSize) / 2;
 
-    // Create an offline canvas for pixel scanning
     const offCanvas = document.createElement('canvas');
     offCanvas.width = cropSize;
     offCanvas.height = cropSize;
     const ctx = offCanvas.getContext('2d', { willReadFrequently: true });
-    
     if (!ctx) return;
 
     const frames: any[] = [];
-    const BG_THRESHOLD = 25; // Pixel intensity threshold to ignore dark background
-
+    const BG_THRESHOLD = 25; 
     let totalShift = 0;
 
     for (let i = 0; i < totalFrames; i++) {
         const cellX = (i % cols) * rawCellW;
         const cellY = Math.floor(i / cols) * rawCellH;
-        
-        // Initial naive cut
         const srcX = Math.floor(cellX + cropOffsetX);
         const srcY = Math.floor(cellY + cropOffsetY);
 
-        // Draw to analysis buffer
         ctx.clearRect(0, 0, cropSize, cropSize);
         ctx.drawImage(img, srcX, srcY, cropSize, cropSize, 0, 0, cropSize, cropSize);
-
-        // Scan Pixels
-        const frameData = ctx.getImageData(0, 0, cropSize, cropSize);
-        const data = frameData.data;
+        const data = ctx.getImageData(0, 0, cropSize, cropSize).data;
         
-        let minX = cropSize, maxX = 0, minY = cropSize, maxY = 0;
-        let foundContent = false;
-
-        // Skip steps for performance (scan every 4th pixel)
+        let minX = cropSize, maxX = 0, minY = cropSize, maxY = 0, found = false;
         for (let y = 0; y < cropSize; y += 4) {
             for (let x = 0; x < cropSize; x += 4) {
                 const idx = (y * cropSize + x) * 4;
-                const r = data[idx];
-                const g = data[idx+1];
-                const b = data[idx+2];
-
-                // If pixel is brighter than background threshold
-                if (r > BG_THRESHOLD || g > BG_THRESHOLD || b > BG_THRESHOLD) {
+                if (data[idx] > BG_THRESHOLD || data[idx+1] > BG_THRESHOLD || data[idx+2] > BG_THRESHOLD) {
                     if (x < minX) minX = x;
                     if (x > maxX) maxX = x;
                     if (y < minY) minY = y;
                     if (y > maxY) maxY = y;
-                    foundContent = true;
+                    found = true;
                 }
             }
         }
 
         let dx = 0, dy = 0;
-        if (foundContent) {
-            // Calculate Center of Mass of the subject
-            const subjectCenterX = (minX + maxX) / 2;
-            const subjectCenterY = (minY + maxY) / 2;
-            
-            // Calculate vector to move Subject Center to Canvas Center
-            dx = (cropSize / 2) - subjectCenterX;
-            dy = (cropSize / 2) - subjectCenterY;
-            
+        if (found) {
+            dx = (cropSize / 2) - ((minX + maxX) / 2);
+            dy = (cropSize / 2) - ((minY + maxY) / 2);
             totalShift += Math.abs(dx) + Math.abs(dy);
         }
-
         frames.push({ sx: srcX, sy: srcY, cropSize, dx, dy });
     }
     
     registeredFrames.current = frames;
-    setMetrics(prev => ({ ...prev, totalFrames, stability: Math.floor(100 - (totalShift / totalFrames)) }));
+    setMetrics({ totalFrames, stability: Math.floor(100 - (totalShift / totalFrames)) });
   };
 
-  // 2. RENDER LOOP (TEMPORAL BLENDING)
+  // 2. RENDER LOOP (Managed by Animation Frame)
   useEffect(() => {
     if (engineState !== 'READY' || !canvasRef.current) return;
 
@@ -158,110 +133,110 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
 
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-
-    const canvas = canvasRef.current!;
-    // Set internal resolution high for retina displays
-    canvas.width = 1080;
+    const canvas = canvasRef.current;
+    canvas.width = 1080; 
     canvas.height = 1080;
 
-    const totalFrames = registeredFrames.current.length;
-    
-    // TIMING CONFIG
-    const LOOP_DURATION = 3000; // 3 seconds for one full cycle (start -> end -> start)
+    const LOOP_DURATION = 3000; 
     let startTimestamp = performance.now();
+    let lastRenderTime = 0;
 
-    const drawFrame = (frameIdx: number, nextFrameIdx: number, blendFactor: number) => {
-        const img = imageRef.current;
-        const currentFrame = registeredFrames.current[frameIdx];
-        const nextFrame = registeredFrames.current[nextFrameIdx];
-        
-        if (!currentFrame || !nextFrame) return;
+    // Drawing Function
+    const renderFrame = (progress: number) => {
+        const totalFrames = registeredFrames.current.length;
+        if (totalFrames === 0) return;
 
-        // 1. Clear Canvas (Cinematic Black)
+        // Ping-Pong Mapping (0 -> 1 -> 0)
+        let phase = progress; 
+        if (phase > 1) phase = 2 - phase; // Reverse
+
+        const rawFrameIndex = phase * (totalFrames - 1);
+        const currentFrameIndex = Math.floor(rawFrameIndex);
+        const nextFrameIndex = Math.min(Math.ceil(rawFrameIndex), totalFrames - 1);
+        const blend = rawFrameIndex - currentFrameIndex;
+
+        setActiveFrameIndex(currentFrameIndex);
+
+        const currentFrame = registeredFrames.current[currentFrameIndex];
+        const nextFrame = registeredFrames.current[nextFrameIndex];
+
+        // Clear
         ctx.fillStyle = '#020617'; 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // 2. Calculate Drawing Scale (Fit to canvas with padding)
         const scale = (canvas.width * 0.9) / currentFrame.cropSize;
         const drawSize = Math.floor(currentFrame.cropSize * scale);
-        
-        // 3. Base Position (Centered)
-        let basePathX = (canvas.width - drawSize) / 2;
-        let basePathY = (canvas.height - drawSize) / 2;
+        const bx = (canvas.width - drawSize) / 2;
+        const by = (canvas.height - drawSize) / 2;
 
-        // 4. Render Current Frame (Base)
+        // Base Frame
         ctx.globalAlpha = 1.0;
-        ctx.drawImage(
-            img, 
-            currentFrame.sx, currentFrame.sy, currentFrame.cropSize, currentFrame.cropSize, 
-            Math.floor(basePathX + (currentFrame.dx * scale)), 
-            Math.floor(basePathY + (currentFrame.dy * scale)), 
-            drawSize, drawSize
-        );
+        ctx.drawImage(imageRef.current, currentFrame.sx, currentFrame.sy, currentFrame.cropSize, currentFrame.cropSize, bx + (currentFrame.dx * scale), by + (currentFrame.dy * scale), drawSize, drawSize);
 
-        // 5. Render Next Frame (Ghost/Blend) if Smoothing Enabled
-        if (smoothing && blendFactor > 0) {
-            ctx.globalAlpha = blendFactor; // Cross-dissolve opacity
-            ctx.drawImage(
-                img, 
-                nextFrame.sx, nextFrame.sy, nextFrame.cropSize, nextFrame.cropSize, 
-                Math.floor(basePathX + (nextFrame.dx * scale)), 
-                Math.floor(basePathY + (nextFrame.dy * scale)), 
-                drawSize, drawSize
-            );
+        // Ghost Frame (Smoothing)
+        if (useSmoothing && blend > 0) {
+            ctx.globalAlpha = blend;
+            ctx.drawImage(imageRef.current, nextFrame.sx, nextFrame.sy, nextFrame.cropSize, nextFrame.cropSize, bx + (nextFrame.dx * scale), by + (nextFrame.dy * scale), drawSize, drawSize);
         }
-        
-        // Reset Alpha
         ctx.globalAlpha = 1.0;
     };
 
-    const render = (time: number) => {
-        if (!isPlaying) {
-            // Keep loop running but don't advance time
-            startTimestamp = time - (requestRef.current % LOOP_DURATION);
-            requestRef.current = requestAnimationFrame(render);
+    const loop = (time: number) => {
+        if (!internalPlaying) {
+            // If paused, render the static frame based on 'currentProgress' state
+            // Recalculate startTimestamp so when we play, it resumes smoothly
+            startTimestamp = time - (currentProgress * (LOOP_DURATION / playbackSpeed));
+            renderFrame(currentProgress); 
+            requestRef.current = requestAnimationFrame(loop);
             return;
         }
 
-        // A. Time Calculation
         const elapsed = time - startTimestamp;
-        const playbackDuration = LOOP_DURATION / speed;
+        const duration = LOOP_DURATION / playbackSpeed;
+        const totalCycle = duration * 2; // Forward + Backward
+
+        // Update Global Progress (0...2)
+        const normalizedTime = (elapsed % totalCycle) / duration;
         
-        // B. Ping-Pong Logic (0 -> 1 -> 0)
-        // Normalize time to 0...2 range (0..1 is forward, 1..2 is backward)
-        let normalizedPhase = (elapsed % (playbackDuration * 2)) / playbackDuration;
-        let progress = normalizedPhase;
-        
-        if (normalizedPhase > 1) {
-            progress = 2 - normalizedPhase; // Reverse: 1.1 becomes 0.9
+        // Sync React State occasionally (for UI Slider) without killing performance
+        if (time - lastRenderTime > 50) {
+            setCurrentProgress(normalizedTime);
+            lastRenderTime = time;
         }
 
-        // C. Frame Mapping
-        // Map 0.0-1.0 progress to Frame Index (e.g. 0 to 15.99)
-        const rawFrameIndex = progress * (totalFrames - 1);
-        
-        const currentFrameIndex = Math.floor(rawFrameIndex);
-        const nextFrameIndex = Math.min(Math.ceil(rawFrameIndex), totalFrames - 1);
-        const blend = rawFrameIndex - currentFrameIndex; // Decimal part (0.0 to 0.99)
-
-        drawFrame(currentFrameIndex, nextFrameIndex, blend);
-        
-        // Update UI metrics sparingly (every 10 frames roughly to save React renders)
-        if (Math.floor(time) % 10 === 0) {
-             setMetrics(m => ({ ...m, activeFrame: currentFrameIndex + 1 }));
-        }
-
-        requestRef.current = requestAnimationFrame(render);
+        renderFrame(normalizedTime);
+        requestRef.current = requestAnimationFrame(loop);
     };
 
-    requestRef.current = requestAnimationFrame(render);
+    requestRef.current = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(requestRef.current);
+  }, [engineState, internalPlaying, playbackSpeed, useSmoothing, currentProgress]);
 
-    return () => {
-        if (requestRef.current) cancelAnimationFrame(requestRef.current);
-    };
-  }, [engineState, isPlaying, speed, smoothing]);
+  // --- CONTROLS ---
 
-  // --- RENDERING UI ---
+  const handleScrub = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseFloat(e.target.value);
+    setCurrentProgress(val);
+    setInternalPlaying(false); // Pause when scrubbing
+  };
+
+  const stepFrame = (dir: 1 | -1) => {
+    setInternalPlaying(false);
+    const stepSize = 1 / metrics.totalFrames;
+    setCurrentProgress(prev => {
+        let next = prev + (dir * stepSize);
+        if (next < 0) next = 0;
+        if (next > 2) next = 0;
+        return next;
+    });
+  };
+
+  const formatTimecode = (frame: number) => {
+    const fps = 30;
+    const seconds = Math.floor(frame / fps);
+    const frames = frame % fps;
+    return `00:00:${seconds < 10 ? '0'+seconds : seconds}:${frames < 10 ? '0'+frames : frames}`;
+  };
 
   if (engineState !== 'READY') return (
     <div className="w-full h-full flex flex-col items-center justify-center bg-slate-950 gap-6 relative overflow-hidden rounded-[3rem]">
@@ -277,38 +252,72 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
   );
 
   return (
-    <div className="relative w-full h-full group bg-slate-950 rounded-[3rem] overflow-hidden shadow-2xl border border-slate-900">
+    <div className="relative w-full h-full group bg-slate-950 rounded-[3rem] overflow-hidden shadow-2xl border border-slate-900 flex flex-col">
         
-        {/* MAIN CANVAS */}
-        <canvas ref={canvasRef} className="w-full h-full object-contain" />
-
-        {/* HUD OVERLAY (Visible on Hover) */}
-        <div className="absolute top-6 left-6 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all duration-500 pointer-events-none">
-            <div className="flex items-center gap-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
-                <Layers size={12} className="text-cyan-400" />
-                <span className="text-[9px] font-mono font-bold text-white uppercase">
-                    FRAME: {metrics.activeFrame}/{metrics.totalFrames}
-                </span>
-            </div>
-            <div className="flex items-center gap-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
-                <Activity size={12} className={smoothing ? "text-emerald-400" : "text-amber-400"} />
-                <span className="text-[9px] font-mono font-bold text-white uppercase">
-                    {smoothing ? 'TEMPORAL: FLUID' : 'TEMPORAL: STEP'}
-                </span>
-            </div>
-            <div className="flex items-center gap-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
-                <Maximize size={12} className="text-purple-400" />
-                <span className="text-[9px] font-mono font-bold text-white uppercase">
-                    STABILITY: {metrics.stability}%
-                </span>
+        {/* VIEWPORT */}
+        <div className="relative flex-1 bg-[#020617] flex items-center justify-center overflow-hidden">
+            <canvas ref={canvasRef} className="w-full h-full object-contain" />
+            
+            {/* HUD OVERLAY */}
+            <div className="absolute top-6 left-6 flex flex-col gap-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1 rounded-lg border border-white/5">
+                    <Layers size={10} className="text-cyan-400" />
+                    <span className="text-[9px] font-mono font-bold text-white uppercase">FRAME: {activeFrameIndex + 1}/{metrics.totalFrames}</span>
+                </div>
+                <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1 rounded-lg border border-white/5">
+                    <Maximize size={10} className="text-purple-400" />
+                    <span className="text-[9px] font-mono font-bold text-white uppercase">STAB: {metrics.stability}%</span>
+                </div>
             </div>
         </div>
 
-        {/* WATERMARK */}
-        <div className="absolute bottom-6 right-6 opacity-30 group-hover:opacity-60 transition-opacity pointer-events-none">
-            <div className="flex items-center gap-1.5">
-                <Zap size={12} className="text-cyan-500 fill-cyan-500" />
-                <span className="text-[8px] font-black text-white uppercase tracking-[0.2em]">PHYSIOCORE GENESIS</span>
+        {/* CINEMA CONTROL DECK */}
+        <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent pt-12 pb-6 px-6 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-4 group-hover:translate-y-0">
+            <div className="flex flex-col gap-4">
+                
+                {/* SCRUBBER */}
+                <div className="w-full relative h-6 flex items-center group/scrub">
+                    <div className="absolute w-full h-1 bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-cyan-500/50" style={{ width: `${(currentProgress / 2) * 100}%` }} />
+                    </div>
+                    <input 
+                        type="range" min="0" max="2" step="0.001" 
+                        value={currentProgress}
+                        onChange={handleScrub}
+                        className="w-full absolute inset-0 opacity-0 cursor-ew-resize z-20" 
+                    />
+                    <div className="w-3 h-3 bg-cyan-400 rounded-full shadow-[0_0_10px_rgba(34,211,238,0.8)] absolute z-10 pointer-events-none transition-all group-hover/scrub:scale-125" style={{ left: `${(currentProgress / 2) * 100}%` }} />
+                </div>
+
+                {/* CONTROLS */}
+                <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-4">
+                        <button onClick={() => setInternalPlaying(!internalPlaying)} className="w-10 h-10 bg-cyan-500 hover:bg-cyan-400 text-white rounded-xl flex items-center justify-center transition-all shadow-lg shadow-cyan-500/20 active:scale-95">
+                            {internalPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-0.5" />}
+                        </button>
+                        <div className="flex gap-1">
+                            <button onClick={() => stepFrame(-1)} className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"><SkipBack size={16} /></button>
+                            <button onClick={() => stepFrame(1)} className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"><SkipForward size={16} /></button>
+                        </div>
+                        <div className="h-6 w-[1px] bg-slate-800 mx-2" />
+                        <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg p-1">
+                            {[0.5, 1.0, 1.5].map(s => (
+                                <button key={s} onClick={() => setPlaybackSpeed(s)} className={`text-[9px] font-black px-2 py-1 rounded ${playbackSpeed === s ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'}`}>
+                                    {s}x
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        <button onClick={() => setUseSmoothing(!useSmoothing)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase transition-all ${useSmoothing ? 'bg-purple-500/10 border-purple-500/30 text-purple-400' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>
+                            <Activity size={12} /> {useSmoothing ? 'Fluid' : 'Step'}
+                        </button>
+                        <div className="font-mono text-xs font-bold text-cyan-500 bg-cyan-950/30 px-3 py-1.5 rounded-lg border border-cyan-500/20">
+                            {formatTimecode(activeFrameIndex)}
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
