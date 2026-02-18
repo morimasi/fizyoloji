@@ -7,7 +7,7 @@ import {
   Bone, Flame, Heart, Scan, User, Layers, ChevronLeft, ChevronRight,
   Presentation, FileVideo, Cpu, Gift, Info, FileJson, Share2,
   Edit3, Check, X, Grid, Eye, Aperture, Gauge, Target, Lock,
-  FastForward, Rewind, Activity
+  FastForward, Rewind, Activity, MousePointer2
 } from 'lucide-react';
 import { Exercise, AnatomicalLayer } from './types.ts';
 import { generateExerciseVisual, generateExerciseVideo, generateVectorAnimation, generateClinicalSlides } from './ai-visual.ts';
@@ -18,6 +18,64 @@ interface VisualStudioProps {
   exercise: Partial<Exercise>;
   onVisualGenerated: (url: string, style: string, isMotion: boolean, frameCount: number, layout: string) => void;
 }
+
+// --- SLIDE FRAME EXTRACTOR ---
+// Extracts a specific frame from the sprite sheet to use as a slide image.
+const SlideFrameRenderer = ({ src, stepIndex, totalSteps, layout }: { src: string, stepIndex: number, totalSteps: number, layout: string }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isRendered, setIsRendered] = useState(false);
+
+  useEffect(() => {
+    if (!src || !canvasRef.current) return;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = src;
+    img.onload = () => {
+      const ctx = canvasRef.current!.getContext('2d');
+      if (!ctx) return;
+
+      const isCinematic = layout === 'grid-5x5';
+      const cols = isCinematic ? 5 : 4;
+      const rows = isCinematic ? 5 : 4;
+      const totalFrames = cols * rows;
+
+      // Map 10 steps to N frames (e.g., Step 1->Frame 0, Step 10->Frame 15)
+      const mappedFrameIndex = Math.floor((stepIndex / (totalSteps - 1)) * (totalFrames - 1));
+      
+      const frameW = img.width / cols;
+      const frameH = img.height / rows;
+      
+      const sx = (mappedFrameIndex % cols) * frameW;
+      const sy = Math.floor(mappedFrameIndex / cols) * frameH;
+
+      canvasRef.current!.width = 400; // High res thumbnail
+      canvasRef.current!.height = 400;
+
+      // Draw cropped frame
+      ctx.drawImage(img, sx, sy, frameW, frameH, 0, 0, 400, 400);
+      
+      // Draw Step Badge
+      ctx.fillStyle = '#06B6D4';
+      ctx.beginPath();
+      ctx.arc(40, 40, 30, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 24px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText((stepIndex + 1).toString(), 40, 40);
+
+      setIsRendered(true);
+    };
+  }, [src, stepIndex, totalSteps, layout]);
+
+  return (
+    <div className="relative w-full aspect-square rounded-2xl overflow-hidden border border-slate-700 bg-slate-950 shadow-lg group-hover:border-cyan-500/50 transition-all">
+      {!isRendered && <div className="absolute inset-0 flex items-center justify-center"><Loader2 className="animate-spin text-slate-600" /></div>}
+      <canvas ref={canvasRef} className="w-full h-full object-cover" />
+    </div>
+  );
+};
 
 // --- GENESIS "TEMPORAL-FLOW" ENGINE v5.0 ---
 // Protocol: Time-Mapped Frame Interpolation with Easing Functions.
@@ -465,10 +523,10 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
 
       {/* PREVIEW AREA */}
       <div className="xl:col-span-8 space-y-6">
-        <div className="relative w-full aspect-square bg-slate-950 rounded-[4rem] border-4 border-slate-900 overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.8)] flex items-center justify-center group">
+        <div className={`relative w-full ${activeTab === 'slides' ? 'h-auto min-h-[600px]' : 'aspect-square'} bg-slate-950 rounded-[4rem] border-4 border-slate-900 overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.8)] flex items-center justify-center group p-2`}>
           
           {activeTab === 'video' && videoUrl && !isGenerating && (
-             <video src={videoUrl} autoPlay loop muted playsInline className="w-full h-full object-contain" />
+             <video src={videoUrl} autoPlay loop muted playsInline className="w-full h-full object-contain rounded-[3rem]" />
           )}
 
           {activeTab === 'image' && previewUrl && !isGenerating && (
@@ -476,7 +534,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                {viewMode === 'live' ? (
                  <LiveSpritePlayer src={previewUrl} layout={currentLayout} speed={playbackSpeed} smoothing={isSmoothingEnabled} />
                ) : (
-                 <img src={previewUrl} className="w-full h-full object-contain" alt="Sprite Sheet Source" />
+                 <img src={previewUrl} className="w-full h-full object-contain rounded-[3rem]" alt="Sprite Sheet Source" />
                )}
                
                {/* View Modes */}
@@ -512,19 +570,51 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
           )}
 
           {activeTab === 'slides' && slideData && !isGenerating && (
-             <div className="w-full h-full p-12 bg-white text-slate-900 flex flex-col justify-center">
-                <div className="border-4 border-slate-900 p-8 h-full rounded-3xl overflow-y-auto custom-scrollbar">
-                   <h2 className="text-3xl font-black uppercase mb-6 text-cyan-600 tracking-tighter">{exercise.title}</h2>
-                   <div className="space-y-6">
-                      {slideData.slides.map((s: any, i: number) => (
-                         <div key={i} className="mb-6 pb-6 border-b border-slate-100 last:border-0">
-                            <h4 className="font-black text-xl text-slate-800 mb-2 uppercase tracking-tight italic">Part {i+1}: {s.title}</h4>
-                            <ul className="space-y-2">
-                               {s.bullets.map((b: any, j: number) => <li key={j} className="flex gap-3 text-sm text-slate-600 font-medium italic"><ChevronRight size={14} className="text-cyan-500 shrink-0 mt-1" /> {b}</li>)}
-                            </ul>
-                         </div>
-                      ))}
+             <div className="w-full h-full p-8 md:p-12 overflow-y-auto custom-scrollbar">
+                <div className="flex items-center justify-between mb-8 sticky top-0 bg-slate-950/90 backdrop-blur-xl z-10 p-4 rounded-2xl border border-white/5 shadow-xl">
+                   <div>
+                      <h2 className="text-2xl font-black uppercase tracking-tighter text-white">{exercise.title}</h2>
+                      <p className="text-[10px] font-black text-cyan-500 uppercase tracking-widest mt-1">10-Adım Klinik Protokol Analizi</p>
                    </div>
+                   {!previewUrl && (
+                      <div className="flex items-center gap-2 px-4 py-2 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-[9px] font-bold">
+                         <AlertCircle size={14} /> GÖRSEL OLUŞTURULMADI
+                      </div>
+                   )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   {slideData.slides.map((s: any, i: number) => (
+                      <div key={i} className="bg-slate-900 border border-slate-800 rounded-3xl p-4 hover:border-cyan-500/30 transition-all group/card flex flex-col gap-4">
+                         {/* Visual Frame Extraction */}
+                         {previewUrl ? (
+                            <SlideFrameRenderer 
+                                src={previewUrl} 
+                                stepIndex={i} 
+                                totalSteps={10} 
+                                layout={currentLayout} 
+                            />
+                         ) : (
+                            <div className="w-full aspect-square bg-slate-950 rounded-2xl flex flex-col items-center justify-center border border-slate-800 text-slate-700">
+                               <Grid size={48} className="opacity-20" />
+                               <p className="text-[8px] font-bold uppercase mt-4 tracking-widest">Görsel Bekleniyor</p>
+                            </div>
+                         )}
+                         
+                         {/* Data Content */}
+                         <div className="space-y-2 px-2">
+                            <div className="flex items-start justify-between">
+                               <h4 className="font-black text-sm text-white uppercase tracking-tight">{s.title}</h4>
+                               <span className="text-[8px] font-black text-slate-500 bg-slate-950 px-2 py-1 rounded">FAZ {i+1}</span>
+                            </div>
+                            <p className="text-[10px] text-slate-400 leading-relaxed font-medium italic">"{s.instruction}"</p>
+                            <div className="pt-2 mt-2 border-t border-slate-800/50 flex items-center gap-2 text-cyan-500">
+                               <Target size={12} />
+                               <span className="text-[8px] font-black uppercase tracking-widest">{s.focus}</span>
+                            </div>
+                         </div>
+                      </div>
+                   ))}
                 </div>
              </div>
           )}
@@ -552,7 +642,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
           )}
 
           {!isGenerating && (videoUrl || previewUrl || slideData) && (
-             <div className="absolute bottom-8 right-8 flex gap-3 animate-in zoom-in slide-in-from-bottom-2 duration-500">
+             <div className="absolute bottom-8 right-8 flex gap-3 animate-in zoom-in slide-in-from-bottom-2 duration-500 z-50">
                 {activeTab === 'slides' && (
                    <DownloadBtn onClick={() => handleDownload('ppt')} label="PPT VERİ SETİ" icon={Presentation} />
                 )}

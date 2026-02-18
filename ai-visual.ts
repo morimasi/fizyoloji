@@ -113,7 +113,12 @@ export const generateClinicalSlides = async (exercise: Partial<Exercise>) => {
   const ai = getAI();
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
-    contents: [{ parts: [{ text: `Create a 4-slide clinical presentation for: "${exercise.titleTr || exercise.title}". Output JSON.` }] }],
+    contents: [{ parts: [{ text: `
+      Analyze the exercise "${exercise.titleTr || exercise.title}".
+      Break it down into exactly 10 chronological phases (Start -> Movement -> Peak -> Return).
+      For each phase, provide a short professional instruction and a specific clinical focus point.
+      Output JSON format: { "slides": [ { "step": 1, "title": "...", "instruction": "...", "focus": "..." }, ... ] }
+    ` }] }],
     config: { responseMimeType: "application/json" }
   });
   return JSON.parse(response.text || '{"slides": []}');
