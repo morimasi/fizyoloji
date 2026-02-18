@@ -96,7 +96,29 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
         setSvgContent(svg);
         onVisualGenerated(svg, 'Flash-Vector', false, 1, 'single');
       } else if (activeTab === 'slides') {
-        const slides = await generateClinicalSlides(overrideExercise);
+        // --- AKILLI SLAYT SENKRONİZASYONU ---
+        // Eğer görsel yoksa, slaytlar için görsel de üretmeliyiz.
+        // Paralel işlem başlatarak süreyi optimize ediyoruz.
+        
+        const promises: any[] = [generateClinicalSlides(overrideExercise)];
+        const needsVisual = !previewUrl;
+
+        if (needsVisual) {
+            // Slaytlar için varsayılan olarak 'full-body' ve standart grid kullanıyoruz.
+            promises.push(generateExerciseVisual(overrideExercise, 'full-body'));
+        }
+
+        const results = await Promise.all(promises);
+        const slides = results[0]; // İlk promise her zaman slayt verisidir.
+
+        if (needsVisual) {
+            const visualResult = results[1]; // İkinci promise görsel verisidir.
+            setPreviewUrl(visualResult.url);
+            setCurrentLayout(visualResult.layout);
+            // Global state'i güncelle
+            onVisualGenerated(visualResult.url, 'Flash-full-body', false, visualResult.frameCount, visualResult.layout);
+        }
+
         setSlideData(slides);
       }
     } catch (err: any) {
@@ -353,7 +375,9 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                     <div className="absolute inset-0 bg-cyan-500/20 blur-[60px] animate-pulse" />
                 </div>
                 <h4 className="text-3xl font-black italic tracking-[0.4em] text-white uppercase">SYNC <span className="text-cyan-400">LOCK</span></h4>
-                <p className="text-[10px] text-slate-500 mt-6 uppercase font-black tracking-[0.2em] italic animate-pulse">Normalizing Aspect Ratio...</p>
+                <p className="text-[10px] text-slate-500 mt-6 uppercase font-black tracking-[0.2em] italic animate-pulse">
+                    {activeTab === 'slides' ? 'Görsel & Veri Senkronizasyonu...' : 'Normalizing Aspect Ratio...'}
+                </p>
              </div>
           )}
 
