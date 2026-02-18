@@ -4,8 +4,8 @@ import { getAI } from "./ai-core.ts";
 import { Exercise, AnatomicalLayer } from "./types.ts";
 
 /**
- * PHYSIOCORE VISUAL PRODUCTION ENGINE v14.0 (Stabilized Cinematic Edition)
- * Anti-Jitter Protocol & Absolute Coordinate Locking Enforced.
+ * PHYSIOCORE VISUAL PRODUCTION ENGINE v15.0 (Time-Mapped Cinematic)
+ * Anti-Jitter Protocol & Temporal Pacing Enforced.
  */
 
 export const generateExerciseVisual = async (
@@ -19,25 +19,30 @@ export const generateExerciseVisual = async (
   
   if (!prompt) {
       if (isCinematic) {
-          // CINEMATIC MODE: 24 FPS / 25 FRAMES / 5x5 GRID
-          // ENFORCING TEMPORAL STABILITY & COORDINATE LOCKING
+          // CINEMATIC MODE: 25 FRAMES (5x5 GRID)
+          // NEW: TIME-MAP DISTRIBUTION & ANCHOR LOCK
           prompt = `
-          Type: High-End Medical Sprite Sheet (5x5 Grid, 25 Frames).
+          Type: Clinical Sprite Sheet (5x5 Grid, 25 Frames).
           Subject: Human performing ${exercise.titleTr || exercise.title}.
           
-          --- CRITICAL STABILIZATION PROTOCOL (ANTI-JITTER) ---
-          1. ABSOLUTE COORDINATE LOCKING: The character's head, torso, and hips MUST be anchored to the same absolute X-Y coordinates in every single grid cell.
-          2. ZERO-DRIFT CAMERA: The virtual camera must remain perfectly static. No zoom-in, no zoom-out, no perspective shifting between frames.
-          3. CHARACTER CENTERING: Subject's center of mass must be locked to the exact center of each cell with 15% safety padding.
-          4. FEATURE TRACKING CONSISTENCY: Anatomical landmarks (joints, shoulders, feet) must not drift or shift pixel positions independently.
-          5. NO BACKGROUND SHIMMER: Arka plan dokusu (#020617) tüm karelerde pikseller bazında özdeş olmalıdır.
+          --- TEMPORAL DISTRIBUTION (TIME-MAP) ---
+          Generate a full continuous loop spread evenly across 25 frames:
+          [Frames 1-4]: Neutral Start Position (Preparation).
+          [Frames 5-13]: Slow Concentric Phase (Moving towards target).
+          [Frame 14]: PEAK CONTRACTION (Hold pose).
+          [Frames 15-23]: Slow Eccentric Phase (Controlled return).
+          [Frames 24-25]: Return to Neutral.
+
+          --- STABILIZATION RULES ---
+          1. PELVIC ANCHOR: The character's hips/pelvis must remain at the EXACT SAME screen coordinates in every frame. Do not move the camera.
+          2. GROUND LOCK: Feet must not slide unless the exercise requires stepping.
+          3. CONSTANT SCALE: Do not zoom in/out. Subject size must remain identical.
           
-          Style: Photorealistic cinematic lighting, dark slate background.
-          Motion: Fluid and consistent eccentric/concentric phases.
-          Technical: 5 columns, 5 rows. High medical contrast.
+          Style: Photorealistic clinical lighting, dark slate background (#020617).
+          Technical: 5 columns, 5 rows. High contrast. No blur.
           `;
       } else {
-          // STANDARD MODE: 12 FPS / 16 FRAMES / 4x4 GRID
+          // STANDARD MODE: 16 FRAMES (4x4 GRID)
           prompt = `
           Medical 3D Sprite Sheet (4x4 Grid). 
           Subject: Human performing ${exercise.titleTr || exercise.title}. 
@@ -82,11 +87,12 @@ export const generateExerciseVideo = async (exercise: Partial<Exercise>): Promis
   const prompt = exercise.generatedPrompt || `
     Subject: ${exercise.titleTr || exercise.title}. 
     Style: Clinical 4K medical animation. 
-    Motion: Smooth, zero-jitter, fluid. 
+    Motion: Slow-motion, controlled, fluid.
     --- CINEMATIC STABILIZATION ---
-    Locked camera perspective. Perfect frame-to-frame temporal consistency. 
-    Fixed lighting. Character identity and position locking in absolute 3D space. 
-    No flickering background. Dark background (#020617).
+    Locked camera perspective (Tripod Mode). 
+    Perfect temporal consistency. 
+    Character must stay in center.
+    Dark background (#020617).
   `;
 
   let operation = await ai.models.generateVideos({

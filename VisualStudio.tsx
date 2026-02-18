@@ -18,8 +18,8 @@ interface VisualStudioProps {
   onVisualGenerated: (url: string, style: string, isMotion: boolean, frameCount: number, layout: string) => void;
 }
 
-// --- GENESIS "CENTROID-LOCK" ENGINE ---
-// Advanced Computer Vision Layer for Anti-Jitter Stabilization
+// --- GENESIS MOTION ENGINE v2.0 ---
+// Features: Low-Pass Filter Stabilization & Time-Map Interpolation
 const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src: string, isPlaying?: boolean, layout?: string }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>(0);
@@ -27,19 +27,18 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
   const [isLoaded, setIsLoaded] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   
-  // Store calculated offsets for each frame to lock the character in center
-  const frameOffsets = useRef<{dx: number, dy: number}[]>([]);
+  // Store SMOOTHED offsets
+  const smoothedOffsets = useRef<{dx: number, dy: number}[]>([]);
 
   useEffect(() => {
     setIsLoaded(false);
     setIsAnalyzing(true);
-    frameOffsets.current = []; // Reset offsets
+    smoothedOffsets.current = [];
 
     imageRef.current.crossOrigin = "anonymous"; 
     imageRef.current.src = src;
     
     imageRef.current.onload = () => {
-      // Perform Pixel Analysis immediately after load
       analyzeSpriteFrames(imageRef.current, layout);
       setIsAnalyzing(false);
       setIsLoaded(true);
@@ -47,9 +46,9 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
   }, [src, layout]);
 
   /**
-   * CORE STABILIZATION ALGORITHM
-   * Scans pixel data to find the subject's center of mass in every frame
-   * and calculates the necessary offset to lock it to the grid center.
+   * ADVANCED STABILIZATION ALGORITHM (LOW-PASS FILTER)
+   * Instead of snapping to the centroid of every frame (which causes jitter if limbs move),
+   * we calculate a smoothed trajectory for the camera.
    */
   const analyzeSpriteFrames = (img: HTMLImageElement, currentLayout: string) => {
     const isCinematic = currentLayout === 'grid-5x5';
@@ -60,7 +59,6 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
     const frameW = Math.floor(img.width / cols);
     const frameH = Math.floor(img.height / rows);
 
-    // Create an off-screen canvas for analysis
     const offCanvas = document.createElement('canvas');
     offCanvas.width = frameW;
     offCanvas.height = frameH;
@@ -68,15 +66,15 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
     
     if (!ctx) return;
 
-    const offsets: {dx: number, dy: number}[] = [];
-    const BG_COLOR = { r: 2, g: 6, b: 23 }; // #020617 (Dark Slate)
-    const THRESHOLD = 25; // Color distance threshold to ignore background
+    const rawOffsets: {dx: number, dy: number}[] = [];
+    const BG_COLOR = { r: 2, g: 6, b: 23 }; 
+    const THRESHOLD = 30;
 
+    // 1. RAW ANALYSIS PASS
     for (let i = 0; i < totalFrames; i++) {
         const sx = (i % cols) * frameW;
         const sy = Math.floor(i / cols) * frameH;
 
-        // Draw only the current frame to the analysis canvas
         ctx.clearRect(0, 0, frameW, frameH);
         ctx.drawImage(img, sx, sy, frameW, frameH, 0, 0, frameW, frameH);
 
@@ -84,56 +82,54 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
         const data = frameData.data;
         
         let minX = frameW, maxX = 0, minY = frameH, maxY = 0;
-        let foundPixel = false;
+        let pixelCount = 0;
+        let weightedYSum = 0; // For focusing on torso/core
 
-        // Scan pixels (Scanline algorithm)
-        for (let y = 0; y < frameH; y += 2) { // Skip every other row for speed
-            for (let x = 0; x < frameW; x += 2) {
+        for (let y = 0; y < frameH; y += 4) { // Fast scan
+            for (let x = 0; x < frameW; x += 4) {
                 const idx = (y * frameW + x) * 4;
-                const r = data[idx];
-                const g = data[idx + 1];
-                const b = data[idx + 2];
-
-                // Calculate distance from background color
-                // If distance > threshold, it's part of the subject
-                const dist = Math.sqrt(
-                    Math.pow(r - BG_COLOR.r, 2) + 
-                    Math.pow(g - BG_COLOR.g, 2) + 
-                    Math.pow(b - BG_COLOR.b, 2)
-                );
+                const dist = Math.sqrt(Math.pow(data[idx]-BG_COLOR.r,2) + Math.pow(data[idx+1]-BG_COLOR.g,2) + Math.pow(data[idx+2]-BG_COLOR.b,2));
 
                 if (dist > THRESHOLD) {
                     if (x < minX) minX = x;
                     if (x > maxX) maxX = x;
                     if (y < minY) minY = y;
                     if (y > maxY) maxY = y;
-                    foundPixel = true;
+                    weightedYSum += y;
+                    pixelCount++;
                 }
             }
         }
 
-        if (foundPixel) {
-            // Calculate the geometric center of the subject (Centroid)
+        if (pixelCount > 50) {
             const subjectCenterX = (minX + maxX) / 2;
-            const subjectCenterY = (minY + maxY) / 2;
-
-            // Calculate the geometric center of the frame
-            const frameCenterX = frameW / 2;
-            const frameCenterY = frameH / 2;
-
-            // The offset needed to move Subject Center -> Frame Center
-            offsets.push({
-                dx: frameCenterX - subjectCenterX,
-                dy: frameCenterY - subjectCenterY
+            // Use Weighted Center for Y to avoid leg movement jitter
+            const subjectCenterY = weightedYSum / pixelCount; 
+            
+            rawOffsets.push({
+                dx: (frameW / 2) - subjectCenterX,
+                dy: (frameH / 2) - subjectCenterY
             });
         } else {
-            // Empty frame (or pure background), no offset
-            offsets.push({ dx: 0, dy: 0 });
+            rawOffsets.push({ dx: 0, dy: 0 });
         }
     }
+
+    // 2. SMOOTHING PASS (Low-Pass Filter)
+    // Applies exponential smoothing to remove high-frequency jitter
+    const smoothed: {dx: number, dy: number}[] = [];
+    let currentX = rawOffsets[0]?.dx || 0;
+    let currentY = rawOffsets[0]?.dy || 0;
+    const SMOOTH_FACTOR = 0.15; // Lower = Smoother but "lazier" camera
+
+    for (let i = 0; i < rawOffsets.length; i++) {
+        const raw = rawOffsets[i];
+        currentX = currentX + (raw.dx - currentX) * SMOOTH_FACTOR;
+        currentY = currentY + (raw.dy - currentY) * SMOOTH_FACTOR;
+        smoothed.push({ dx: currentX, dy: currentY });
+    }
     
-    frameOffsets.current = offsets;
-    console.log(`[Genesis Engine] Stabilized ${totalFrames} frames. Max correction applied.`);
+    smoothedOffsets.current = smoothed;
   };
 
   useEffect(() => {
@@ -142,7 +138,6 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
     const ctx = canvasRef.current.getContext('2d', { alpha: false }); 
     if (!ctx) return;
 
-    // High-performance rendering settings
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
 
@@ -151,73 +146,55 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
     const ROWS = isCinematic ? 5 : 4;
     const TOTAL_FRAMES = isCinematic ? 25 : 16;
     
-    const VIRTUAL_SEQUENCE_LENGTH = (TOTAL_FRAMES * 2) - 2;
-    const TARGET_FPS = isCinematic ? 24 : 12; 
+    // Play full loop for Time-Mapped content
+    const TARGET_FPS = 24; 
     const FRAME_INTERVAL = 1000 / TARGET_FPS;
 
     let lastTime = performance.now();
     let accumulatedTime = 0;
-    let virtualFrameIndex = 0;
+    let currentFrame = 0;
 
     const canvas = canvasRef.current!;
     canvas.width = 1080;
     canvas.height = 1080;
 
-    const drawFrame = (vFrame: number) => {
+    const drawFrame = (frameIdx: number) => {
         const img = imageRef.current;
-        
-        let actualFrame = vFrame < TOTAL_FRAMES ? vFrame : (TOTAL_FRAMES - 2) - (vFrame - TOTAL_FRAMES);
-
         const frameW = img.width / COLS;
         const frameH = img.height / ROWS;
 
         ctx.fillStyle = '#020617'; 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // --- SMART SCALE & CENTERING ---
-        const scale = Math.min(canvas.width / frameW, canvas.height / frameH) * 0.85; // Slight zoom out to allow movement
+        const scale = Math.min(canvas.width / frameW, canvas.height / frameH) * 0.90;
         const drawW = Math.floor(frameW * scale);
         const drawH = Math.floor(frameH * scale);
         
-        // Base center position
         let dx = (canvas.width - drawW) / 2;
         let dy = (canvas.height - drawH) / 2;
 
-        // --- APPLY STABILIZATION OFFSET ---
-        // We apply the calculated offset scaled to the current render size
-        if (frameOffsets.current[actualFrame]) {
-            const offset = frameOffsets.current[actualFrame];
+        // Apply Smoothed Stabilization
+        if (smoothedOffsets.current[frameIdx]) {
+            const offset = smoothedOffsets.current[frameIdx];
             dx += offset.dx * scale;
             dy += offset.dy * scale;
         }
 
-        // Snap to pixel grid to avoid sub-pixel shimmering
-        dx = Math.floor(dx);
-        dy = Math.floor(dy);
+        const sx = (frameIdx % COLS) * frameW;
+        const sy = Math.floor(frameIdx / COLS) * frameH;
 
-        const sx = (actualFrame % COLS) * frameW;
-        const sy = Math.floor(actualFrame / COLS) * frameH;
+        ctx.drawImage(img, sx, sy, frameW, frameH, Math.floor(dx), Math.floor(dy), drawW, drawH);
 
-        ctx.drawImage(img, sx, sy, frameW, frameH, dx, dy, drawW, drawH);
-
-        // HUD OVERLAY
-        ctx.fillStyle = 'rgba(6, 182, 212, 0.05)'; 
-        ctx.fillRect(0, canvas.height - 80, canvas.width, 80);
+        // Clinical HUD
+        const progress = (frameIdx / TOTAL_FRAMES) * 100;
+        ctx.fillStyle = 'rgba(6, 182, 212, 0.1)'; 
+        ctx.fillRect(0, canvas.height - 10, canvas.width * (progress/100), 10);
         
-        ctx.font = '900 24px monospace';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(20, 20, 280, 40);
+        ctx.font = 'bold 16px monospace';
         ctx.fillStyle = '#22d3ee';
-        ctx.textAlign = 'right';
-        ctx.fillText(`CENTROID-LOCK ACTIVE | CORRECTION: [${Math.floor(frameOffsets.current[actualFrame]?.dx || 0)}, ${Math.floor(frameOffsets.current[actualFrame]?.dy || 0)}]`, canvas.width - 40, canvas.height - 35);
-        
-        // Draw Target Crosshair (Visual Feedback for Stability)
-        ctx.strokeStyle = 'rgba(6, 182, 212, 0.3)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(canvas.width/2 - 20, canvas.height/2);
-        ctx.lineTo(canvas.width/2 + 20, canvas.height/2);
-        ctx.moveTo(canvas.width/2, canvas.height/2 - 20);
-        ctx.lineTo(canvas.width/2, canvas.height/2 + 20);
-        ctx.stroke();
+        ctx.fillText(`PHASE: ${frameIdx < 5 ? 'SETUP' : frameIdx < 14 ? 'CONCENTRIC' : frameIdx < 23 ? 'ECCENTRIC' : 'RESET'}`, 30, 46);
     };
 
     const animate = (time: number) => {
@@ -232,9 +209,9 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
 
       if (accumulatedTime >= FRAME_INTERVAL) {
           const framesToAdvance = Math.floor(accumulatedTime / FRAME_INTERVAL);
-          virtualFrameIndex = (virtualFrameIndex + framesToAdvance) % VIRTUAL_SEQUENCE_LENGTH;
+          currentFrame = (currentFrame + framesToAdvance) % TOTAL_FRAMES;
           accumulatedTime -= framesToAdvance * FRAME_INTERVAL;
-          drawFrame(virtualFrameIndex);
+          drawFrame(currentFrame);
       }
 
       requestRef.current = requestAnimationFrame(animate);
@@ -255,8 +232,8 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
             <div className="absolute inset-0 border-2 border-cyan-500 rounded-lg animate-ping opacity-50"></div>
         </div>
         <div className="text-center">
-            <p className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.3em]">BIOMECHANICAL ANALYSIS</p>
-            <p className="text-[8px] text-slate-500 font-bold mt-1">Calibrating Center of Mass...</p>
+            <p className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.3em]">GENESIS ENGINE v2.0</p>
+            <p className="text-[8px] text-slate-500 font-bold mt-1">Applying Low-Pass Stabilization Filter...</p>
         </div>
     </div>
   );
@@ -266,7 +243,7 @@ const LiveSpritePlayer = ({ src, isPlaying = true, layout = 'grid-4x4' }: { src:
         <canvas ref={canvasRef} className="w-full h-full object-contain rounded-[3rem] shadow-2xl" />
         <div className="absolute top-6 right-6 flex items-center gap-2 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 opacity-0 group-hover:opacity-100 transition-all">
             <Target size={14} className="text-emerald-500 animate-pulse" />
-            <span className="text-[10px] font-black font-mono text-white uppercase tracking-widest">STABILIZER: ON</span>
+            <span className="text-[10px] font-black font-mono text-white uppercase tracking-widest">SMOOTH-LOCK: ON</span>
         </div>
     </div>
   );
@@ -397,7 +374,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
             </div>
             <div>
                <h4 className="font-black text-2xl uppercase italic text-white tracking-tighter">Genesis <span className="text-cyan-400">Renderer</span></h4>
-               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1 italic">Anti-Jitter v14.2 (Centroid-Lock)</p>
+               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1 italic">Anti-Jitter v15.0 (Time-Mapped)</p>
             </div>
           </div>
 
@@ -489,7 +466,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                 >
                     <div className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-12" />
                     {isGenerating ? <Loader2 className="animate-spin" size={20} /> : <Aperture size={20} className="animate-pulse" />} 
-                    CINEMATIC STABLE MOTION
+                    CINEMATIC STABLE MOTION (25 FPS)
                 </button>
             )}
           </div>
@@ -559,7 +536,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                     <div className="absolute inset-0 bg-cyan-500/20 blur-[60px] animate-pulse" />
                 </div>
                 <h4 className="text-3xl font-black italic tracking-[0.4em] text-white uppercase">SYNC <span className="text-cyan-400">LOCK</span></h4>
-                <p className="text-[10px] text-slate-500 mt-6 uppercase font-black tracking-[0.2em] italic animate-pulse">Temporal consistency processing...</p>
+                <p className="text-[10px] text-slate-500 mt-6 uppercase font-black tracking-[0.2em] italic animate-pulse">Time-Mapping Processing...</p>
              </div>
           )}
 
