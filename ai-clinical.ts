@@ -5,14 +5,27 @@ import { PatientProfile, ProgressReport } from "./types.ts";
 import { ClinicalRules } from "./ClinicalRules.ts";
 
 /**
- * PHYSIOCORE CLINICAL REASONING ENGINE v9.1 (Safety & Key Awareness)
+ * PHYSIOCORE CLINICAL REASONING ENGINE v10.0 (Enhanced EBM)
  */
 
-export const runClinicalEBMSearch = async (query: string) => {
+export const runClinicalEBMSearch = async (query: string, filter: string = 'All') => {
   const ai = getAI();
+  
+  // Construct a more strict academic prompt
+  const systemInstruction = `
+    You are a Senior Clinical Research Assistant. 
+    Task: Search for high-quality medical evidence based on the query.
+    Filter Requirement: ${filter !== 'All' ? `Strictly prioritize "${filter}" level evidence.` : 'Prioritize Meta-Analyses and RCTs.'}
+    
+    Output Rules:
+    1. Structure the answer as an "Executive Clinical Summary" (TL;DR for doctors).
+    2. Cite key statistics (N=..., p<0.05) if available in snippets.
+    3. Maintain a neutral, academic tone.
+  `;
+
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: [{ parts: [{ text: `Aşağıdaki klinik soru için Kanıta Dayalı Tıp (EBM) protokollerini araştır ve profesyonel bir fizyoterapist diliyle yanıtla: ${query}` }] }],
+    contents: [{ parts: [{ text: `${systemInstruction}\n\nQuery: ${query}` }] }],
     config: {
       tools: [{ googleSearch: {} }],
     },
@@ -27,7 +40,7 @@ export const findNearbyClinics = async (lat: number, lng: number, specialty: str
   const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
-    contents: [{ parts: [{ text: `Şu koordinatlardaki en iyi ${specialty} kliniklerini bul: Latitude ${lat}, Longitude ${lng}` }] }],
+    contents: [{ parts: [{ text: `Find top-rated ${specialty} clinics near Lat:${lat}, Lng:${lng}. prioritize those with high ratings.` }] }],
     config: {
       tools: [{ googleMaps: {} }],
       toolConfig: {
@@ -43,6 +56,7 @@ export const findNearbyClinics = async (lat: number, lng: number, specialty: str
   return { text, clinics };
 };
 
+// ... (Rest of the file remains unchanged: runClinicalConsultation, runAdaptiveAdjustment schemas etc.)
 const patientProfileSchema = {
   type: Type.OBJECT,
   properties: {
