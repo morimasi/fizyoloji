@@ -7,12 +7,11 @@ import {
 } from 'lucide-react';
 
 /**
- * GENESIS MOTION ENGINE v10.0 (ZERO-JITTER & DYNAMIC CROP)
+ * GENESIS MOTION ENGINE v10.1 (STABILITY PATCH)
  * Architect: Chief Architect
  * Updates: 
- *  - Dynamic Crop: Calculates bounding box of subject and zooms in to remove empty space.
- *  - Center Lock: Locks the weighted center of mass to exactly canvas.width/2.
- *  - 24FPS Cycle: Optimized for 25-frame loop (Start-Peak-Start).
+ *  - Fixed crash where 'cropSize' was accessed on undefined frame.
+ *  - Added bounds clamping and existence checks in render loop.
  */
 
 interface LiveSpritePlayerProps {
@@ -150,7 +149,10 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
     globalMaxHeight = Math.min(cropSize, globalMaxHeight * 1.2);
     
     // Calculate how much we can zoom in (Dynamic Crop Factor)
-    const contentScale = Math.min(cropSize / globalMaxWidth, cropSize / globalMaxHeight);
+    // Avoid division by zero if empty image
+    const contentScale = (globalMaxWidth > 0 && globalMaxHeight > 0) 
+        ? Math.min(cropSize / globalMaxWidth, cropSize / globalMaxHeight)
+        : 1;
 
     // PASS 2: CALCULATE OFFSETS TO LOCK CENTER
     const frames: any[] = [];
@@ -208,10 +210,10 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
     canvas.height = 1080;
 
     // 24 FPS Loop Logic:
-    // With 25 frames (5x5), frame 1 is start, frame 25 is end (which connects to start).
-    // We play linear 0 -> 1. No Ping-Pong needed because data is already cyclical (from Prompt).
     const FPS = 24;
-    const LOOP_DURATION = (registeredFrames.current.length / FPS) * 1000; // Exact duration for 24fps
+    // Calculate loop duration based on frame count (approx 1 second for 25 frames)
+    const framesCount = registeredFrames.current.length || 25;
+    const LOOP_DURATION = (framesCount / FPS) * 1000; 
     
     let startTimestamp = performance.now();
     let lastRenderTime = 0;
@@ -220,11 +222,13 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
         const totalFrames = registeredFrames.current.length;
         if (totalFrames === 0) return;
 
-        // Linear Mapping (0 -> 1) because frames are already a cycle
+        // Ensure normalized progress is within [0, 1]
         let normalized = progress % 1;
+        if (normalized < 0) normalized += 1;
+
+        // Calculate frame index
         const rawFrameIndex = normalized * (totalFrames - 1);
-        
-        const currentFrameIndex = Math.floor(rawFrameIndex);
+        const currentFrameIndex = Math.min(Math.floor(rawFrameIndex), totalFrames - 1);
         const nextFrameIndex = (currentFrameIndex + 1) % totalFrames;
         const blend = rawFrameIndex - currentFrameIndex;
 
@@ -233,20 +237,24 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
         const currentFrame = registeredFrames.current[currentFrameIndex];
         const nextFrame = registeredFrames.current[nextFrameIndex];
 
+        // Safety Guard: If frames are undefined, skip render
+        if (!currentFrame || !nextFrame) return;
+
         // Draw Background
         ctx.fillStyle = '#020617'; 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         // Apply Dynamic Crop Scale (Zoom into content)
-        const effectiveScale = (canvas.width / currentFrame.cropSize) * currentFrame.contentScale * 0.9; // 0.9 safety margin
-        const drawSize = Math.floor(currentFrame.cropSize * effectiveScale);
+        // Guard against division by zero if cropSize is 0
+        const cSize = currentFrame.cropSize || 100;
+        const effectiveScale = (canvas.width / cSize) * (currentFrame.contentScale || 1) * 0.9; 
+        const drawSize = Math.floor(cSize * effectiveScale);
         
         // Base Position (Center of Canvas)
         const bx = (canvas.width - drawSize) / 2;
         const by = (canvas.height - drawSize) / 2;
 
         // Apply Stabilized Offsets (Center Lock)
-        // We multiply offset by scale so alignment happens in zoomed space
         const destX = bx + (currentFrame.dx * effectiveScale);
         const destY = by + (currentFrame.dy * effectiveScale);
         
@@ -254,19 +262,22 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
         const nextDestY = by + (nextFrame.dy * effectiveScale);
 
         ctx.globalAlpha = 1.0;
-        ctx.drawImage(
-            imageRef.current, 
-            currentFrame.sx, currentFrame.sy, currentFrame.cropSize, currentFrame.cropSize, 
-            destX, destY, drawSize, drawSize
-        );
-
-        if (useSmoothing) { 
-            ctx.globalAlpha = blend;
+        
+        if (imageRef.current && imageRef.current.complete) {
             ctx.drawImage(
                 imageRef.current, 
-                nextFrame.sx, nextFrame.sy, nextFrame.cropSize, nextFrame.cropSize, 
-                nextDestX, nextDestY, drawSize, drawSize
+                currentFrame.sx, currentFrame.sy, cSize, cSize, 
+                destX, destY, drawSize, drawSize
             );
+
+            if (useSmoothing && blend > 0.01) { 
+                ctx.globalAlpha = blend;
+                ctx.drawImage(
+                    imageRef.current, 
+                    nextFrame.sx, nextFrame.sy, cSize, cSize, 
+                    nextDestX, nextDestY, drawSize, drawSize
+                );
+            }
         }
         ctx.globalAlpha = 1.0;
     };
@@ -282,7 +293,8 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
         const elapsed = time - startTimestamp;
         const duration = LOOP_DURATION / playbackSpeed;
         
-        const normalizedTime = (elapsed % duration) / duration;
+        // Safe division check
+        const normalizedTime = duration > 0 ? (elapsed % duration) / duration : 0;
         
         if (time - lastRenderTime > 50) {
             setCurrentProgress(normalizedTime);
@@ -306,10 +318,11 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
 
   const stepFrame = (dir: 1 | -1) => {
     setInternalPlaying(false);
-    const stepSize = 1 / metrics.totalFrames;
+    const stepSize = 1 / Math.max(1, metrics.totalFrames);
     setCurrentProgress(prev => {
         let next = prev + (dir * stepSize);
-        if (next < 0) next = 1; if (next > 1) next = 0;
+        if (next < 0) next += 1;
+        if (next >= 1) next %= 1;
         return next;
     });
   };
