@@ -2,9 +2,11 @@
 import { Exercise, AnatomicalLayer } from '../types.ts';
 
 /**
- * PHYSIOCORE PROMPT ENGINEERING ENGINE v9.0 (24FPS CINEMATIC STANDARD)
+ * PHYSIOCORE PROMPT ENGINEERING ENGINE v10.0 (ZERO-JITTER CYCLE)
  * Architect: Chief Architect
- * Description: Implements strict Grid-Lock and 24fps Distribution rules.
+ * Updates: 
+ *  - Full Cycle Loop Enforcement (Start -> Peak -> Start)
+ *  - Absolute Coordinate Locking instructions
  */
 
 export const VisualPrompts = {
@@ -12,39 +14,41 @@ export const VisualPrompts = {
   // 1. Prompt Oluşturucu (Text Builder)
   construct: (exercise: Partial<Exercise>, layer: AnatomicalLayer | 'Cinematic-Motion'): string => {
     
-    // ORTAK STABİLİZASYON ÇEKİRDEĞİ
+    // SIFIR TİTREŞİM VE MERKEZLEME KURALLARI
     const CORE_STABILITY_RULES = `
-    --- 🛑 CRITICAL GEOMETRY & STABILITY RULES (NON-NEGOTIABLE) 🛑 ---
-    1. CAMERA LOCK (TRIPOD MODE): The camera is FROZEN. No zoom, no pan, no tilt.
-    2. ORTHOGRAPHIC PROJECTION: Flat, technical medical illustration view. No perspective distortion.
-    3. ANCHOR POINT: The character's PELVIS and FEET must remain at the EXACT SAME relative pixel coordinates in every cell.
-    4. NO MOTION BLUR: Every single frame must be razor-sharp.
-    5. BACKGROUND: Solid, matte Dark Slate (#020617).
+    --- 🛑 ZERO-JITTER & GEOMETRY RULES (STRICT) 🛑 ---
+    1. ABSOLUTE CENTER LOCK: The character's core/pelvis must be at the EXACT pixel center of every cell.
+    2. CAMERA TRIPOD MODE: The camera must NOT move, pan, or zoom. Frozen coordinates.
+    3. ISOLATED MOVEMENT: Only the active limb moves. The rest of the body is a statue.
+    4. NO GHOSTING: Edges must be sharp. No motion blur.
+    5. BACKGROUND: Solid, matte Dark Slate (#020617). No shadows or floor lines.
     `;
 
-    // A. Sinematik Hareket Modu (5x5 Grid - 25 Kare = 24fps + 1 Loop Frame)
+    // A. Sinematik Hareket Modu (5x5 Grid - 25 Kare = Tam Döngü)
     if (layer === 'Cinematic-Motion') {
       return `
       TASK: Generate a "High-Fidelity Medical Motion Sprite Sheet".
-      SUBJECT: Athletic Human performing the clinical exercise: "${exercise.titleTr || exercise.title}".
+      SUBJECT: Athletic Human performing: "${exercise.titleTr || exercise.title}".
       
       --- FORMAT: 5x5 GRID (25 FRAMES TOTAL) ---
-      IMPORTANT: This sprite sheet represents exactly 1 second of fluid motion at 24fps.
-      DISTRIBUTION RULE: Distribute the movement range EQUALLY across the 25 frames.
+      CRITICAL: You must generate a PERFECT LOOP (Concentric + Eccentric phase).
       
-      - Frame 1 (Row 1, Col 1): Start Position (0%).
-      - Frame 13 (Row 3, Col 3): Peak Contraction / Mid-Point (50%).
-      - Frame 25 (Row 5, Col 5): Return to Start / Loop Connection (100%).
+      TIMING DISTRIBUTION (EQUAL PACING):
+      - Frame 1 (Start): Neutral / Starting Position (0% Range).
+      - Frame 2-12: Smooth Concentric Phase (Moving towards peak).
+      - Frame 13 (Peak): Maximum Contraction / End Range (100% Range).
+      - Frame 14-24: Smooth Eccentric Phase (Returning controlledly).
+      - Frame 25 (End): Back to Neutral Position (Same as Frame 1).
       
-      The transition between each cell must be microscopic and fluid (approx 4% movement per frame).
+      The movement must be evenly distributed across these frames so the animation flows liquidly at 24fps.
       
       ${CORE_STABILITY_RULES}
       
-      STYLE: 4K Unreal Engine 5 Render style, clinical precision, glowing blue biological markers on active joints.
+      STYLE: 4K Unreal Engine 5 Render, clinical precision, glowing blue biomechanical highlights on active muscles.
       `;
     }
 
-    // B. Standart Anatomik Modlar (Hala 4x4 destekli ama 5x5 tercih edilir)
+    // B. Standart Anatomik Modlar
     const anatomicalFocus = 
         layer === 'muscular' ? 'Style: "Muscle-Map". Transparent skin. Active muscles glow Neon Cyan.' : 
         layer === 'skeletal' ? 'Style: "Clinical Osteology". White bones, Blue joints. Deep X-Ray blue bg.' :
@@ -56,28 +60,29 @@ export const VisualPrompts = {
       TASK: Generate a "Medical Sprite Sheet" for animation.
       SUBJECT: ${exercise.titleTr || exercise.title}.
       FORMAT: 5x5 Grid (25 Frames). 
-      DISTRIBUTION: Distribute the movement perfectly evenly across all 25 frames for smooth 24fps playback.
+      
+      CYCLE INSTRUCTION:
+      Create a full Start-to-Finish-to-Start loop.
+      Frame 1: Start. Frame 13: Mid-point. Frame 25: Return to Start.
+      Distribute movement equally to ensure constant speed.
       
       ${anatomicalFocus}
       
       ${CORE_STABILITY_RULES}
-
-      INSTRUCTION:
-      - Center the character in every cell.
-      - Ensure frame 25 connects smoothly back to frame 1.
     `;
   },
 
   // 2. Video Promptu
   video: (exercise: Partial<Exercise>): string => {
     return `
-      High-end medical animation of "${exercise.titleTr || exercise.title}".
-      Camera: Static, Orthographic Side View (Tripod Mode).
-      Action: Slow, fluid, controlled rehabilitation movement. Perfect form.
+      Professional medical animation of "${exercise.titleTr || exercise.title}".
+      Format: Seamless Loop.
+      Action: Complete repetition (Start -> Peak -> Start).
+      Camera: Locked Tripod (No Shake).
       Style: 4K, Cinematic Lighting, 24fps smoothness.
       Subject: Fit anatomical model.
       Background: Clean, dark clinical studio (#020617).
-      Negative Prompt: Shaky camera, morphing, extra limbs, text, watermark, blurry.
+      Negative Prompt: Shaky camera, morphing, extra limbs, text, watermark, blurry, uneven speed.
     `;
   },
 

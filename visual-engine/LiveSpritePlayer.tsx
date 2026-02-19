@@ -7,11 +7,12 @@ import {
 } from 'lucide-react';
 
 /**
- * GENESIS MOTION ENGINE v9.5 (24FPS EQUAL DISTRIBUTION)
+ * GENESIS MOTION ENGINE v10.0 (ZERO-JITTER & DYNAMIC CROP)
  * Architect: Chief Architect
  * Updates: 
- *  - Default Layout: 5x5 (25 Frames) to match 24fps + 1 loop frame.
- *  - Interpolation: Linear distribution across 25 frames.
+ *  - Dynamic Crop: Calculates bounding box of subject and zooms in to remove empty space.
+ *  - Center Lock: Locks the weighted center of mass to exactly canvas.width/2.
+ *  - 24FPS Cycle: Optimized for 25-frame loop (Start-Peak-Start).
  */
 
 interface LiveSpritePlayerProps {
@@ -25,7 +26,7 @@ interface LiveSpritePlayerProps {
 export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({ 
   src, 
   isPlaying: initialPlaying = true, 
-  layout = 'grid-5x5', // Default updated to 5x5 for smoothness
+  layout = 'grid-5x5', 
   speed: initialSpeed = 1.0, 
   smoothing: initialSmoothing = true 
 }) => {
@@ -35,21 +36,23 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
   
   // SYSTEM STATE
   const [engineState, setEngineState] = useState<'IDLE' | 'ANALYZING' | 'READY'>('IDLE');
-  const [metrics, setMetrics] = useState({ totalFrames: 0, stability: 0 });
+  const [metrics, setMetrics] = useState({ totalFrames: 0, stability: 0, cropFactor: 0 });
   
   // CINEMA CONTROL STATE
   const [internalPlaying, setInternalPlaying] = useState(initialPlaying);
   const [playbackSpeed, setPlaybackSpeed] = useState(initialSpeed);
   const [useSmoothing, setUseSmoothing] = useState(initialSmoothing);
-  const [currentProgress, setCurrentProgress] = useState(0); // 0.0 to 1.0 (Ping-Pong Cycle)
+  const [currentProgress, setCurrentProgress] = useState(0); 
   const [activeFrameIndex, setActiveFrameIndex] = useState(0);
 
-  // FRAME DATA CACHE
+  // FRAME DATA CACHE (Includes Crop Info)
   const registeredFrames = useRef<{
-      sx: number, sy: number, cropSize: number, dx: number, dy: number
+      sx: number, sy: number, cropSize: number, 
+      dx: number, dy: number, // Displacement to center
+      contentScale: number // Zoom factor for Dynamic Crop
   }[]>([]);
 
-  // 1. INITIALIZATION & GRAVITY-LOCK ANALYSIS
+  // 1. INITIALIZATION & ANALYSIS
   useEffect(() => {
     setEngineState('ANALYZING');
     registeredFrames.current = [];
@@ -58,18 +61,16 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
     
     imageRef.current.onload = () => {
       setTimeout(() => {
-          performGravityLockAnalysis(imageRef.current, layout);
+          performZeroJitterAnalysis(imageRef.current, layout);
           setEngineState('READY');
       }, 50);
     };
   }, [src, layout]);
 
   /**
-   * GRAVITY-LOCK ALGORITHM (v9.5)
-   * 24fps Equal Distribution Logic
+   * ZERO-JITTER & DYNAMIC CROP ALGORITHM
    */
-  const performGravityLockAnalysis = (img: HTMLImageElement, currentLayout: string) => {
-    // Force 5x5 check if layout is undefined, preferring high fidelity
+  const performZeroJitterAnalysis = (img: HTMLImageElement, currentLayout: string) => {
     const isCinematic = currentLayout === 'grid-5x5' || !currentLayout;
     const cols = isCinematic ? 5 : 4;
     const rows = isCinematic ? 5 : 4;
@@ -77,8 +78,6 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
     
     const rawCellW = img.width / cols;
     const rawCellH = img.height / rows;
-    
-    // Kare Kesim (Square Crop)
     const cropSize = Math.floor(Math.min(rawCellW, rawCellH));
     const cropOffsetX = (rawCellW - cropSize) / 2;
     const cropOffsetY = (rawCellH - cropSize) / 2;
@@ -89,10 +88,14 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
     const ctx = offCanvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
-    let rawFrames: {sx: number, sy: number, cx: number, cy: number}[] = [];
+    let rawFrames: {sx: number, sy: number, cx: number, cy: number, minX: number, maxX: number, minY: number, maxY: number}[] = [];
     const BG_THRESHOLD = 40; 
 
-    // PASS 1: SCAN MASS
+    // GLOBAL BOUNDS TRACKING (For Dynamic Crop)
+    let globalMaxWidth = 0;
+    let globalMaxHeight = 0;
+
+    // PASS 1: SCAN MASS & BOUNDING BOX
     for (let i = 0; i < totalFrames; i++) {
         const cellX = (i % cols) * rawCellW;
         const cellY = Math.floor(i / cols) * rawCellH;
@@ -106,14 +109,21 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
         const data = frameData.data;
         
         let totalMassX = 0, totalMassY = 0, pixelCount = 0;
+        let minX = cropSize, maxX = 0, minY = cropSize, maxY = 0;
 
-        for (let y = 0; y < cropSize; y += 4) { // Optimizasyon: 4x4 atlama
-            for (let x = 0; x < cropSize; x += 4) {
+        for (let y = 0; y < cropSize; y += 2) {
+            for (let x = 0; x < cropSize; x += 2) {
                 const idx = (y * cropSize + x) * 4;
+                // Check if pixel is not background (Luma check)
                 if (data[idx] > BG_THRESHOLD || data[idx+1] > BG_THRESHOLD || data[idx+2] > BG_THRESHOLD) {
                     totalMassX += x;
                     totalMassY += y;
                     pixelCount++;
+
+                    if (x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
                 }
             }
         }
@@ -124,19 +134,32 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
         if (pixelCount > 20) {
             cx = totalMassX / pixelCount;
             cy = totalMassY / pixelCount;
+            
+            // Update Global Max Dimensions (to determine zoom level)
+            const contentW = maxX - minX;
+            const contentH = maxY - minY;
+            if (contentW > globalMaxWidth) globalMaxWidth = contentW;
+            if (contentH > globalMaxHeight) globalMaxHeight = contentH;
         }
 
-        rawFrames.push({ sx: srcX, sy: srcY, cx, cy });
+        rawFrames.push({ sx: srcX, sy: srcY, cx, cy, minX, maxX, minY, maxY });
     }
 
-    // PASS 2: TEMPORAL SMOOTHING
+    // Add padding to global bounds to avoid cutting off
+    globalMaxWidth = Math.min(cropSize, globalMaxWidth * 1.2); 
+    globalMaxHeight = Math.min(cropSize, globalMaxHeight * 1.2);
+    
+    // Calculate how much we can zoom in (Dynamic Crop Factor)
+    const contentScale = Math.min(cropSize / globalMaxWidth, cropSize / globalMaxHeight);
+
+    // PASS 2: CALCULATE OFFSETS TO LOCK CENTER
     const frames: any[] = [];
     let totalShift = 0;
 
     for (let i = 0; i < totalFrames; i++) {
         const current = rawFrames[i];
         
-        // 3-Frame Moving Average for Jitter Reduction
+        // Smoothing: Average with neighbors to prevent micro-jitter
         let smoothedCx = current.cx;
         let smoothedCy = current.cy;
 
@@ -147,15 +170,28 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
             smoothedCy = (prev.cy + current.cy + next.cy) / 3;
         }
 
+        // Calculate offset to bring CoM to Center of Canvas
         const dx = (cropSize / 2) - smoothedCx;
         const dy = (cropSize / 2) - smoothedCy;
 
         totalShift += Math.abs(dx) + Math.abs(dy);
-        frames.push({ sx: current.sx, sy: current.sy, cropSize, dx, dy });
+        
+        frames.push({ 
+            sx: current.sx, 
+            sy: current.sy, 
+            cropSize, 
+            dx, 
+            dy,
+            contentScale // Store the global zoom factor
+        });
     }
     
     registeredFrames.current = frames;
-    setMetrics({ totalFrames, stability: Math.min(100, Math.floor(100 - (totalShift / totalFrames / 5))) });
+    setMetrics({ 
+        totalFrames, 
+        stability: Math.min(100, Math.floor(100 - (totalShift / totalFrames / 5))),
+        cropFactor: Math.floor(contentScale * 100)
+    });
   };
 
   // 2. RENDER LOOP
@@ -171,7 +207,12 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
     canvas.width = 1080; 
     canvas.height = 1080;
 
-    const LOOP_DURATION = 2000; // 2 saniye = 1 tur (24fps hız hissi için)
+    // 24 FPS Loop Logic:
+    // With 25 frames (5x5), frame 1 is start, frame 25 is end (which connects to start).
+    // We play linear 0 -> 1. No Ping-Pong needed because data is already cyclical (from Prompt).
+    const FPS = 24;
+    const LOOP_DURATION = (registeredFrames.current.length / FPS) * 1000; // Exact duration for 24fps
+    
     let startTimestamp = performance.now();
     let lastRenderTime = 0;
 
@@ -179,14 +220,12 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
         const totalFrames = registeredFrames.current.length;
         if (totalFrames === 0) return;
 
-        // Ping-Pong Mapping (0 -> 1 -> 0)
-        let phase = progress; 
-        if (phase > 1) phase = 2 - phase; // Reverse
-
-        // Precise Mapping for 24fps Equidistance
-        const rawFrameIndex = phase * (totalFrames - 1);
+        // Linear Mapping (0 -> 1) because frames are already a cycle
+        let normalized = progress % 1;
+        const rawFrameIndex = normalized * (totalFrames - 1);
+        
         const currentFrameIndex = Math.floor(rawFrameIndex);
-        const nextFrameIndex = Math.min(Math.ceil(rawFrameIndex), totalFrames - 1);
+        const nextFrameIndex = (currentFrameIndex + 1) % totalFrames;
         const blend = rawFrameIndex - currentFrameIndex;
 
         setActiveFrameIndex(currentFrameIndex);
@@ -194,21 +233,25 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
         const currentFrame = registeredFrames.current[currentFrameIndex];
         const nextFrame = registeredFrames.current[nextFrameIndex];
 
-        // Draw
+        // Draw Background
         ctx.fillStyle = '#020617'; 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        const scale = (canvas.width * 0.90) / currentFrame.cropSize;
-        const drawSize = Math.floor(currentFrame.cropSize * scale);
+        // Apply Dynamic Crop Scale (Zoom into content)
+        const effectiveScale = (canvas.width / currentFrame.cropSize) * currentFrame.contentScale * 0.9; // 0.9 safety margin
+        const drawSize = Math.floor(currentFrame.cropSize * effectiveScale);
         
+        // Base Position (Center of Canvas)
         const bx = (canvas.width - drawSize) / 2;
         const by = (canvas.height - drawSize) / 2;
 
-        const destX = bx + (currentFrame.dx * scale);
-        const destY = by + (currentFrame.dy * scale);
+        // Apply Stabilized Offsets (Center Lock)
+        // We multiply offset by scale so alignment happens in zoomed space
+        const destX = bx + (currentFrame.dx * effectiveScale);
+        const destY = by + (currentFrame.dy * effectiveScale);
         
-        const nextDestX = bx + (nextFrame.dx * scale);
-        const nextDestY = by + (nextFrame.dy * scale);
+        const nextDestX = bx + (nextFrame.dx * effectiveScale);
+        const nextDestY = by + (nextFrame.dy * effectiveScale);
 
         ctx.globalAlpha = 1.0;
         ctx.drawImage(
@@ -217,7 +260,7 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
             destX, destY, drawSize, drawSize
         );
 
-        if (useSmoothing && blend > 0.05) { // Threshold optimization
+        if (useSmoothing) { 
             ctx.globalAlpha = blend;
             ctx.drawImage(
                 imageRef.current, 
@@ -238,9 +281,8 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
 
         const elapsed = time - startTimestamp;
         const duration = LOOP_DURATION / playbackSpeed;
-        const totalCycle = duration * 2; 
-
-        const normalizedTime = (elapsed % totalCycle) / duration;
+        
+        const normalizedTime = (elapsed % duration) / duration;
         
         if (time - lastRenderTime > 50) {
             setCurrentProgress(normalizedTime);
@@ -267,13 +309,12 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
     const stepSize = 1 / metrics.totalFrames;
     setCurrentProgress(prev => {
         let next = prev + (dir * stepSize);
-        if (next < 0) next = 0; if (next > 2) next = 0;
+        if (next < 0) next = 1; if (next > 1) next = 0;
         return next;
     });
   };
 
   const formatTimecode = (frame: number) => {
-    // 24fps Timecode logic
     const fps = 24;
     const seconds = Math.floor(frame / fps);
     const frames = frame % fps;
@@ -287,7 +328,7 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
         <div className="text-center relative z-10">
             <h4 className="text-xl font-black text-white italic tracking-tighter uppercase">Genesis <span className="text-cyan-400">Engine</span></h4>
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-2 flex items-center justify-center gap-2">
-                <ScanLine size={12} /> 24FPS Optimization...
+                <ScanLine size={12} /> Zero-Jitter Analysis...
             </p>
         </div>
     </div>
@@ -305,6 +346,10 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
                     <Layers size={10} className="text-cyan-400" />
                     <span className="text-[9px] font-mono font-bold text-white uppercase">FPS: 24 | FR: {activeFrameIndex + 1}/{metrics.totalFrames}</span>
                 </div>
+                <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1 rounded-lg border border-white/5">
+                    <Maximize size={10} className="text-emerald-400" />
+                    <span className="text-[9px] font-mono font-bold text-white uppercase">CROP: {metrics.cropFactor}%</span>
+                </div>
             </div>
         </div>
 
@@ -313,15 +358,15 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
             <div className="flex flex-col gap-4">
                 <div className="w-full relative h-6 flex items-center group/scrub">
                     <div className="absolute w-full h-1 bg-slate-800 rounded-full overflow-hidden">
-                        <div className="h-full bg-cyan-500/50" style={{ width: `${(currentProgress / 2) * 100}%` }} />
+                        <div className="h-full bg-cyan-500/50" style={{ width: `${currentProgress * 100}%` }} />
                     </div>
                     <input 
-                        type="range" min="0" max="2" step="0.001" 
+                        type="range" min="0" max="1" step="0.001" 
                         value={currentProgress}
                         onChange={handleScrub}
                         className="w-full absolute inset-0 opacity-0 cursor-ew-resize z-20" 
                     />
-                    <div className="w-3 h-3 bg-cyan-400 rounded-full shadow-[0_0_10px_rgba(34,211,238,0.8)] absolute z-10 pointer-events-none transition-all group-hover/scrub:scale-125" style={{ left: `${(currentProgress / 2) * 100}%` }} />
+                    <div className="w-3 h-3 bg-cyan-400 rounded-full shadow-[0_0_10px_rgba(34,211,238,0.8)] absolute z-10 pointer-events-none transition-all group-hover/scrub:scale-125" style={{ left: `${currentProgress * 100}%` }} />
                 </div>
 
                 <div className="flex justify-between items-center">
