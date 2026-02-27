@@ -18,6 +18,7 @@ import { UserManager } from './UserManager.tsx';
 import { ClinicalConsultation } from './ClinicalConsultation.tsx';
 import { ManagementHub } from './ManagementHub.tsx';
 import { ClinicalEBMHub } from './ClinicalEBMHub.tsx';
+import { SEED_EXERCISES } from './seed-data.ts';
 
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; }
@@ -56,7 +57,7 @@ type TabType = AppTab | 'ebm';
 export default function PhysioCoreApp() {
   const [activeTab, setActiveTab] = useState<TabType>('consultation');
   const [patientData, setPatientData] = useState<PatientProfile | null>(null);
-  const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
+  const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(SEED_EXERCISES.find(e => e.code === 'SP-01') || null);
   const [hasKey, setHasKey] = useState(false);
   const [isDbLoading, setIsDbLoading] = useState(true);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);

@@ -21,18 +21,16 @@ interface PlayerProps {
 }
 
 export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(true);
   const [currentSet, setCurrentSet] = useState(1);
   const [currentRep, setCurrentRep] = useState(0);
   const [isResting, setIsResting] = useState(false);
   const [restTime, setRestTime] = useState(exercise.restPeriod || 60);
   const [activeLayer, setActiveLayer] = useState<'standard' | 'xray' | 'muscles' | '3d'>('standard');
   const [showLiveCoach, setShowLiveCoach] = useState(false);
-  
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imageCacheRef = useRef<HTMLImageElement | null>(null);
-  const virtualProgressRef = useRef<number>(0);
-  const lastTimeRef = useRef<number>(0);
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoUrl = `/videos/${exercise.code}.mp4`;
 
   useEffect(() => {
     if (isResting && restTime > 0) {
@@ -60,94 +58,23 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
   };
 
   useEffect(() => {
-    if (exercise.visualUrl && activeLayer !== '3d') {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.src = exercise.visualUrl;
-      img.onload = () => { imageCacheRef.current = img; drawFrame(0); };
-    }
-  }, [exercise, activeLayer]);
+    const video = videoRef.current;
+    if (!video) return;
 
-  // --- SMART SCALE PING-PONG RENDER ENGINE ---
-  const drawFrame = (vProgress: number) => {
-    const canvas = canvasRef.current;
-    const img = imageCacheRef.current;
-    if (!canvas || !img || activeLayer === '3d') return;
-    const ctx = canvas.getContext('2d', { alpha: false });
-    if (!ctx) return;
-
-    // Sprite Config
-    const cols = 4; const rows = 4; const totalFrames = 16;
-    const virtualLength = (totalFrames * 2) - 2;
-    const currentVFrame = Math.floor(vProgress) % virtualLength;
-
-    // Ping-Pong Calculation
-    let actualFrame = 0;
-    if (currentVFrame < totalFrames) {
-        actualFrame = currentVFrame;
+    if (isPlaying) {
+      video.play().catch(err => console.error("Video play failed:", err));
     } else {
-        actualFrame = (totalFrames - 2) - (currentVFrame - totalFrames);
+      video.pause();
     }
+  }, [isPlaying]);
 
-    const spriteW = img.width / cols;
-    const spriteH = img.height / rows;
-
-    // Clear with Deep Base
-    ctx.fillStyle = '#020617';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Filters
-    if (activeLayer === 'xray') ctx.filter = 'invert(1) hue-rotate(180deg) brightness(1.2)';
-    else if (activeLayer === 'muscles') ctx.filter = 'sepia(1) saturate(5) hue-rotate(-50deg)';
-    else ctx.filter = 'none';
-
-    // Aspect Ratio "Contain"
-    const scale = Math.min(canvas.width / spriteW, canvas.height / spriteH) * 0.95;
-    const destW = spriteW * scale;
-    const destH = spriteH * scale;
-    const dx = (canvas.width - destW) / 2;
-    const dy = (canvas.height - destH) / 2;
-
-    const sx = (actualFrame % cols) * spriteW;
-    const sy = Math.floor(actualFrame / cols) * spriteH;
-
-    ctx.drawImage(img, sx, sy, spriteW, spriteH, dx, dy, destW, destH);
-    ctx.filter = 'none';
-
-    // Visual Pulse Overlay
-    if (isPlaying) {
-      ctx.strokeStyle = 'rgba(6, 182, 212, 0.2)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      const radius = Math.max(destW, destH) / 2 * (1.05 + Math.sin(vProgress * 0.5) * 0.02); 
-      ctx.arc(canvas.width/2, canvas.height/2, radius, 0, Math.PI * 2);
-      ctx.stroke();
+  const handleReset = () => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
     }
+    setCurrentRep(0);
+    setIsPlaying(false);
   };
-
-  useEffect(() => {
-    const animate = (time: number) => {
-      if (!isPlaying || activeLayer === '3d') return;
-      
-      const dt = time - lastTimeRef.current;
-      lastTimeRef.current = time;
-      
-      // Target 24 FPS perceived speed
-      const totalFrames = 16;
-      const virtualLength = (totalFrames * 2) - 2;
-      const speedFactor = 0.012; 
-      
-      virtualProgressRef.current = (virtualProgressRef.current + dt * speedFactor) % virtualLength;
-      drawFrame(virtualProgressRef.current);
-      
-      requestAnimationFrame(animate);
-    };
-
-    if (isPlaying) {
-      lastTimeRef.current = performance.now();
-      requestAnimationFrame(animate);
-    }
-  }, [isPlaying, activeLayer]);
 
   return (
     <div className="fixed inset-0 z-[100] bg-[#020617] flex flex-col font-roboto overflow-hidden animate-in fade-in duration-500">
@@ -206,7 +133,21 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
                   <AnatomicalAvatar targetArea={exercise.category || exercise.title} />
                 </Suspense>
               ) : (
-                <canvas ref={canvasRef} width={1080} height={1080} className="w-full h-full object-contain" />
+                <video
+                  ref={videoRef}
+                  src={videoUrl}
+                  onError={(e) => {
+                    const target = e.target as HTMLVideoElement;
+                    if (target.src.includes(videoUrl)) {
+                      target.src = "https://www.w3schools.com/html/mov_bbb.mp4";
+                    }
+                  }}
+                  onEnded={handleRepComplete}
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-contain"
+                />
               )}
               
               <div className="absolute top-4 right-4 md:top-10 md:right-10 flex flex-col gap-2">
@@ -236,7 +177,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
 
            {/* Mobile Floating Controls */}
            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 md:gap-8 bg-slate-950/90 backdrop-blur-3xl p-4 md:p-6 rounded-[2.5rem] border border-white/10 shadow-[0_30px_100px_rgba(0,0,0,1)] z-30 scale-90 md:scale-105">
-              <button onClick={() => {virtualProgressRef.current = 0; setCurrentRep(0); setIsPlaying(false)}} className="p-3 md:p-4 text-slate-500 hover:text-white transition-all"><RotateCcw className="w-6 h-6"/></button>
+              <button onClick={handleReset} className="p-3 md:p-4 text-slate-500 hover:text-white transition-all"><RotateCcw className="w-6 h-6"/></button>
               <button onClick={() => setIsPlaying(!isPlaying)} className={`w-16 h-16 md:w-20 md:h-20 rounded-[1.5rem] md:rounded-[2rem] flex items-center justify-center text-white shadow-2xl transition-all ${isPlaying ? 'bg-slate-800' : 'bg-cyan-600'}`}>{isPlaying ? <Pause className="w-8 h-8 md:w-10 md:h-10" /> : <Play className="w-8 h-8 md:w-10 md:h-10" fill="currentColor" />}</button>
               <button onClick={handleRepComplete} className="p-3 md:p-4 text-cyan-500 hover:scale-110 transition-all"><CheckCircle2 className="w-8 h-8 md:w-10 md:h-10" /></button>
            </div>
