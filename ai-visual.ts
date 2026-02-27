@@ -31,9 +31,8 @@ export const generateExerciseVisual = async (
       if (part.inlineData) {
         return { 
           url: `data:image/png;base64,${part.inlineData.data}`, 
-          // 24FPS için 25 Karelik (5x5) Grid kullanıyoruz
-          frameCount: isCinematic ? 25 : 16, 
-          layout: isCinematic ? 'grid-5x5' : 'grid-4x4' 
+          frameCount: 24, 
+          layout: 'grid-6x4' 
         };
       }
     }

@@ -17,7 +17,7 @@ import {
 interface LiveSpritePlayerProps {
   src: string;
   isPlaying?: boolean;
-  layout?: 'grid-4x4' | 'grid-5x5'; 
+  layout?: 'grid-4x4' | 'grid-5x5' | 'grid-6x4' | string; 
   speed?: number; 
   smoothing?: boolean; 
 }
@@ -25,7 +25,7 @@ interface LiveSpritePlayerProps {
 export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({ 
   src, 
   isPlaying: initialPlaying = true, 
-  layout = 'grid-5x5', 
+  layout = 'grid-6x4', 
   speed: initialSpeed = 1.0, 
   smoothing: initialSmoothing = true 
 }) => {
@@ -70,9 +70,25 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
    * ZERO-JITTER & DYNAMIC CROP ALGORITHM
    */
   const performZeroJitterAnalysis = (img: HTMLImageElement, currentLayout: string) => {
-    const isCinematic = currentLayout === 'grid-5x5' || !currentLayout;
-    const cols = isCinematic ? 5 : 4;
-    const rows = isCinematic ? 5 : 4;
+    let cols = 6;
+    let rows = 4;
+    
+    if (currentLayout === 'grid-5x5') {
+      cols = 5; rows = 5;
+    } else if (currentLayout === 'grid-4x4') {
+      cols = 4; rows = 4;
+    } else if (currentLayout === 'grid-6x4') {
+      cols = 6; rows = 4;
+    } else {
+      // Auto detect based on aspect ratio if possible, otherwise default to 6x4
+      const ratio = img.width / img.height;
+      if (Math.abs(ratio - 1) < 0.1) {
+         cols = 5; rows = 5; // Square image
+      } else if (Math.abs(ratio - 1.5) < 0.1) {
+         cols = 6; rows = 4; // 3:2 image
+      }
+    }
+    
     const totalFrames = cols * rows;
     
     const rawCellW = img.width / cols;
@@ -211,8 +227,8 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
 
     // 24 FPS Loop Logic:
     const FPS = 24;
-    // Calculate loop duration based on frame count (approx 1 second for 25 frames)
-    const framesCount = registeredFrames.current.length || 25;
+    // Calculate loop duration based on frame count (approx 1 second for 24 frames)
+    const framesCount = registeredFrames.current.length || 24;
     const LOOP_DURATION = (framesCount / FPS) * 1000; 
     
     let startTimestamp = performance.now();

@@ -141,7 +141,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
       } else if (format === 'mp4' && videoUrl) {
         await MediaConverter.export(videoUrl, 'mp4', `PhysioCore_Video_${exercise.code}`);
       } else if (format === 'gif' && (videoUrl || previewUrl)) {
-        await MediaConverter.export(videoUrl || previewUrl, 'gif', `PhysioCore_Motion_${exercise.code}`);
+        await MediaConverter.export(videoUrl ? videoUrl : { url: previewUrl, layout: currentLayout } as any, 'gif', `PhysioCore_Motion_${exercise.code}`);
       }
     } catch (e) {
       alert("Dönüştürme sırasında hata oluştu.");

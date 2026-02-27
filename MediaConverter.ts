@@ -55,7 +55,7 @@ export class MediaConverter {
         return;
     }
 
-    const sourceUrl = typeof source === 'string' ? source : '';
+    const sourceUrl = typeof source === 'string' ? source : ('url' in source ? (source as any).url : '');
     if (!sourceUrl) return;
 
     // 3. Harici Video Kaynağı (Veo / MP4)
@@ -65,13 +65,16 @@ export class MediaConverter {
     }
 
     // 4. Sprite-to-Video (Smart Scale & Stabilize Engine)
-    const isVideoFormat = ['mp4', 'avi', 'mov', 'mpeg', 'webm', 'swf'].includes(format);
+    const isVideoFormat = ['mp4', 'avi', 'mov', 'mpeg', 'webm', 'swf', 'gif'].includes(format);
     const targetRes = isVideoFormat ? this.RES_LANDSCAPE : this.RES_SQUARE;
     
     try {
-        const blob = await this.generateMediaBlob(sourceUrl, format, targetRes);
+        // Extract layout from source if it's an object, otherwise default to 6x4
+        const layout = typeof source === 'object' && 'layout' in source ? (source as any).layout : 'grid-6x4';
+        const blob = await this.generateMediaBlob(sourceUrl, format, targetRes, layout);
         if (blob) {
-            const ext = format === 'swf' ? 'swf.webm' : format;
+            // If format is gif, we still export webm but we can name it .webm to be safe, or .gif if requested
+            const ext = format === 'swf' ? 'swf.webm' : (format === 'gif' ? 'webm' : format);
             const suffix = format === 'gif' ? '_loop' : '_clinical';
             this.downloadBlob(blob, `${title}${suffix}.${ext}`);
         }
@@ -84,12 +87,16 @@ export class MediaConverter {
   /**
    * Çekirdek Blob Üretim Motoru
    */
-  static async generateMediaBlob(sourceUrl: string, format: ExportFormat, res: Resolution): Promise<Blob | null> {
+  static async generateMediaBlob(sourceUrl: string, format: ExportFormat, res: Resolution, layout: string = 'grid-6x4'): Promise<Blob | null> {
     const image = await this.loadImage(sourceUrl);
     
     // ANALİZ: Gravity-Lock ile stabilizasyon
-    const rows = 4;
-    const cols = 4;
+    let cols = 6;
+    let rows = 4;
+    if (layout === 'grid-5x5') { cols = 5; rows = 5; }
+    else if (layout === 'grid-4x4') { cols = 4; rows = 4; }
+    else if (layout === 'grid-6x4') { cols = 6; rows = 4; }
+    
     const stabilizedFrames = this.analyzeStability(image, rows, cols);
 
     const canvas = document.createElement('canvas');

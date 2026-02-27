@@ -30,15 +30,15 @@ export const VisualPrompts = {
       TASK: Generate a "High-Fidelity Medical Motion Sprite Sheet".
       SUBJECT: Athletic Human performing: "${exercise.titleTr || exercise.title}".
       
-      --- FORMAT: 5x5 GRID (25 FRAMES TOTAL) ---
+      --- FORMAT: 6x4 GRID (24 FRAMES TOTAL) ---
       CRITICAL: You must generate a PERFECT LOOP (Concentric + Eccentric phase).
       
       TIMING DISTRIBUTION (EQUAL PACING):
       - Frame 1 (Start): Neutral / Starting Position (0% Range).
-      - Frame 2-12: Smooth Concentric Phase (Moving towards peak).
-      - Frame 13 (Peak): Maximum Contraction / End Range (100% Range).
-      - Frame 14-24: Smooth Eccentric Phase (Returning controlledly).
-      - Frame 25 (End): Back to Neutral Position (Same as Frame 1).
+      - Frame 2-11: Smooth Concentric Phase (Moving towards peak).
+      - Frame 12 (Peak): Maximum Contraction / End Range (100% Range).
+      - Frame 13-23: Smooth Eccentric Phase (Returning controlledly).
+      - Frame 24 (End): Back to Neutral Position (Same as Frame 1).
       
       The movement must be evenly distributed across these frames so the animation flows liquidly at 24fps.
       
@@ -59,11 +59,11 @@ export const VisualPrompts = {
     return `
       TASK: Generate a "Medical Sprite Sheet" for animation.
       SUBJECT: ${exercise.titleTr || exercise.title}.
-      FORMAT: 5x5 Grid (25 Frames). 
+      FORMAT: 6x4 Grid (24 Frames). 
       
       CYCLE INSTRUCTION:
       Create a full Start-to-Finish-to-Start loop.
-      Frame 1: Start. Frame 13: Mid-point. Frame 25: Return to Start.
+      Frame 1: Start. Frame 12: Mid-point. Frame 24: Return to Start.
       Distribute movement equally to ensure constant speed.
       
       ${anatomicalFocus}

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Exercise } from './types.ts';
 import { ExerciseActions } from './ExerciseActions.tsx';
+import { SimpleSpritePlayer } from './visual-engine/SimpleSpritePlayer.tsx';
 
 interface ExerciseCardProps {
   exercise: Exercise;
@@ -24,7 +25,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, onEdit, on
           exercise.isMotion ? (
             <video src={exercise.videoUrl} autoPlay loop muted playsInline className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-700" />
           ) : (
-            <img src={exercise.visualUrl} alt={exercise.title} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-700" />
+            <SimpleSpritePlayer src={exercise.visualUrl!} layout={exercise.visualLayout as string} className="opacity-60 group-hover:opacity-100 transition-opacity duration-700" />
           )
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center text-slate-800">
