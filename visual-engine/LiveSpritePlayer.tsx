@@ -44,6 +44,11 @@ export const LiveSpritePlayer: React.FC<LiveSpritePlayerProps> = ({
   const [currentProgress, setCurrentProgress] = useState(0); 
   const [activeFrameIndex, setActiveFrameIndex] = useState(0);
 
+  // Sync internal playing state with prop
+  useEffect(() => {
+    setInternalPlaying(initialPlaying);
+  }, [initialPlaying]);
+
   // FRAME DATA CACHE (Includes Crop Info)
   const registeredFrames = useRef<{
       sx: number, sy: number, cropSize: number, 

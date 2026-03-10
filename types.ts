@@ -7,8 +7,8 @@ export type PainQuality = 'Keskin' | 'Künt' | 'Yanıcı' | 'Batıcı' | 'Elektr
 export type RehabPhase = 'Akut' | 'Sub-Akut' | 'Kronik' | 'Performans';
 export type VisualStyle = 'AVM-Genesis' | 'VEO-Premium' | 'AVM-Sprite' | 'Cinematic-Grid' | 'X-Ray' | 'Schematic' | '4K-Render' | 'Cinematic-Motion' | 'Nerve-Highlight' | 'Muscle-Map' | 'Close-Up' | 'Floor-Grid' | 'Center-of-Pressure' | 'Internal-Organ' | 'Vein-Flow';
 export type AnatomicalLayer = 'muscular' | 'skeletal' | 'vascular' | 'xray' | 'full-body';
-export type AppTab = 'consultation' | 'dashboard' | 'progress' | 'users' | 'cms' | 'management';
-export type TherapistTab = 'dashboard' | 'patients' | 'intelligence' | 'settings';
+export type AppTab = 'consultation' | 'dashboard' | 'progress' | 'users' | 'cms' | 'management' | 'adaptive-hub';
+export type TherapistTab = 'dashboard' | 'patients' | 'intelligence' | 'settings' | 'adaptive-hub';
 
 // --- NEW CLINICAL TYPES ---
 export type KineticChain = 'Open' | 'Closed' | 'Mixed';
@@ -108,6 +108,24 @@ export interface TreatmentHistory {
   notes: string;
 }
 
+export interface AdaptiveProfile {
+  // Klinik Fizyoterapi (Biyomekanik & Dozaj)
+  romLimits: Record<string, number>;
+  rpeTarget: number;
+  postureFlags: string[];
+  
+  // Özel Eğitim & Bilişsel (Nöroçeşitlilik)
+  cognitiveLoadLevel: 'Düşük' | 'Orta' | 'Yüksek';
+  sensoryProfile: 'Hassas' | 'Normal' | 'Arayışta';
+  learningStyle: 'Görsel' | 'İşitsel' | 'Kinestetik';
+  stepByStepMode: boolean;
+  
+  // Görsel Tasarım & UI
+  visualContrast: 'Normal' | 'Yüksek' | 'Düşük';
+  animationSpeed: 'Yavaş' | 'Normal (24FPS)' | 'Hızlı';
+  uiComplexity: 'Basit' | 'Standart' | 'Uzman';
+}
+
 export interface PatientProfile {
   user_id: string;
   diagnosisSummary: string;
@@ -125,6 +143,7 @@ export interface PatientProfile {
     posture: string;
     recoveryTrajectory?: number; 
   };
+  adaptiveProfile?: AdaptiveProfile;
   latestInsight?: {
     summary?: string;
     nextStep?: string;

@@ -14,6 +14,7 @@ import { MediaConverter, ExportFormat } from './MediaConverter.ts';
 import { LiveCoach } from './LiveCoach.tsx';
 import { AnatomicalAvatar } from './AnatomicalAvatar.tsx';
 import { ExerciseActions } from './ExerciseActions.tsx';
+import { LiveSpritePlayer } from './visual-engine/LiveSpritePlayer.tsx';
 
 interface PlayerProps {
   exercise: Exercise;
@@ -30,7 +31,8 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
   const [showLiveCoach, setShowLiveCoach] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const videoUrl = `/videos/${exercise.code}.mp4`;
+  const videoUrl = exercise.videoUrl || `/videos/${exercise.code}.mp4`;
+  const hasSprite = !!exercise.visualUrl;
 
   useEffect(() => {
     if (isResting && restTime > 0) {
@@ -59,14 +61,19 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || hasSprite) return;
 
     if (isPlaying) {
-      video.play().catch(err => console.error("Video play failed:", err));
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(err => {
+          console.warn("Video play interrupted or failed:", err);
+        });
+      }
     } else {
       video.pause();
     }
-  }, [isPlaying]);
+  }, [isPlaying, hasSprite]);
 
   const handleReset = () => {
     if (videoRef.current) {
@@ -127,18 +134,26 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
               </div>
            )}
 
-           <div className="relative w-full h-full lg:max-w-5xl lg:rounded-[4rem] lg:overflow-hidden lg:border-4 border-slate-900 bg-slate-950 shadow-2xl flex items-center justify-center">
+            <div className="relative w-full h-full lg:max-w-5xl lg:rounded-[4rem] lg:overflow-hidden lg:border-4 border-slate-900 bg-slate-950 shadow-2xl flex items-center justify-center">
               {activeLayer === '3d' ? (
                 <Suspense fallback={<div className="flex items-center justify-center w-full h-full"><Loader2 className="animate-spin text-cyan-500" size={48} /></div>}>
                   <AnatomicalAvatar targetArea={exercise.category || exercise.title} />
                 </Suspense>
+              ) : hasSprite ? (
+                <LiveSpritePlayer 
+                  src={exercise.visualUrl!} 
+                  isPlaying={isPlaying} 
+                  layout={exercise.visualLayout as any} 
+                  smoothing={true}
+                />
               ) : (
                 <video
                   ref={videoRef}
                   src={videoUrl}
                   onError={(e) => {
                     const target = e.target as HTMLVideoElement;
-                    if (target.src.includes(videoUrl)) {
+                    // Only fallback if it's the primary local URL failing
+                    if (target.src.includes(exercise.code)) {
                       target.src = "https://www.w3schools.com/html/mov_bbb.mp4";
                     }
                   }}

@@ -8,6 +8,7 @@ import { TherapistDashboard } from './TherapistDashboard.tsx';
 import { ClinicalIntelligence } from './ClinicalIntelligence.tsx';
 import { TherapistSettings } from './TherapistSettings.tsx';
 import { UserManager } from './UserManager.tsx';
+import { MultidisciplinaryHub } from './MultidisciplinaryHub.tsx';
 import { TherapistTab, User } from './types.ts';
 
 export const TherapistHub = () => {
@@ -60,6 +61,7 @@ export const TherapistHub = () => {
            <TabNav active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={LayoutDashboard} label="PANEL" />
            <TabNav active={activeTab === 'patients'} onClick={() => setActiveTab('patients')} icon={Users} label="HASTALAR" />
            <TabNav active={activeTab === 'intelligence'} onClick={() => setActiveTab('intelligence')} icon={BrainCircuit} label="KLİNİK ZEKA" />
+           <TabNav active={activeTab === 'adaptive-hub'} onClick={() => setActiveTab('adaptive-hub')} icon={Zap} label="STÜDYO" />
            <TabNav active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={Settings} label="AYARLAR" />
         </div>
       </div>
@@ -69,6 +71,7 @@ export const TherapistHub = () => {
         {activeTab === 'dashboard' && <TherapistDashboard therapist={currentTherapist} />}
         {activeTab === 'patients' && <UserManager />}
         {activeTab === 'intelligence' && <ClinicalIntelligence />}
+        {activeTab === 'adaptive-hub' && <MultidisciplinaryHub />}
         {activeTab === 'settings' && <TherapistSettings therapist={currentTherapist} />}
       </div>
     </div>
