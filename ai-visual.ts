@@ -11,7 +11,7 @@ import { VisualPrompts } from "./visual-engine/prompts.ts";
 export const generateExerciseVisual = async (
   exercise: Partial<Exercise>, 
   layer: AnatomicalLayer | 'Cinematic-Motion' = 'full-body'
-): Promise<{ url: string, frameCount: number, layout: 'grid-4x4' | 'grid-5x5' }> => {
+): Promise<{ url: string, frameCount: number, layout: 'grid-4x4' | 'grid-5x5' | 'grid-6x4' }> => {
   const ai = getAI();
   const isCinematic = layer === 'Cinematic-Motion';
   
