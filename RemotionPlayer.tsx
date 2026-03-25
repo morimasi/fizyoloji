@@ -8,9 +8,10 @@ import { Exercise, AnatomicalLayer } from './types.ts';
 import { ExerciseCardComposition } from './remotion/ExerciseCardComposition.tsx';
 import { AnatomyLayerComposition } from './remotion/AnatomyLayerComposition.tsx';
 import { RehabSlideComposition } from './remotion/RehabSlideComposition.tsx';
+import { ExerciseAnimationComposition } from './remotion/ExerciseAnimationComposition.tsx';
 import { MediaConverter } from './MediaConverter.ts';
 
-type CompositionId = 'exercise-card' | 'anatomy-layer' | 'rehab-slides';
+type CompositionId = 'exercise-card' | 'anatomy-layer' | 'rehab-slides' | 'exercise-animation';
 
 interface RemotionPlayerProps {
   exercise: Partial<Exercise>;
@@ -30,6 +31,7 @@ const COMPOSITIONS: {
   durationInFrames: number;
   description: string;
 }[] = [
+  { id: 'exercise-animation', labelTr: 'Gerçek Animasyon', icon: Film, durationInFrames: 150, description: 'Gerçek insan vücudu ile egzersiz performans animasyonu (AI-generated).' },
   { id: 'exercise-card', labelTr: 'Egzersiz Kartı', icon: Film, durationInFrames: 150, description: 'Egzersiz bilgilerini animasyonlu olarak tanıtan video kart.' },
   { id: 'anatomy-layer', labelTr: 'Anatomik Katman', icon: Layers, durationInFrames: 180, description: 'Kas, iskelet, damar ve X-Ray katmanlarını görselleştirir.' },
   { id: 'rehab-slides', labelTr: 'Rehab Protokolü', icon: Presentation, durationInFrames: 60 + 5 * 75 + 60, description: 'Adım adım rehabilitasyon egzersiz protokolü sunumu.' },
@@ -44,7 +46,7 @@ const ANATOMY_LAYERS: { id: AnatomicalLayer; labelTr: string; icon: React.FC<any
 ];
 
 export const RemotionPlayer = forwardRef<RemotionPlayerHandle, RemotionPlayerProps>(
-  ({ exercise, defaultComposition = 'exercise-card' }, ref) => {
+  ({ exercise, defaultComposition = 'exercise-animation' }, ref) => {
   const [activeComposition, setActiveComposition] = useState<CompositionId>(defaultComposition);
   const [activeLayer, setActiveLayer] = useState<AnatomicalLayer>('full-body');
   const [isExporting, setIsExporting] = useState(false);
@@ -66,6 +68,7 @@ export const RemotionPlayer = forwardRef<RemotionPlayerHandle, RemotionPlayerPro
 
   const getComponent = useCallback(() => {
     switch (activeComposition) {
+      case 'exercise-animation': return ExerciseAnimationComposition;
       case 'exercise-card': return ExerciseCardComposition;
       case 'anatomy-layer': return AnatomyLayerComposition;
       case 'rehab-slides': return RehabSlideComposition;
