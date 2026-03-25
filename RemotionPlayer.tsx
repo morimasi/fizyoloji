@@ -88,6 +88,7 @@ export const RemotionPlayer = forwardRef<RemotionPlayerHandle, RemotionPlayerPro
       const url = URL.createObjectURL(blob);
       await new Promise<void>((resolve, reject) => {
         const img = new Image();
+        img.crossOrigin = 'anonymous'; // Fix for tainted canvas CORS issue
         img.onload = () => {
           const canvas = document.createElement('canvas');
           canvas.width = width;
