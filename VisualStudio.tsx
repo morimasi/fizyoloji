@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Loader2, Play, Pause, Clapperboard, Download,
   MonitorPlay, Zap, Wand2, Sparkles, Rocket, 
@@ -16,7 +16,7 @@ import { MediaConverter } from './MediaConverter.ts';
 import { VisualPrompts } from './visual-engine/prompts.ts';
 import { LiveSpritePlayer } from './visual-engine/LiveSpritePlayer.tsx';
 import { SlideFrameRenderer } from './visual-engine/SlideRenderer.tsx';
-import { RemotionPlayer } from './RemotionPlayer.tsx';
+import { RemotionPlayer, RemotionPlayerHandle } from './RemotionPlayer.tsx';
 
 interface VisualStudioProps {
   exercise: Partial<Exercise>;
@@ -41,6 +41,9 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
   // New Playback Controls
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   const [isSmoothingEnabled, setIsSmoothingEnabled] = useState(true);
+
+  // Remotion Player ref for triggering renders from the left panel
+  const remotionPlayerRef = useRef<RemotionPlayerHandle>(null);
 
   useEffect(() => {
     constructPrompt();
@@ -208,6 +211,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
           </div>
 
           {/* PROMPT ENGINEERING */}
+          {activeTab !== 'remotion' && (
           <div className="bg-slate-950 border border-slate-800 rounded-3xl p-5 space-y-3 mb-6 relative group/prompt">
              <div className="flex justify-between items-center">
                 <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
@@ -234,30 +238,53 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                </div>
              )}
           </div>
+          )}
 
           {error && <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-start gap-3 animate-in shake duration-300"><AlertCircle className="text-rose-500 shrink-0" size={16} /><p className="text-[10px] text-rose-200 font-bold uppercase italic">{error}</p></div>}
 
-          <div className="space-y-3">
-            <button 
-                onClick={() => handleGenerate()} 
-                disabled={isGenerating || !exercise.title} 
-                className="w-full py-5 bg-slate-800 hover:bg-slate-700 text-white rounded-[2rem] text-xs font-black uppercase tracking-widest border border-slate-700 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-30"
-            >
-                {isGenerating ? <><Loader2 className="animate-spin" size={20} /> İŞLENİYOR...</> : <><Rocket size={20} /> STANDART (LOCK-POS)</>}
-            </button>
+          {activeTab === 'remotion' ? (
+            <div className="space-y-3">
+              <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl space-y-2">
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                  <Clapperboard size={11} className="text-cyan-500" /> Remotion Kompozisyon Motoru
+                </p>
+                <p className="text-[9px] text-slate-600 leading-relaxed">
+                  Sağdaki player'da kompozisyonu önizleyin. Kare PNG veya GIF olarak dışa aktarın.
+                </p>
+              </div>
+              <button
+                onClick={() => remotionPlayerRef.current?.triggerRender()}
+                disabled={!exercise.title}
+                className="w-full py-5 bg-gradient-to-r from-cyan-600 to-indigo-700 hover:from-cyan-500 hover:to-indigo-600 text-white rounded-[2rem] text-xs font-black uppercase tracking-widest shadow-2xl transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-30 relative overflow-hidden group"
+              >
+                <div className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-12" />
+                <Clapperboard size={20} className="animate-pulse" />
+                REMOTION ÜRETİM
+              </button>
+            </div>
+          ) : (
+           <div className="space-y-3">
+             <button 
+                 onClick={() => handleGenerate()} 
+                 disabled={isGenerating || !exercise.title} 
+                 className="w-full py-5 bg-slate-800 hover:bg-slate-700 text-white rounded-[2rem] text-xs font-black uppercase tracking-widest border border-slate-700 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-30"
+             >
+                 {isGenerating ? <><Loader2 className="animate-spin" size={20} /> İŞLENİYOR...</> : <><Rocket size={20} /> STANDART (LOCK-POS)</>}
+             </button>
 
-            {activeTab === 'image' && (
-                <button 
-                    onClick={() => handleGenerate('Cinematic-Motion')} 
-                    disabled={isGenerating || !exercise.title} 
-                    className="w-full py-6 bg-gradient-to-r from-cyan-600 to-indigo-700 hover:from-cyan-500 hover:to-indigo-600 text-white rounded-[2rem] text-xs font-black uppercase tracking-widest shadow-2xl transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-30 relative overflow-hidden group"
-                >
-                    <div className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-12" />
-                    {isGenerating ? <Loader2 className="animate-spin" size={20} /> : <Aperture size={20} className="animate-pulse" />} 
-                    CINEMATIC STABLE MOTION (25 FPS)
-                </button>
-            )}
-          </div>
+             {activeTab === 'image' && (
+                 <button 
+                     onClick={() => handleGenerate('Cinematic-Motion')} 
+                     disabled={isGenerating || !exercise.title} 
+                     className="w-full py-6 bg-gradient-to-r from-cyan-600 to-indigo-700 hover:from-cyan-500 hover:to-indigo-600 text-white rounded-[2rem] text-xs font-black uppercase tracking-widest shadow-2xl transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-30 relative overflow-hidden group"
+                 >
+                     <div className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-12" />
+                     {isGenerating ? <Loader2 className="animate-spin" size={20} /> : <Aperture size={20} className="animate-pulse" />} 
+                     CINEMATIC STABLE MOTION (25 FPS)
+                 </button>
+             )}
+           </div>
+          )}
         </div>
       </div>
 
@@ -365,7 +392,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
 
           {activeTab === 'remotion' && !isGenerating && (
              <div className="w-full h-full overflow-y-auto p-6 bg-slate-950">
-               <RemotionPlayer exercise={exercise} />
+               <RemotionPlayer ref={remotionPlayerRef} exercise={exercise} />
              </div>
           )}
 

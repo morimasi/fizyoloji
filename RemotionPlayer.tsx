@@ -1,8 +1,8 @@
-import React, { useState, useCallback } from 'react';
-import { Player } from '@remotion/player';
+import React, { useState, useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
+import { Player, PlayerRef } from '@remotion/player';
 import {
   Film, Layers, Presentation,
-  Bone, Flame, Heart, Scan, User, Download,
+  Bone, Flame, Heart, Scan, User, Download, Clapperboard, Camera, Loader2,
 } from 'lucide-react';
 import { Exercise, AnatomicalLayer } from './types.ts';
 import { ExerciseCardComposition } from './remotion/ExerciseCardComposition.tsx';
@@ -15,6 +15,10 @@ type CompositionId = 'exercise-card' | 'anatomy-layer' | 'rehab-slides';
 interface RemotionPlayerProps {
   exercise: Partial<Exercise>;
   defaultComposition?: CompositionId;
+}
+
+export interface RemotionPlayerHandle {
+  triggerRender: () => void;
 }
 
 const FPS = 30;
@@ -39,10 +43,13 @@ const ANATOMY_LAYERS: { id: AnatomicalLayer; labelTr: string; icon: React.FC<any
   { id: 'xray', labelTr: 'X-Ray', icon: Scan, color: '#22d3ee' },
 ];
 
-export const RemotionPlayer: React.FC<RemotionPlayerProps> = ({ exercise, defaultComposition = 'exercise-card' }) => {
+export const RemotionPlayer = forwardRef<RemotionPlayerHandle, RemotionPlayerProps>(
+  ({ exercise, defaultComposition = 'exercise-card' }, ref) => {
   const [activeComposition, setActiveComposition] = useState<CompositionId>(defaultComposition);
   const [activeLayer, setActiveLayer] = useState<AnatomicalLayer>('full-body');
   const [isExporting, setIsExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<string>('');
+  const playerRef = useRef<PlayerRef>(null);
 
   const currentComposition = COMPOSITIONS.find((c) => c.id === activeComposition)!;
 
@@ -65,15 +72,66 @@ export const RemotionPlayer: React.FC<RemotionPlayerProps> = ({ exercise, defaul
     }
   }, [activeComposition]);
 
-  const handleExportGif = async () => {
-    if (!exercise.visualUrl) return;
+  const handleCaptureFrame = useCallback(async () => {
+    const container = playerRef.current?.getContainerNode();
+    if (!container) {
+      setExportStatus('Player hazır değil.');
+      return;
+    }
     setIsExporting(true);
+    setExportStatus('Kare yakalanıyor…');
     try {
-      await MediaConverter.export(exercise.visualUrl, 'gif', exercise.titleTr || exercise.title || 'egzersiz');
+      const width = container.offsetWidth || 1280;
+      const height = container.offsetHeight || 720;
+      const svgData = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml">${container.innerHTML}</div></foreignObject></svg>`;
+      const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      await new Promise<void>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) { URL.revokeObjectURL(url); reject(new Error('No 2D context')); return; }
+          ctx.drawImage(img, 0, 0);
+          URL.revokeObjectURL(url);
+          const dataUrl = canvas.toDataURL('image/png');
+          const a = document.createElement('a');
+          a.href = dataUrl;
+          a.download = `${exercise.titleTr || exercise.title || 'kompozisyon'}_kare.png`;
+          a.click();
+          resolve();
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Image load failed')); };
+        img.src = url;
+      });
+      setExportStatus('PNG kaydedildi!');
+    } catch {
+      setExportStatus('Kare yakalanamadı.');
     } finally {
       setIsExporting(false);
     }
-  };
+  }, [exercise]);
+
+  const handleRender = useCallback(async () => {
+    if (exercise.visualUrl) {
+      setIsExporting(true);
+      setExportStatus('GIF oluşturuluyor…');
+      try {
+        await MediaConverter.export(exercise.visualUrl, 'gif', exercise.titleTr || exercise.title || 'egzersiz');
+        setExportStatus('GIF indirildi!');
+      } catch {
+        setExportStatus('Dışa aktarma başarısız.');
+      } finally {
+        setIsExporting(false);
+      }
+    } else {
+      await handleCaptureFrame();
+    }
+  }, [exercise, handleCaptureFrame]);
+
+  useImperativeHandle(ref, () => ({ triggerRender: handleRender }), [handleRender]);
 
   return (
     <div className="flex flex-col gap-4 w-full">
@@ -118,6 +176,7 @@ export const RemotionPlayer: React.FC<RemotionPlayerProps> = ({ exercise, defaul
       {/* Remotion Player */}
       <div className="w-full rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 shadow-2xl">
         <Player
+          ref={playerRef}
           component={getComponent() as any}
           inputProps={getInputProps() as any}
           durationInFrames={currentComposition.durationInFrames}
@@ -132,22 +191,38 @@ export const RemotionPlayer: React.FC<RemotionPlayerProps> = ({ exercise, defaul
         />
       </div>
 
-      {/* Footer strip */}
-      <div className="flex items-center justify-between px-1">
-        <span className="text-xs font-mono text-slate-600">
-          {currentComposition.durationInFrames} kare · {(currentComposition.durationInFrames / FPS).toFixed(1)}s · {FPS}fps · 1280×720 HD
-        </span>
-        {exercise.visualUrl && (
+      {/* Render / Export Panel */}
+      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Clapperboard size={13} className="text-cyan-400" />
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Üretim Kontrolleri</span>
+          <span className="ml-auto text-[9px] font-mono text-slate-600">
+            {currentComposition.durationInFrames}f · {(currentComposition.durationInFrames / FPS).toFixed(1)}s · {FPS}fps · 1280×720
+          </span>
+        </div>
+        <div className="flex gap-2">
           <button
-            onClick={handleExportGif}
+            onClick={handleCaptureFrame}
             disabled={isExporting}
-            className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-cyan-400 transition-colors disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all disabled:opacity-50 border border-slate-700"
           >
-            <Download size={12} />
-            {isExporting ? 'Dönüştürülüyor…' : 'GIF Dışa Aktar'}
+            <Camera size={13} />
+            {isExporting ? exportStatus : 'Kare PNG'}
           </button>
+          <button
+            onClick={handleRender}
+            disabled={isExporting}
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-gradient-to-r from-cyan-600 to-indigo-700 hover:from-cyan-500 hover:to-indigo-600 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 relative overflow-hidden group"
+          >
+            <div className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-12" />
+            {isExporting ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+            {isExporting ? exportStatus : 'GIF Üret'}
+          </button>
+        </div>
+        {exportStatus && !isExporting && (
+          <p className="text-[9px] font-mono text-cyan-400">{exportStatus}</p>
         )}
       </div>
     </div>
   );
-};
+});
