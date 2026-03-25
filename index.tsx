@@ -1,11 +1,11 @@
 
 import React, { useState, useRef, useEffect, ErrorInfo, ReactNode, Component } from 'react';
 import { createRoot } from 'react-dom/client';
-import { 
-  Activity, Zap, BrainCircuit, Stethoscope, 
+import {
+  Activity, Zap, BrainCircuit, Stethoscope,
   LayoutDashboard, Database, TrendingUp, Users,
   CheckCircle2, AlertTriangle, RefreshCw, Key, Settings, Microscope,
-  Menu
+  Menu, Bot
 } from 'lucide-react';
 import { AppTab, PatientProfile, Exercise, ProgressReport } from './types.ts';
 import { runAdaptiveAdjustment, ensureApiKey, isApiKeyError } from './ai-service.ts';
@@ -20,6 +20,7 @@ import { ManagementHub } from './ManagementHub.tsx';
 import { ClinicalEBMHub } from './ClinicalEBMHub.tsx';
 import { SEED_EXERCISES } from './seed-data.ts';
 import { LandingPage } from './LandingPage.tsx';
+import { AgentInterface } from './AgentInterface.tsx';
 import { AnimatePresence, motion } from 'framer-motion';
 
 interface ErrorBoundaryProps { children?: ReactNode; }
@@ -54,7 +55,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 }
 
-type TabType = AppTab | 'ebm';
+type TabType = AppTab | 'ebm' | 'agents';
 
 export default function PhysioCoreApp() {
   const [hasStarted, setHasStarted] = useState(false);
@@ -170,6 +171,7 @@ export default function PhysioCoreApp() {
             {/* Desktop Nav */}
             <nav className="hidden xl:flex bg-slate-900/50 p-1 rounded-xl border border-white/5 overflow-x-auto no-scrollbar">
               <NavBtn active={activeTab === 'consultation'} onClick={() => setActiveTab('consultation')} icon={Stethoscope} label="GÖRÜŞME" />
+              <NavBtn active={activeTab === 'agents'} onClick={() => setActiveTab('agents')} icon={Bot} label="AJANLAR" />
               <NavBtn active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={LayoutDashboard} label="PANEL" />
               <NavBtn active={activeTab === 'ebm'} onClick={() => setActiveTab('ebm')} icon={Microscope} label="EBM & SEVK" />
               <NavBtn active={activeTab === 'progress'} onClick={() => setActiveTab('progress')} icon={TrendingUp} label="TAKİP" />
@@ -194,12 +196,13 @@ export default function PhysioCoreApp() {
           {/* Main Content Area - Added padding bottom for mobile nav */}
           <main className="flex-1 w-full max-w-7xl mx-auto p-4 md:p-8 pb-32 xl:pb-20">
             {activeTab === 'consultation' && (
-              <ClinicalConsultation onAnalysisComplete={(res) => { 
-                setPatientData(res); 
-                PhysioDB.saveProfile(res); 
-                setActiveTab('dashboard'); 
+              <ClinicalConsultation onAnalysisComplete={(res) => {
+                setPatientData(res);
+                PhysioDB.saveProfile(res);
+                setActiveTab('dashboard');
               }} />
             )}
+            {activeTab === 'agents' && <AgentInterface />}
             {activeTab === 'dashboard' && <Dashboard profile={patientData} onExerciseSelect={setSelectedExercise} />}
             {activeTab === 'ebm' && <ClinicalEBMHub />}
             {activeTab === 'progress' && <ProgressTracker profile={patientData} />}
@@ -212,10 +215,10 @@ export default function PhysioCoreApp() {
           <nav className="xl:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-950/90 backdrop-blur-xl border-t border-white/10 pb-safe-area">
             <div className="flex justify-between items-center px-2 py-3 overflow-x-auto no-scrollbar">
               <MobileNavBtn active={activeTab === 'consultation'} onClick={() => setActiveTab('consultation')} icon={Stethoscope} label="Klinik" />
+              <MobileNavBtn active={activeTab === 'agents'} onClick={() => setActiveTab('agents')} icon={Bot} label="Ajanlar" />
               <MobileNavBtn active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={LayoutDashboard} label="Panel" />
               <MobileNavBtn active={activeTab === 'ebm'} onClick={() => setActiveTab('ebm')} icon={Microscope} label="EBM" />
               <MobileNavBtn active={activeTab === 'cms'} onClick={() => setActiveTab('cms')} icon={Database} label="Studio" />
-              <MobileNavBtn active={activeTab === 'management'} onClick={() => setActiveTab('management')} icon={Settings} label="Yönetim" />
             </div>
           </nav>
 
