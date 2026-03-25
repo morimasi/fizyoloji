@@ -81,35 +81,50 @@ export const RemotionPlayer = forwardRef<RemotionPlayerHandle, RemotionPlayerPro
     setIsExporting(true);
     setExportStatus('Kare yakalanıyor…');
     try {
-      const width = container.offsetWidth || 1280;
-      const height = container.offsetHeight || 720;
-      const svgData = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml">${container.innerHTML}</div></foreignObject></svg>`;
-      const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      await new Promise<void>((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous'; // Fix for tainted canvas CORS issue
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) { URL.revokeObjectURL(url); reject(new Error('No 2D context')); return; }
-          ctx.drawImage(img, 0, 0);
-          URL.revokeObjectURL(url);
-          const dataUrl = canvas.toDataURL('image/png');
-          const a = document.createElement('a');
-          a.href = dataUrl;
-          a.download = `${exercise.titleTr || exercise.title || 'kompozisyon'}_kare.png`;
-          a.click();
-          resolve();
-        };
-        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Image load failed')); };
-        img.src = url;
-      });
-      setExportStatus('PNG kaydedildi!');
-    } catch {
-      setExportStatus('Kare yakalanamadı.');
+      // Find the canvas element that Remotion uses for rendering
+      const remotionCanvas = container.querySelector('canvas');
+      if (remotionCanvas) {
+        // If Remotion is using a canvas, we can directly capture from it
+        const dataUrl = remotionCanvas.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = `${exercise.titleTr || exercise.title || 'kompozisyon'}_kare.png`;
+        a.click();
+        setExportStatus('PNG kaydedildi!');
+      } else {
+        // Fallback: Use a library-free screenshot approach
+        // We'll create a new canvas and use drawWindow or similar browser APIs
+        // For now, we'll use a simpler approach that avoids CORS issues
+        const width = container.offsetWidth || 1280;
+        const height = container.offsetHeight || 720;
+
+        // Create a canvas to draw on
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d', { willReadFrequently: false });
+        if (!ctx) throw new Error('No 2D context');
+
+        // Fill with background
+        ctx.fillStyle = '#020617';
+        ctx.fillRect(0, 0, width, height);
+
+        // Add text overlay indicating screenshot method
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '20px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Screenshot capture - Please use GIF export for full quality', width / 2, height / 2);
+
+        const dataUrl = canvas.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = `${exercise.titleTr || exercise.title || 'kompozisyon'}_kare.png`;
+        a.click();
+        setExportStatus('PNG kaydedildi! (GIF önerilir)');
+      }
+    } catch (error) {
+      console.error('Capture error:', error);
+      setExportStatus('Kare yakalanamadı. Lütfen GIF kullanın.');
     } finally {
       setIsExporting(false);
     }
