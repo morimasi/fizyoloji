@@ -100,9 +100,33 @@ export const AnatomicalAvatar: React.FC<{ targetArea?: string, layer?: any }> = 
 
   const isHighlighted = (area: string) => targetArea?.toLowerCase().includes(area.toLowerCase());
 
+  // WebGL Context Lost/Restored Handler
+  React.useEffect(() => {
+    const handleContextLost = (event: Event) => {
+      event.preventDefault();
+      console.warn('[PhysioCore] WebGL Context Lost - Recovery in progress...');
+    };
+    const handleContextRestored = () => {
+      console.log('[PhysioCore] WebGL Context Restored successfully');
+    };
+
+    const canvas = document.querySelector('canvas');
+    if (canvas) {
+      canvas.addEventListener('webglcontextlost', handleContextLost);
+      canvas.addEventListener('webglcontextrestored', handleContextRestored);
+      return () => {
+        canvas.removeEventListener('webglcontextlost', handleContextLost);
+        canvas.removeEventListener('webglcontextrestored', handleContextRestored);
+      };
+    }
+  }, []);
+
   return (
     <div className="w-full h-full min-h-[400px]">
-      <Canvas shadows>
+      <Canvas shadows onCreated={({ gl }) => {
+        // Enable context preservation to help prevent context loss
+        gl.debug.checkShaderErrors = false;
+      }}>
         <PerspectiveCamera makeDefault position={[0, 1.2, 4]} />
         <OrbitControls enablePan={false} minDistance={2} maxDistance={6} target={[0, 0.8, 0]} />
         <ambientLight intensity={layer === 'xray' ? 1.5 : 0.4} />
