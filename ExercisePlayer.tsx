@@ -15,6 +15,7 @@ import { LiveCoach } from './LiveCoach.tsx';
 import { AnatomicalAvatar } from './AnatomicalAvatar.tsx';
 import { ExerciseActions } from './ExerciseActions.tsx';
 import { LiveSpritePlayer } from './visual-engine/LiveSpritePlayer.tsx';
+import { RemotionPlayer } from './RemotionPlayer.tsx';
 
 interface PlayerProps {
   exercise: Exercise;
@@ -27,7 +28,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
   const [currentRep, setCurrentRep] = useState(0);
   const [isResting, setIsResting] = useState(false);
   const [restTime, setRestTime] = useState(exercise.restPeriod || 60);
-  const [activeLayer, setActiveLayer] = useState<'standard' | 'xray' | 'muscles' | '3d'>('standard');
+  const [activeLayer, setActiveLayer] = useState<'standard' | 'xray' | 'muscles' | '3d' | 'remotion'>('standard');
   const [showLiveCoach, setShowLiveCoach] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -135,7 +136,11 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
            )}
 
             <div className="relative w-full h-full lg:max-w-5xl lg:rounded-[4rem] lg:overflow-hidden lg:border-4 border-slate-900 bg-slate-950 shadow-2xl flex items-center justify-center">
-              {activeLayer === '3d' ? (
+              {activeLayer === 'remotion' ? (
+                <div className="w-full h-full overflow-y-auto p-4 bg-slate-950">
+                  <RemotionPlayer exercise={exercise} />
+                </div>
+              ) : activeLayer === '3d' ? (
                 <Suspense fallback={<div className="flex items-center justify-center w-full h-full"><Loader2 className="animate-spin text-cyan-500" size={48} /></div>}>
                   <AnatomicalAvatar targetArea={exercise.category || exercise.title} />
                 </Suspense>
@@ -170,6 +175,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
                  <LayerBtn active={activeLayer === 'xray'} onClick={() => setActiveLayer('xray')} icon={Scan} label="XRay" />
                  <LayerBtn active={activeLayer === 'muscles'} onClick={() => setActiveLayer('muscles')} icon={Flame} label="Mus" />
                  <LayerBtn active={activeLayer === '3d'} onClick={() => setActiveLayer('3d')} icon={Box} label="3D" />
+                 <LayerBtn active={activeLayer === 'remotion'} onClick={() => setActiveLayer('remotion')} icon={Layout} label="Anim" />
               </div>
 
               <div className="absolute top-4 left-4 md:top-10 md:left-10 p-4 md:p-8 bg-slate-900/40 backdrop-blur-3xl border border-white/5 rounded-2xl md:rounded-[2.5rem] min-w-[140px] md:min-w-[280px] shadow-2xl">
@@ -182,7 +188,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
                  </div>
               </div>
 
-              {activeLayer !== '3d' && !isPlaying && !isResting && (
+              {activeLayer !== '3d' && activeLayer !== 'remotion' && !isPlaying && !isResting && (
                  <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-20">
                     <button onClick={() => setIsPlaying(true)} className="w-24 h-24 md:w-32 md:h-32 bg-cyan-600 rounded-3xl md:rounded-[3rem] flex items-center justify-center text-white shadow-[0_0_80px_rgba(6,182,212,0.4)] hover:scale-110 active:scale-95 transition-all"><Play className="w-10 h-10 md:w-14 md:h-14" fill="currentColor" /></button>
                     <p className="mt-4 md:mt-8 text-xs md:text-sm font-black italic text-white uppercase tracking-[0.3em] animate-pulse">BAŞLATMAK İÇİN DOKUNUN</p>
