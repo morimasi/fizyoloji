@@ -112,8 +112,22 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
            <button onClick={() => setShowLiveCoach(!showLiveCoach)} className={`px-4 py-2 md:px-6 md:py-3 rounded-xl border text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${showLiveCoach ? 'bg-cyan-500 text-white border-cyan-400 shadow-[0_0_25px_rgba(6,182,212,0.4)]' : 'bg-slate-900 text-slate-400 border-slate-800'}`}>
              {showLiveCoach ? 'GİZLE' : 'LIVE AI'}
            </button>
+           <button onClick={() => setShowPremiumLive(true)} className="px-4 py-2 md:px-6 md:py-3 rounded-xl border text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all bg-gradient-to-r from-cyan-600 to-purple-600 text-white border-transparent shadow-[0_0_25px_rgba(6,182,212,0.3)] hover:shadow-[0_0_35px_rgba(6,182,212,0.5)] flex items-center gap-2">
+             <Sparkles size={12} className="animate-pulse" />
+             <span className="hidden sm:inline">PREMIUM</span>
+           </button>
         </div>
       </div>
+
+      {showPremiumLive && (
+        <PremiumLiveModule
+          exercise={exercise}
+          currentSet={currentSet}
+          currentRep={currentRep}
+          isPlaying={isPlaying}
+          onClose={() => setShowPremiumLive(false)}
+        />
+      )}
 
       <div className="flex-1 flex flex-col lg:flex-row relative overflow-hidden">
         

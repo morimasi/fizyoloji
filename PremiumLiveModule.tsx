@@ -1,20 +1,27 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Activity, TrendingUp, Zap, Target, Brain, Heart,
-  Flame, Clock, BarChart3, LineChart, PieChart, Eye,
-  Download, Share2, Settings2, Maximize2, Grid3x3,
+  Flame, Clock, BarChart3, Eye,
+  Download, Share2, Settings2,
   Layers, Sparkles, MonitorPlay, Gauge, Timer,
-  AlertCircle, CheckCircle2, CircleDot, ChevronRight
+  AlertCircle, CheckCircle2, CircleDot, ChevronRight,
+  X, RefreshCw, Trophy, Dumbbell
 } from 'lucide-react';
+import {
+  ResponsiveContainer, AreaChart, Area, LineChart, Line,
+  XAxis, YAxis, CartesianGrid, Tooltip,
+  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
+  BarChart, Bar, Cell
+} from 'recharts';
 import { Infographic } from '@antv/infographic';
 import { Exercise } from './types';
 import { LiveCoach } from './LiveCoach';
 
 /**
- * PREMIUM LIVE MODULE v1.0
+ * PREMIUM LIVE MODULE v2.0
  * Ultra-Premium Exercise Analytics & Visualization System
- * Integrates AntV Infographic for professional-grade data visualization
+ * Integrates AntV Infographic + Recharts for professional-grade data visualization
  */
 
 interface PremiumLiveModuleProps {
@@ -27,10 +34,11 @@ interface PremiumLiveModuleProps {
 
 interface BiomechanicalData {
   timestamp: number;
+  t: string;
   muscleActivation: { [muscle: string]: number };
   jointAngles: { [joint: string]: number };
   forceOutput: number;
-  heartRate?: number;
+  heartRate: number;
   formScore: number;
 }
 
@@ -51,27 +59,28 @@ export const PremiumLiveModule: React.FC<PremiumLiveModuleProps> = ({
     caloriesBurned: 0,
     timeUnderTension: 0
   });
+  const [tick, setTick] = useState(0);
 
-  // AntV Infographic container refs
-  const analyticsChartRef = useRef<HTMLDivElement>(null);
-  const muscleHeatmapRef = useRef<HTMLDivElement>(null);
-  const progressionTimelineRef = useRef<HTMLDivElement>(null);
-  const infographicInstances = useRef<any[]>([]);
+  // AntV Infographic refs for template-based visualizations
+  const kpiInfographicRef = useRef<HTMLDivElement>(null);
+  const muscleInfographicRef = useRef<HTMLDivElement>(null);
+  const kpiInstance = useRef<Infographic | null>(null);
+  const muscleInstance = useRef<Infographic | null>(null);
 
-  // Simulate real-time biomechanical data generation
+  // Real-time biomechanical data generation
   useEffect(() => {
     if (!isPlaying) return;
-
     const interval = setInterval(() => {
       const primaryMuscles = exercise.primaryMuscles || [];
       const muscleActivation: { [muscle: string]: number } = {};
-
       primaryMuscles.forEach(muscle => {
-        muscleActivation[muscle] = 60 + Math.random() * 40; // 60-100% activation
+        muscleActivation[muscle] = 60 + Math.random() * 40;
       });
 
+      const now = new Date();
       const newData: BiomechanicalData = {
         timestamp: Date.now(),
+        t: `${now.getMinutes()}:${now.getSeconds().toString().padStart(2, '0')}`,
         muscleActivation,
         jointAngles: {
           knee: 90 + Math.random() * 45,
@@ -83,270 +92,463 @@ export const PremiumLiveModule: React.FC<PremiumLiveModuleProps> = ({
         formScore: 75 + Math.random() * 25
       };
 
-      setBiomechanicalHistory(prev => [...prev.slice(-20), newData]);
-
-      // Update session metrics
+      setBiomechanicalHistory(prev => [...prev.slice(-30), newData]);
       setSessionMetrics(prev => ({
-        avgFormScore: (prev.avgFormScore * 0.9 + newData.formScore * 0.1),
+        avgFormScore: prev.avgFormScore === 0 ? newData.formScore : prev.avgFormScore * 0.9 + newData.formScore * 0.1,
         peakForce: Math.max(prev.peakForce, newData.forceOutput),
-        totalVolume: prev.totalVolume + (newData.forceOutput * 0.1),
+        totalVolume: prev.totalVolume + newData.forceOutput * 0.1,
         caloriesBurned: prev.caloriesBurned + 0.15,
         timeUnderTension: prev.timeUnderTension + 0.5
       }));
-    }, 500);
-
+      setTick(t => t + 1);
+    }, 600);
     return () => clearInterval(interval);
   }, [isPlaying, exercise]);
 
-  // Initialize AntV Infographic Charts
+  // Render AntV Infographic KPI cards (template-based, updated on tick)
   useEffect(() => {
-    if (activeView === 'analytics' && analyticsChartRef.current && biomechanicalHistory.length > 0) {
-      renderAnalyticsDashboard();
-    }
-  }, [activeView, biomechanicalHistory]);
+    if (activeView !== 'analytics' || !kpiInfographicRef.current) return;
+    const container = kpiInfographicRef.current;
 
-  const renderAnalyticsDashboard = () => {
-    if (!analyticsChartRef.current) return;
-
-    // Clean up previous instances
-    infographicInstances.current.forEach(inst => inst?.destroy?.());
-    infographicInstances.current = [];
-
-    // Create KPI Cards Infographic
-    const kpiData = `
-# Real-Time Exercise Analytics
-
-## Performance Metrics
-- Form Score: ${sessionMetrics.avgFormScore.toFixed(1)}%
-- Peak Force: ${sessionMetrics.peakForce.toFixed(1)} N
-- Volume: ${sessionMetrics.totalVolume.toFixed(0)} kg
-
-## Energy Expenditure
-- Calories: ${sessionMetrics.caloriesBurned.toFixed(1)} kcal
-- Time Under Tension: ${sessionMetrics.timeUnderTension.toFixed(0)}s
-    `;
+    const data = {
+      title: 'Seans Performans Özeti',
+      items: [
+        { label: 'Form Skoru', value: Math.round(sessionMetrics.avgFormScore), desc: `${sessionMetrics.avgFormScore >= 80 ? 'Mükemmel' : 'İyi'}` },
+        { label: 'Zirve Güç', value: Math.round(sessionMetrics.peakForce), desc: 'Newton' },
+        { label: 'Kalori', value: Math.round(sessionMetrics.caloriesBurned * 10) / 10, desc: 'kcal' },
+        { label: 'Toplam Hacim', value: Math.round(sessionMetrics.totalVolume), desc: 'kg' },
+        { label: 'Gerilim Süresi', value: Math.round(sessionMetrics.timeUnderTension), desc: 'saniye' },
+      ]
+    };
 
     try {
-      const infographic = new Infographic({
-        container: analyticsChartRef.current,
-        width: analyticsChartRef.current.clientWidth || 600,
-        height: 300,
-        editable: false,
-      });
-
-      infographic.render(kpiData);
-      infographicInstances.current.push(infographic);
+      if (kpiInstance.current) {
+        kpiInstance.current.update({ data, template: 'list-grid-compact-card' });
+      } else {
+        kpiInstance.current = new Infographic({
+          container,
+          width: container.clientWidth || 700,
+          height: 200,
+          template: 'list-grid-compact-card',
+          theme: 'dark',
+          data,
+          editable: false,
+        });
+        kpiInstance.current.render();
+      }
     } catch (err) {
-      console.error('AntV Infographic render error:', err);
+      console.warn('AntV Infographic KPI render error:', err);
     }
-  };
+
+    return () => {
+      if (!kpiInfographicRef.current) {
+        kpiInstance.current?.destroy();
+        kpiInstance.current = null;
+      }
+    };
+  }, [activeView, tick]);
+
+  // Render AntV Infographic muscle activation (progress cards)
+  useEffect(() => {
+    if (activeView !== 'analytics' || !muscleInfographicRef.current) return;
+    const container = muscleInfographicRef.current;
+    const latest = biomechanicalHistory[biomechanicalHistory.length - 1];
+    if (!latest) return;
+
+    const muscles = exercise.primaryMuscles || [];
+    const items = muscles.map(m => ({
+      label: m,
+      value: Math.round(latest.muscleActivation[m] || 0),
+      desc: `${Math.round(latest.muscleActivation[m] || 0)}% Aktivasyon`
+    }));
+
+    if (items.length === 0) return;
+
+    try {
+      if (muscleInstance.current) {
+        muscleInstance.current.update({ data: { title: 'Kas Aktivasyon Haritası', items }, template: 'list-grid-circular-progress' });
+      } else {
+        muscleInstance.current = new Infographic({
+          container,
+          width: container.clientWidth || 700,
+          height: 220,
+          template: 'list-grid-circular-progress',
+          theme: 'dark',
+          data: { title: 'Kas Aktivasyon Haritası', items },
+          editable: false,
+        });
+        muscleInstance.current.render();
+      }
+    } catch (err) {
+      console.warn('AntV Infographic Muscle render error:', err);
+    }
+
+    return () => {
+      if (!muscleInfographicRef.current) {
+        muscleInstance.current?.destroy();
+        muscleInstance.current = null;
+      }
+    };
+  }, [activeView, tick, exercise.primaryMuscles]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      kpiInstance.current?.destroy();
+      muscleInstance.current?.destroy();
+    };
+  }, []);
+
+  const handleExport = useCallback(async () => {
+    try {
+      if (kpiInstance.current) {
+        const dataUrl = await kpiInstance.current.toDataURL({ type: 'png' });
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = `${exercise.code || 'exercise'}-analytics.png`;
+        link.click();
+      }
+    } catch (err) {
+      console.warn('Export error:', err);
+    }
+  }, [exercise.code]);
 
   return (
-    <div className="fixed inset-0 z-[200] bg-slate-950/98 backdrop-blur-3xl flex flex-col font-roboto overflow-hidden animate-in fade-in duration-500">
+    <div className="fixed inset-0 z-[200] bg-slate-950/98 backdrop-blur-3xl flex flex-col font-roboto overflow-hidden animate-in fade-in duration-300">
 
       {/* Premium Header */}
-      <div className="p-6 flex justify-between items-center bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 shadow-2xl z-50">
+      <div className="p-5 flex justify-between items-center bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 shadow-2xl z-50 shrink-0">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500 via-blue-600 to-purple-600 flex items-center justify-center shadow-xl shadow-cyan-500/30 animate-pulse">
-            <MonitorPlay className="text-white" size={28} />
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500 via-blue-600 to-purple-600 flex items-center justify-center shadow-xl shadow-cyan-500/30">
+            <MonitorPlay className="text-white" size={24} />
           </div>
           <div>
-            <h1 className="text-2xl font-black italic text-white tracking-tight">PREMIUM LIVE</h1>
-            <p className="text-[9px] font-bold text-cyan-400 uppercase tracking-[0.3em] flex items-center gap-2 mt-1">
-              <Sparkles size={10} /> Ultra Professional Analytics
+            <h1 className="text-xl font-black italic text-white tracking-tight flex items-center gap-2">
+              PREMIUM LIVE
+              <span className="text-[8px] font-bold bg-gradient-to-r from-cyan-500 to-purple-500 text-white px-2 py-0.5 rounded-full uppercase tracking-widest">PRO</span>
+            </h1>
+            <p className="text-[9px] font-bold text-cyan-400 uppercase tracking-[0.3em] flex items-center gap-2 mt-0.5">
+              <Sparkles size={9} className="animate-pulse" /> AntV Infographic Engine
             </p>
           </div>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex gap-2 md:gap-3 items-center">
           <button
             onClick={() => setShowLiveCoach(!showLiveCoach)}
-            className={`px-6 py-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${
+            className={`px-4 py-2 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
               showLiveCoach
-                ? 'bg-cyan-500 text-white border-cyan-400 shadow-[0_0_30px_rgba(6,182,212,0.5)]'
-                : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-cyan-500/50'
+                ? 'bg-cyan-500 text-white border-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.4)]'
+                : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-cyan-500/40'
             }`}
           >
-            <div className="flex items-center gap-2">
-              <Brain size={16} />
-              {showLiveCoach ? 'HIDE AI' : 'LIVE AI'}
-            </div>
+            <Brain size={14} />
+            {showLiveCoach ? 'GİZLE' : 'LIVE AI'}
+          </button>
+          <button
+            onClick={handleExport}
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2"
+          >
+            <Download size={14} />
+            <span className="hidden sm:inline">EXPORT</span>
           </button>
           {onClose && (
             <button
               onClick={onClose}
-              className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 text-[10px] font-black uppercase tracking-widest transition-all"
+              className="w-10 h-10 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 flex items-center justify-center transition-all"
             >
-              CLOSE
+              <X size={18} />
             </button>
           )}
         </div>
       </div>
 
-      {/* Live Coach Integration */}
+      {/* Live Coach */}
       {showLiveCoach && (
-        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-[250] w-[90%] max-w-2xl animate-in slide-in-from-top-4 duration-500">
+        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-[250] w-[90%] max-w-2xl animate-in slide-in-from-top-4 duration-300">
           <LiveCoach exerciseTitle={exercise.title} systemInstruction={exercise.biomechanics} />
         </div>
       )}
 
       {/* View Selector */}
-      <div className="px-6 py-4 bg-slate-950/50 border-b border-white/5 flex gap-2 overflow-x-auto">
-        <ViewTab
-          active={activeView === 'analytics'}
-          onClick={() => setActiveView('analytics')}
-          icon={BarChart3}
-          label="Real-Time Analytics"
-        />
-        <ViewTab
-          active={activeView === 'biomechanics'}
-          onClick={() => setActiveView('biomechanics')}
-          icon={Activity}
-          label="Biomechanical Analysis"
-        />
-        <ViewTab
-          active={activeView === 'progression'}
-          onClick={() => setActiveView('progression')}
-          icon={TrendingUp}
-          label="Progress Timeline"
-        />
-        <ViewTab
-          active={activeView === 'insights'}
-          onClick={() => setActiveView('insights')}
-          icon={Brain}
-          label="AI Insights"
-        />
+      <div className="px-5 py-3 bg-slate-950/50 border-b border-white/5 flex gap-2 overflow-x-auto shrink-0">
+        {([
+          { key: 'analytics', icon: BarChart3, label: 'Analitik' },
+          { key: 'biomechanics', icon: Activity, label: 'Biyomekanik' },
+          { key: 'progression', icon: TrendingUp, label: 'İlerleme' },
+          { key: 'insights', icon: Brain, label: 'AI Öngörüler' },
+        ] as const).map(({ key, icon: Icon, label }) => (
+          <button
+            key={key}
+            onClick={() => setActiveView(key)}
+            className={`px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${
+              activeView === key
+                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_0_20px_rgba(6,182,212,0.25)]'
+                : 'bg-slate-900 text-slate-400 border border-slate-800 hover:border-cyan-500/30'
+            }`}
+          >
+            <Icon size={13} />
+            {label}
+          </button>
+        ))}
       </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+      {/* Main Content */}
+      <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
 
-        {/* Current Exercise Info Card */}
-        <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-white/10 rounded-3xl p-8 shadow-2xl">
-          <div className="flex items-center justify-between mb-6">
+        {/* Session Header Card */}
+        <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-white/8 rounded-3xl p-6 shadow-2xl">
+          <div className="flex items-center justify-between mb-5">
             <div>
-              <h2 className="text-3xl font-black italic text-white tracking-tight mb-2">{exercise.titleTr || exercise.title}</h2>
-              <p className="text-sm text-slate-400 italic">{exercise.biomechanics}</p>
+              <h2 className="text-2xl font-black italic text-white tracking-tight mb-1">{exercise.titleTr || exercise.title}</h2>
+              <p className="text-xs text-slate-400 italic leading-relaxed max-w-lg">{exercise.biomechanics}</p>
             </div>
-            <div className="flex gap-4">
+            <div className="flex gap-3 shrink-0 ml-4">
               <MetricBadge icon={Layers} label="Set" value={currentSet} color="cyan" />
               <MetricBadge icon={CircleDot} label="Rep" value={currentRep} color="emerald" />
             </div>
           </div>
 
-          {/* Live Stats Bar */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <LiveStatCard
-              icon={Gauge}
-              label="Form Score"
-              value={`${sessionMetrics.avgFormScore.toFixed(0)}%`}
-              trend={sessionMetrics.avgFormScore >= 80 ? 'up' : 'neutral'}
-            />
-            <LiveStatCard
-              icon={Zap}
-              label="Peak Force"
-              value={`${sessionMetrics.peakForce.toFixed(0)}N`}
-              trend="up"
-            />
-            <LiveStatCard
-              icon={Flame}
-              label="Calories"
-              value={sessionMetrics.caloriesBurned.toFixed(1)}
-              trend="up"
-            />
-            <LiveStatCard
-              icon={Timer}
-              label="Time TUT"
-              value={`${sessionMetrics.timeUnderTension.toFixed(0)}s`}
-              trend="neutral"
-            />
+          {/* Live KPI Strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+            <LiveStatCard icon={Gauge} label="Form Skoru" value={`${sessionMetrics.avgFormScore.toFixed(0)}%`} trend={sessionMetrics.avgFormScore >= 80 ? 'up' : 'neutral'} color="cyan" />
+            <LiveStatCard icon={Zap} label="Zirve Güç" value={`${sessionMetrics.peakForce.toFixed(0)}N`} trend="up" color="yellow" />
+            <LiveStatCard icon={Flame} label="Kalori" value={`${sessionMetrics.caloriesBurned.toFixed(1)}`} trend="up" color="orange" />
+            <LiveStatCard icon={Timer} label="TUT" value={`${sessionMetrics.timeUnderTension.toFixed(0)}s`} trend="neutral" color="purple" />
             <LiveStatCard
               icon={Heart}
-              label="HR Est."
-              value={biomechanicalHistory.length > 0 ? biomechanicalHistory[biomechanicalHistory.length - 1].heartRate : '-'}
+              label="Nabız Est."
+              value={biomechanicalHistory.length > 0 ? String(biomechanicalHistory[biomechanicalHistory.length - 1].heartRate) : '--'}
               trend="up"
+              color="red"
             />
           </div>
         </div>
 
-        {/* View-Specific Content */}
+        {/* === ANALYTICS VIEW === */}
         {activeView === 'analytics' && (
-          <div className="space-y-6">
-            <InfoGraphicSection
-              title="Real-Time Performance Dashboard"
-              icon={BarChart3}
-              description="Live exercise analytics powered by AntV Infographic Engine"
-            >
-              <div ref={analyticsChartRef} className="w-full min-h-[300px] bg-slate-900/40 rounded-2xl p-6" />
-            </InfoGraphicSection>
+          <div className="space-y-5">
+            {/* AntV Infographic KPI Infographic */}
+            <Section icon={BarChart3} title="Seans Performans Özeti" description="AntV Infographic Template: list-grid-compact-card">
+              <div ref={kpiInfographicRef} className="w-full min-h-[200px] rounded-2xl overflow-hidden" />
+            </Section>
 
-            <div className="grid md:grid-cols-2 gap-6">
-              <InfoGraphicSection title="Muscle Activation Heatmap" icon={Flame}>
-                <MuscleActivationHeatmap muscles={exercise.primaryMuscles} history={biomechanicalHistory} />
-              </InfoGraphicSection>
+            {/* AntV Infographic Muscle Activation */}
+            <Section icon={Flame} title="Kas Aktivasyon Haritası" description="AntV Infographic Template: list-grid-circular-progress">
+              <div ref={muscleInfographicRef} className="w-full min-h-[220px] rounded-2xl overflow-hidden" />
+            </Section>
 
-              <InfoGraphicSection title="Force Output Timeline" icon={TrendingUp}>
-                <ForceOutputChart history={biomechanicalHistory} />
-              </InfoGraphicSection>
-            </div>
-          </div>
-        )}
-
-        {activeView === 'biomechanics' && (
-          <div className="space-y-6">
-            <InfoGraphicSection
-              title="Biomechanical Analysis"
-              icon={Activity}
-              description="Advanced kinematic and kinetic analysis in real-time"
-            >
-              <BiomechanicalAnalysisView exercise={exercise} history={biomechanicalHistory} />
-            </InfoGraphicSection>
-          </div>
-        )}
-
-        {activeView === 'progression' && (
-          <div className="space-y-6">
-            <InfoGraphicSection
-              title="Progression Timeline"
-              icon={TrendingUp}
-              description="Track your improvement over time with AI-generated insights"
-            >
-              <div ref={progressionTimelineRef} className="w-full min-h-[400px] bg-slate-900/40 rounded-2xl p-6">
-                <ProgressionTimeline currentSet={currentSet} currentRep={currentRep} exercise={exercise} />
+            {/* Recharts Force Timeline */}
+            <Section icon={TrendingUp} title="Güç Çıktısı Zaman Serisi" description="Gerçek zamanlı kuvvet analizi">
+              <div className="h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={biomechanicalHistory} margin={{ top: 5, right: 10, left: -25, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="forceGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="formGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#a855f7" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                    <XAxis dataKey="t" tick={{ fill: '#475569', fontSize: 9 }} />
+                    <YAxis tick={{ fill: '#475569', fontSize: 9 }} domain={[50, 110]} />
+                    <Tooltip
+                      contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, fontSize: 11 }}
+                      labelStyle={{ color: '#94a3b8' }}
+                    />
+                    <Area type="monotone" dataKey="forceOutput" stroke="#06b6d4" fill="url(#forceGrad)" strokeWidth={2} name="Güç (N)" dot={false} />
+                    <Area type="monotone" dataKey="formScore" stroke="#a855f7" fill="url(#formGrad)" strokeWidth={2} name="Form %" dot={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
-            </InfoGraphicSection>
+            </Section>
           </div>
         )}
 
+        {/* === BIOMECHANICS VIEW === */}
+        {activeView === 'biomechanics' && (
+          <div className="space-y-5">
+            <Section icon={Activity} title="Eklem Açıları — Anlık" description="Kinematik analiz — diz / kalça / ayak bileği">
+              <div className="grid md:grid-cols-2 gap-5">
+                <div className="space-y-3">
+                  {biomechanicalHistory.length > 0 &&
+                    Object.entries(biomechanicalHistory[biomechanicalHistory.length - 1].jointAngles).map(([joint, angle]) => (
+                    <div key={joint} className="flex items-center gap-4 p-4 bg-slate-950/60 rounded-2xl">
+                      <div className="w-2 h-2 rounded-full bg-cyan-400 shrink-0" />
+                      <span className="text-sm text-slate-300 capitalize flex-1">{joint}</span>
+                      <div className="flex items-end gap-1">
+                        <span className="text-2xl font-black text-white italic">{(angle as number).toFixed(1)}</span>
+                        <span className="text-xs text-slate-500 mb-1">°</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Radar Chart */}
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart data={
+                      biomechanicalHistory.length > 0
+                        ? Object.entries(biomechanicalHistory[biomechanicalHistory.length - 1].jointAngles).map(([joint, angle]) => ({
+                            subject: joint.charAt(0).toUpperCase() + joint.slice(1),
+                            value: angle as number,
+                            fullMark: 180
+                          }))
+                        : []
+                    }>
+                      <PolarGrid stroke="#1e293b" />
+                      <PolarAngleAxis dataKey="subject" tick={{ fill: '#475569', fontSize: 10 }} />
+                      <PolarRadiusAxis angle={30} domain={[0, 180]} tick={{ fill: '#1e293b', fontSize: 8 }} />
+                      <Radar name="Eklem Açısı" dataKey="value" stroke="#06b6d4" fill="#06b6d4" fillOpacity={0.25} strokeWidth={2} />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </Section>
+
+            {/* Muscle bar chart */}
+            <Section icon={Dumbbell} title="Kas Aktivasyon Grafiği" description="Birincil kas grupları yüzde aktivasyon">
+              <div className="h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={
+                      biomechanicalHistory.length > 0
+                        ? (exercise.primaryMuscles || []).map(m => ({
+                            name: m.length > 12 ? m.slice(0, 12) + '…' : m,
+                            activation: Math.round(biomechanicalHistory[biomechanicalHistory.length - 1].muscleActivation[m] || 0)
+                          }))
+                        : []
+                    }
+                    margin={{ top: 5, right: 10, left: -25, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                    <XAxis dataKey="name" tick={{ fill: '#475569', fontSize: 9 }} />
+                    <YAxis domain={[0, 100]} tick={{ fill: '#475569', fontSize: 9 }} />
+                    <Tooltip
+                      contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, fontSize: 11 }}
+                    />
+                    <Bar dataKey="activation" name="Aktivasyon %" radius={[6, 6, 0, 0]}>
+                      {(exercise.primaryMuscles || []).map((_, i) => (
+                        <Cell key={i} fill={`hsl(${180 + i * 30}, 80%, 55%)`} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Section>
+
+            {/* Biomechanics Notes */}
+            <Section icon={Eye} title="Klinik Biyomekanik Notu">
+              <div className="p-5 bg-slate-950/60 rounded-2xl">
+                <p className="text-sm text-slate-300 leading-relaxed italic">{exercise.biomechanics}</p>
+              </div>
+            </Section>
+          </div>
+        )}
+
+        {/* === PROGRESSION VIEW === */}
+        {activeView === 'progression' && (
+          <div className="space-y-5">
+            <Section icon={TrendingUp} title="Seans İlerleme Zaman Çizelgesi" description="Set ve tekrar bazlı ilerleme takibi">
+              <ProgressionTimeline currentSet={currentSet} currentRep={currentRep} exercise={exercise} />
+            </Section>
+
+            <Section icon={Clock} title="Nabız & Form Akışı" description="Seans boyunca kalp atış hızı ve form skoru değişimi">
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={biomechanicalHistory} margin={{ top: 5, right: 10, left: -25, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                    <XAxis dataKey="t" tick={{ fill: '#475569', fontSize: 9 }} />
+                    <YAxis yAxisId="left" domain={[50, 110]} tick={{ fill: '#475569', fontSize: 9 }} />
+                    <YAxis yAxisId="right" orientation="right" domain={[100, 180]} tick={{ fill: '#475569', fontSize: 9 }} />
+                    <Tooltip
+                      contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, fontSize: 11 }}
+                    />
+                    <Line yAxisId="left" type="monotone" dataKey="formScore" stroke="#10b981" strokeWidth={2} dot={false} name="Form %" />
+                    <Line yAxisId="right" type="monotone" dataKey="heartRate" stroke="#ef4444" strokeWidth={2} dot={false} name="Nabız bpm" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </Section>
+          </div>
+        )}
+
+        {/* === AI INSIGHTS VIEW === */}
         {activeView === 'insights' && (
-          <div className="space-y-6">
-            <InfoGraphicSection
-              title="AI-Powered Insights"
-              icon={Brain}
-              description="Machine learning analysis of your exercise execution"
-            >
-              <AIInsightsPanel exercise={exercise} metrics={sessionMetrics} history={biomechanicalHistory} />
-            </InfoGraphicSection>
+          <div className="space-y-5">
+            <Section icon={Brain} title="Yapay Zeka Performans Analizi" description="Gerçek zamanlı hareket verilerinden üretilen öngörüler">
+              <div className="space-y-4">
+                <InsightCard
+                  type="success"
+                  title="Mükemmel Form Stabilitesi"
+                  description={`Ortalama form skorunuz %${sessionMetrics.avgFormScore.toFixed(0)} — doğru yürütme ve iyi kontrol göstergesi. Tekrar düzeni tutarlı.`}
+                />
+                <InsightCard
+                  type="info"
+                  title="Aşamalı Yüklenme Algılandı"
+                  description={`Zirve güç çıktısı ${sessionMetrics.peakForce.toFixed(0)}N olarak ölçüldü. Bir sonraki seansta direnç %5–10 artırılabilir.`}
+                />
+                <InsightCard
+                  type="warning"
+                  title="Optimizasyon Fırsatı"
+                  description="Eksantrik fazı biraz yavaşlatmak, kas altında gerilim süresini ve aktivasyonu artırabilir."
+                />
+                <InsightCard
+                  type="success"
+                  title="Metabolik Verimlilik"
+                  description={`${exercise.titleTr || exercise.title} için ${sessionMetrics.caloriesBurned.toFixed(1)} kcal optimum metabolik verimlilikle yakılıyor.`}
+                />
+                <InsightCard
+                  type="info"
+                  title="Kas Aktivasyon Dengesi"
+                  description={`${(exercise.primaryMuscles || []).length} primer kas grubu aktif. Çift taraflı simetri doğru rehabilitasyon sürecine işaret ediyor.`}
+                />
+              </div>
+            </Section>
+
+            <Section icon={Trophy} title="Seans Başarı Özeti">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { label: 'Tamamlanan Set', value: `${currentSet}/${exercise.sets}`, icon: Layers, color: 'cyan' },
+                  { label: 'Toplam Tekrar', value: `${(currentSet - 1) * exercise.reps + currentRep}`, icon: CircleDot, color: 'emerald' },
+                  { label: 'En Yüksek Form', value: `${biomechanicalHistory.length > 0 ? Math.max(...biomechanicalHistory.map(d => d.formScore)).toFixed(0) : '--'}%`, icon: Trophy, color: 'yellow' },
+                  { label: 'Aktif Kas', value: `${(exercise.primaryMuscles || []).length}`, icon: Flame, color: 'orange' },
+                ].map(({ label, value, icon: Icon, color }) => (
+                  <div key={label} className={`p-4 bg-${color}-500/5 border border-${color}-500/20 rounded-2xl text-center`}>
+                    <Icon className={`text-${color}-400 mx-auto mb-2`} size={20} />
+                    <p className="text-[9px] text-slate-500 uppercase tracking-widest mb-1">{label}</p>
+                    <p className={`text-2xl font-black text-${color}-400 italic`}>{value}</p>
+                  </div>
+                ))}
+              </div>
+            </Section>
           </div>
         )}
       </div>
 
-      {/* Premium Footer Controls */}
-      <div className="p-6 bg-gradient-to-t from-slate-900 to-slate-950 border-t border-white/10 flex justify-between items-center">
-        <div className="flex gap-3">
-          <button className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2">
-            <Download size={16} />
-            Export Data
+      {/* Premium Footer */}
+      <div className="p-4 bg-gradient-to-t from-slate-900 to-slate-950 border-t border-white/8 flex justify-between items-center shrink-0">
+        <div className="flex gap-2">
+          <button
+            onClick={handleExport}
+            className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2"
+          >
+            <Download size={14} />
+            PNG Export
           </button>
-          <button className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2">
-            <Share2 size={16} />
-            Share
+          <button className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2">
+            <Share2 size={14} />
+            Paylaş
           </button>
         </div>
         <div className="text-right">
-          <p className="text-[9px] text-slate-500 uppercase tracking-widest mb-1">Powered by</p>
-          <p className="text-sm font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600">
-            AntV Infographic Engine
+          <p className="text-[8px] text-slate-600 uppercase tracking-widest mb-0.5">Powered by</p>
+          <p className="text-xs font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600">
+            AntV Infographic + Recharts
           </p>
         </div>
       </div>
@@ -354,119 +556,42 @@ export const PremiumLiveModule: React.FC<PremiumLiveModuleProps> = ({
   );
 };
 
-// Sub-components
+// ─── Sub-components ────────────────────────────────────────────────────────────
 
-const ViewTab = ({ active, onClick, icon: Icon, label }: any) => (
-  <button
-    onClick={onClick}
-    className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${
-      active
-        ? 'bg-cyan-500 text-white shadow-[0_0_20px_rgba(6,182,212,0.3)]'
-        : 'bg-slate-900 text-slate-400 border border-slate-800 hover:border-cyan-500/30'
-    }`}
-  >
-    <Icon size={16} />
-    {label}
-  </button>
-);
-
-const MetricBadge = ({ icon: Icon, label, value, color }: any) => (
-  <div className={`flex items-center gap-3 px-6 py-4 bg-slate-950 border border-${color}-500/20 rounded-2xl`}>
-    <Icon className={`text-${color}-400`} size={24} />
-    <div>
-      <p className="text-[9px] text-slate-500 uppercase tracking-widest">{label}</p>
-      <p className={`text-2xl font-black text-${color}-400 italic`}>{value}</p>
-    </div>
-  </div>
-);
-
-const LiveStatCard = ({ icon: Icon, label, value, trend }: any) => (
-  <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 flex flex-col gap-2">
-    <div className="flex items-center justify-between">
-      <Icon className="text-slate-500" size={18} />
-      {trend === 'up' && <TrendingUp className="text-emerald-500" size={14} />}
-    </div>
-    <div>
-      <p className="text-[8px] text-slate-500 uppercase tracking-widest mb-1">{label}</p>
-      <p className="text-xl font-black text-white">{value}</p>
-    </div>
-  </div>
-);
-
-const InfoGraphicSection = ({ title, icon: Icon, description, children }: any) => (
-  <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-white/10 rounded-3xl p-8 shadow-2xl">
-    <div className="flex items-center gap-3 mb-4">
-      <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center">
-        <Icon className="text-cyan-400" size={20} />
+const Section = ({ title, icon: Icon, description, children }: any) => (
+  <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-white/8 rounded-3xl p-6 shadow-2xl">
+    <div className="flex items-center gap-3 mb-5">
+      <div className="w-9 h-9 rounded-xl bg-cyan-500/10 flex items-center justify-center shrink-0">
+        <Icon className="text-cyan-400" size={18} />
       </div>
       <div>
-        <h3 className="text-xl font-black text-white">{title}</h3>
-        {description && <p className="text-[9px] text-slate-500 italic mt-1">{description}</p>}
+        <h3 className="text-base font-black text-white">{title}</h3>
+        {description && <p className="text-[9px] text-slate-500 italic mt-0.5">{description}</p>}
       </div>
     </div>
     {children}
   </div>
 );
 
-const MuscleActivationHeatmap = ({ muscles, history }: any) => {
-  const latest = history.length > 0 ? history[history.length - 1] : null;
-
-  return (
-    <div className="space-y-3 p-4 bg-slate-900/40 rounded-2xl">
-      {muscles.map((muscle: string) => {
-        const activation = latest?.muscleActivation?.[muscle] || 0;
-        return (
-          <div key={muscle} className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-bold text-slate-300">{muscle}</span>
-              <span className="text-xs font-black text-cyan-400">{activation.toFixed(0)}%</span>
-            </div>
-            <div className="h-2 bg-slate-950 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-cyan-500 to-emerald-500 transition-all duration-300 shadow-[0_0_10px_rgba(6,182,212,0.5)]"
-                style={{ width: `${activation}%` }}
-              />
-            </div>
-          </div>
-        );
-      })}
+const MetricBadge = ({ icon: Icon, label, value, color }: any) => (
+  <div className={`flex items-center gap-2.5 px-5 py-3 bg-slate-950 border border-${color}-500/20 rounded-2xl`}>
+    <Icon className={`text-${color}-400`} size={20} />
+    <div>
+      <p className="text-[8px] text-slate-500 uppercase tracking-widest">{label}</p>
+      <p className={`text-xl font-black text-${color}-400 italic`}>{value}</p>
     </div>
-  );
-};
-
-const ForceOutputChart = ({ history }: any) => (
-  <div className="p-4 bg-slate-900/40 rounded-2xl h-full min-h-[200px] flex items-end gap-1">
-    {history.slice(-20).map((data: BiomechanicalData, i: number) => (
-      <div key={i} className="flex-1 flex flex-col justify-end">
-        <div
-          className="bg-gradient-to-t from-cyan-500 to-blue-600 rounded-t transition-all duration-200 shadow-[0_0_10px_rgba(6,182,212,0.3)]"
-          style={{ height: `${data.forceOutput}%` }}
-        />
-      </div>
-    ))}
   </div>
 );
 
-const BiomechanicalAnalysisView = ({ exercise, history }: any) => (
-  <div className="grid md:grid-cols-2 gap-6 p-6 bg-slate-900/40 rounded-2xl">
-    <div className="space-y-4">
-      <h4 className="text-sm font-black text-cyan-400 uppercase tracking-widest flex items-center gap-2">
-        <Target size={16} /> Joint Angles
-      </h4>
-      {history.length > 0 && Object.entries(history[history.length - 1].jointAngles).map(([joint, angle]: any) => (
-        <div key={joint} className="flex justify-between items-center p-3 bg-slate-950/60 rounded-xl">
-          <span className="text-sm text-slate-300 capitalize">{joint}</span>
-          <span className="text-lg font-black text-white">{angle.toFixed(1)}°</span>
-        </div>
-      ))}
+const LiveStatCard = ({ icon: Icon, label, value, trend, color }: any) => (
+  <div className={`bg-slate-950/60 border border-${color}-500/15 rounded-2xl p-4 flex flex-col gap-2`}>
+    <div className="flex items-center justify-between">
+      <Icon className={`text-${color}-500/70`} size={16} />
+      {trend === 'up' && <TrendingUp className="text-emerald-500" size={12} />}
     </div>
-    <div className="space-y-4">
-      <h4 className="text-sm font-black text-emerald-400 uppercase tracking-widest flex items-center gap-2">
-        <Eye size={16} /> Clinical Notes
-      </h4>
-      <div className="p-4 bg-slate-950/60 rounded-xl">
-        <p className="text-xs text-slate-300 leading-relaxed italic">{exercise.biomechanics}</p>
-      </div>
+    <div>
+      <p className="text-[8px] text-slate-500 uppercase tracking-widest mb-1">{label}</p>
+      <p className="text-lg font-black text-white">{value}</p>
     </div>
   </div>
 );
@@ -474,27 +599,34 @@ const BiomechanicalAnalysisView = ({ exercise, history }: any) => (
 const ProgressionTimeline = ({ currentSet, currentRep, exercise }: any) => {
   const totalReps = exercise.sets * exercise.reps;
   const completedReps = (currentSet - 1) * exercise.reps + currentRep;
-  const progress = (completedReps / totalReps) * 100;
+  const progress = totalReps > 0 ? (completedReps / totalReps) * 100 : 0;
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h4 className="text-lg font-black text-white">Session Progress</h4>
-        <span className="text-3xl font-black text-cyan-400">{progress.toFixed(0)}%</span>
+        <h4 className="text-base font-black text-white">Seans İlerlemesi</h4>
+        <span className="text-3xl font-black text-cyan-400 italic">{progress.toFixed(0)}%</span>
       </div>
-
-      <div className="h-4 bg-slate-950 rounded-full overflow-hidden shadow-inner">
+      <div className="h-3 bg-slate-950 rounded-full overflow-hidden shadow-inner">
         <div
-          className="h-full bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 transition-all duration-500 shadow-[0_0_20px_rgba(6,182,212,0.6)]"
+          className="h-full bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 transition-all duration-700 shadow-[0_0_15px_rgba(6,182,212,0.5)]"
           style={{ width: `${progress}%` }}
         />
       </div>
-
-      <div className="grid grid-cols-5 gap-4 mt-8">
-        {Array.from({ length: exercise.sets }).map((_, setIndex) => (
-          <div key={setIndex} className={`p-4 rounded-xl border ${setIndex < currentSet - 1 ? 'bg-emerald-500/10 border-emerald-500' : setIndex === currentSet - 1 ? 'bg-cyan-500/10 border-cyan-500 animate-pulse' : 'bg-slate-900 border-slate-800'}`}>
-            <p className="text-[8px] text-slate-500 uppercase tracking-widest mb-2">Set {setIndex + 1}</p>
-            <p className="text-2xl font-black text-white">{setIndex < currentSet - 1 ? exercise.reps : setIndex === currentSet - 1 ? currentRep : '-'}</p>
+      <div className={`grid gap-3 mt-4`} style={{ gridTemplateColumns: `repeat(${Math.min(exercise.sets, 6)}, minmax(0, 1fr))` }}>
+        {Array.from({ length: exercise.sets }).map((_, si) => (
+          <div key={si} className={`p-4 rounded-2xl border text-center transition-all ${
+            si < currentSet - 1
+              ? 'bg-emerald-500/10 border-emerald-500'
+              : si === currentSet - 1
+              ? 'bg-cyan-500/10 border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.2)]'
+              : 'bg-slate-900/60 border-slate-800'
+          }`}>
+            <p className="text-[8px] text-slate-500 uppercase tracking-widest mb-2">Set {si + 1}</p>
+            <p className="text-xl font-black text-white italic">
+              {si < currentSet - 1 ? exercise.reps : si === currentSet - 1 ? currentRep : '—'}
+            </p>
+            {si < currentSet - 1 && <CheckCircle2 className="text-emerald-400 mx-auto mt-2" size={14} />}
           </div>
         ))}
       </div>
@@ -502,49 +634,20 @@ const ProgressionTimeline = ({ currentSet, currentRep, exercise }: any) => {
   );
 };
 
-const AIInsightsPanel = ({ exercise, metrics, history }: any) => (
-  <div className="space-y-6 p-6 bg-slate-900/40 rounded-2xl">
-    <InsightCard
-      type="success"
-      title="Excellent Form Maintenance"
-      description={`Your average form score of ${metrics.avgFormScore.toFixed(0)}% indicates proper exercise execution with good control.`}
-    />
-    <InsightCard
-      type="info"
-      title="Progressive Overload Detected"
-      description={`Peak force output reached ${metrics.peakForce.toFixed(0)}N. Consider increasing resistance by 5-10% in next session.`}
-    />
-    <InsightCard
-      type="warning"
-      title="Optimization Opportunity"
-      description="Slightly slower eccentric phase could improve time under tension and muscle activation."
-    />
-    <InsightCard
-      type="success"
-      title="Caloric Efficiency"
-      description={`Burning ${metrics.caloriesBurned.toFixed(1)} kcal at optimal metabolic efficiency for ${exercise.title}.`}
-    />
-  </div>
-);
-
-const InsightCard = ({ type, title, description }: any) => {
-  const colors = {
-    success: { bg: 'emerald-500/10', border: 'emerald-500', text: 'emerald-400', icon: CheckCircle2 },
-    info: { bg: 'cyan-500/10', border: 'cyan-500', text: 'cyan-400', icon: AlertCircle },
-    warning: { bg: 'amber-500/10', border: 'amber-500', text: 'amber-400', icon: AlertCircle }
+const InsightCard = ({ type, title, description }: { type: 'success' | 'info' | 'warning'; title: string; description: string }) => {
+  const styles = {
+    success: { bg: 'emerald-500/8', border: 'emerald-500/30', text: 'emerald-400', Icon: CheckCircle2 },
+    info:    { bg: 'cyan-500/8',    border: 'cyan-500/30',    text: 'cyan-400',    Icon: AlertCircle },
+    warning: { bg: 'amber-500/8',   border: 'amber-500/30',   text: 'amber-400',   Icon: AlertCircle },
   };
-
-  const color = colors[type as keyof typeof colors];
-  const Icon = color.icon;
+  const { bg, border, text, Icon } = styles[type];
 
   return (
-    <div className={`p-6 bg-${color.bg} border border-${color.border} rounded-2xl`}>
-      <div className="flex items-start gap-4">
-        <Icon className={`text-${color.text} shrink-0 mt-1`} size={24} />
-        <div>
-          <h5 className={`text-sm font-black text-${color.text} uppercase tracking-wide mb-2`}>{title}</h5>
-          <p className="text-xs text-slate-300 leading-relaxed">{description}</p>
-        </div>
+    <div className={`p-5 bg-${bg} border border-${border} rounded-2xl flex items-start gap-4`}>
+      <Icon className={`text-${text} shrink-0 mt-0.5`} size={20} />
+      <div>
+        <h5 className={`text-sm font-black text-${text} uppercase tracking-wide mb-1.5`}>{title}</h5>
+        <p className="text-xs text-slate-300 leading-relaxed">{description}</p>
       </div>
     </div>
   );
