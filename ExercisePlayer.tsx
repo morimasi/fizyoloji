@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
-import { 
-  Play, Pause, RotateCcw, ChevronLeft, Zap, 
+import {
+  Play, Pause, RotateCcw, ChevronLeft, Zap,
   Activity, Volume2, VolumeX, Mic, Loader2,
   Wind, ShieldCheck, Layers, Maximize2, Microscope,
   CheckCircle2, Flame, TrendingUp, Scan, Monitor,
@@ -16,6 +16,7 @@ import { AnatomicalAvatar } from './AnatomicalAvatar.tsx';
 import { ExerciseActions } from './ExerciseActions.tsx';
 import { LiveSpritePlayer } from './visual-engine/LiveSpritePlayer.tsx';
 import { RemotionPlayer } from './RemotionPlayer.tsx';
+import { PremiumLiveModule } from './PremiumLiveModule.tsx';
 
 interface PlayerProps {
   exercise: Exercise;
@@ -30,6 +31,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
   const [restTime, setRestTime] = useState(exercise.restPeriod || 60);
   const [activeLayer, setActiveLayer] = useState<'standard' | 'xray' | 'muscles' | '3d' | 'remotion'>('standard');
   const [showLiveCoach, setShowLiveCoach] = useState(false);
+  const [showPremiumLive, setShowPremiumLive] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoUrl = exercise.videoUrl || `/videos/${exercise.code}.mp4`;
@@ -110,8 +112,22 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
            <button onClick={() => setShowLiveCoach(!showLiveCoach)} className={`px-4 py-2 md:px-6 md:py-3 rounded-xl border text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${showLiveCoach ? 'bg-cyan-500 text-white border-cyan-400 shadow-[0_0_25px_rgba(6,182,212,0.4)]' : 'bg-slate-900 text-slate-400 border-slate-800'}`}>
              {showLiveCoach ? 'GİZLE' : 'LIVE AI'}
            </button>
+           <button onClick={() => setShowPremiumLive(true)} className="px-4 py-2 md:px-6 md:py-3 rounded-xl border text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all bg-gradient-to-r from-cyan-600 to-purple-600 text-white border-transparent shadow-[0_0_25px_rgba(6,182,212,0.3)] hover:shadow-[0_0_35px_rgba(6,182,212,0.5)] flex items-center gap-2">
+             <Sparkles size={12} className="animate-pulse" />
+             <span className="hidden sm:inline">PREMIUM</span>
+           </button>
         </div>
       </div>
+
+      {showPremiumLive && (
+        <PremiumLiveModule
+          exercise={exercise}
+          currentSet={currentSet}
+          currentRep={currentRep}
+          isPlaying={isPlaying}
+          onClose={() => setShowPremiumLive(false)}
+        />
+      )}
 
       <div className="flex-1 flex flex-col lg:flex-row relative overflow-hidden">
         
