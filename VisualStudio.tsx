@@ -16,6 +16,7 @@ import { MediaConverter } from './MediaConverter.ts';
 import { VisualPrompts } from './visual-engine/prompts.ts';
 import { LiveSpritePlayer } from './visual-engine/LiveSpritePlayer.tsx';
 import { SlideFrameRenderer } from './visual-engine/SlideRenderer.tsx';
+import { RemotionPlayer } from './RemotionPlayer.tsx';
 
 interface VisualStudioProps {
   exercise: Partial<Exercise>;
@@ -24,7 +25,7 @@ interface VisualStudioProps {
 
 export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGenerated }) => {
   const [isGenerating, setIsGenerating] = useState(false);
-  const [activeTab, setActiveTab] = useState<'image' | 'video' | 'vector' | 'slides'>('image');
+  const [activeTab, setActiveTab] = useState<'image' | 'video' | 'vector' | 'slides' | 'remotion'>('image');
   const [activeLayer, setActiveLayer] = useState<AnatomicalLayer | 'Cinematic-Motion'>('full-body');
   const [previewUrl, setPreviewUrl] = useState(exercise.visualUrl || '');
   const [videoUrl, setVideoUrl] = useState(exercise.videoUrl || '');
@@ -170,6 +171,7 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
                 <ModeBtn active={activeTab === 'video'} onClick={() => setActiveTab('video')} icon={Video} label="VEO FAST" />
                 <ModeBtn active={activeTab === 'slides'} onClick={() => setActiveTab('slides')} icon={Presentation} label="SUNUM" />
                 <ModeBtn active={activeTab === 'vector'} onClick={() => setActiveTab('vector')} icon={Wand2} label="VECTOR" />
+                <ModeBtn active={activeTab === 'remotion'} onClick={() => setActiveTab('remotion')} icon={Cpu} label="REMOTION" />
              </div>
 
              {activeTab === 'image' && (
@@ -361,7 +363,13 @@ export const VisualStudio: React.FC<VisualStudioProps> = ({ exercise, onVisualGe
              <div className="w-full h-full p-20 flex items-center justify-center" dangerouslySetInnerHTML={{ __html: svgContent }} />
           )}
 
-          {!previewUrl && !videoUrl && !svgContent && !slideData && !isGenerating && (
+          {activeTab === 'remotion' && !isGenerating && (
+             <div className="w-full h-full overflow-y-auto p-6 bg-slate-950">
+               <RemotionPlayer exercise={exercise} />
+             </div>
+          )}
+
+          {!previewUrl && !videoUrl && !svgContent && !slideData && !isGenerating && activeTab !== 'remotion' && (
             <div className="text-center opacity-20 group-hover:opacity-40 transition-opacity">
                <Aperture size={120} strokeWidth={0.5} className="mx-auto mb-8 animate-spin-slow" />
                <p className="text-[11px] font-black uppercase tracking-[0.6em] italic">BEKLEMEDE: STABLE ENGINE</p>
