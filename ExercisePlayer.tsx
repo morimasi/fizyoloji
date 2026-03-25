@@ -32,10 +32,16 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
   const [activeLayer, setActiveLayer] = useState<'standard' | 'xray' | 'muscles' | '3d' | 'remotion'>('standard');
   const [showLiveCoach, setShowLiveCoach] = useState(false);
   const [showPremiumLive, setShowPremiumLive] = useState(false);
+  const [hasVideoError, setHasVideoError] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const videoUrl = exercise.videoUrl || `/videos/${exercise.code}.mp4`;
   const hasSprite = !!exercise.visualUrl;
+  const hasVideo = !!exercise.videoUrl && !hasVideoError;
+  const shouldUseRemotionFallback = !hasSprite && !hasVideo;
+
+  useEffect(() => {
+    setHasVideoError(false);
+  }, [exercise.id, exercise.videoUrl]);
 
   useEffect(() => {
     if (isResting && restTime > 0) {
@@ -64,7 +70,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || hasSprite) return;
+    if (!video || hasSprite || !hasVideo) return;
 
     if (isPlaying) {
       const playPromise = video.play();
@@ -76,7 +82,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
     } else {
       video.pause();
     }
-  }, [isPlaying, hasSprite]);
+  }, [isPlaying, hasSprite, hasVideo]);
 
   const handleReset = () => {
     if (videoRef.current) {
@@ -160,27 +166,25 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
                 <Suspense fallback={<div className="flex items-center justify-center w-full h-full"><Loader2 className="animate-spin text-cyan-500" size={48} /></div>}>
                   <AnatomicalAvatar targetArea={exercise.category || exercise.title} />
                 </Suspense>
-              ) : hasSprite ? (
-                <LiveSpritePlayer 
-                  src={exercise.visualUrl!} 
-                  isPlaying={isPlaying} 
-                  layout={exercise.visualLayout as any} 
-                  smoothing={true}
-                />
-              ) : (
-                <video
-                  ref={videoRef}
-                  src={videoUrl}
-                  onError={(e) => {
-                    const target = e.target as HTMLVideoElement;
-                    // Only fallback if it's the primary local URL failing
-                    if (target.src.includes(exercise.code)) {
-                      target.src = "https://www.w3schools.com/html/mov_bbb.mp4";
-                    }
-                  }}
-                  onEnded={handleRepComplete}
-                  loop
-                  muted
+               ) : hasSprite ? (
+                 <LiveSpritePlayer 
+                   src={exercise.visualUrl!} 
+                   isPlaying={isPlaying} 
+                   layout={exercise.visualLayout as any} 
+                   smoothing={true}
+                 />
+               ) : shouldUseRemotionFallback ? (
+                 <div className="w-full h-full overflow-y-auto p-4 bg-slate-950">
+                   <RemotionPlayer exercise={exercise} />
+                 </div>
+               ) : (
+                 <video
+                   ref={videoRef}
+                   src={exercise.videoUrl}
+                   onError={() => setHasVideoError(true)}
+                   onEnded={handleRepComplete}
+                   loop
+                   muted
                   playsInline
                   className="w-full h-full object-contain"
                 />
@@ -204,10 +208,10 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
                  </div>
               </div>
 
-              {activeLayer !== '3d' && activeLayer !== 'remotion' && !isPlaying && !isResting && (
-                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-20">
-                    <button onClick={() => setIsPlaying(true)} className="w-24 h-24 md:w-32 md:h-32 bg-cyan-600 rounded-3xl md:rounded-[3rem] flex items-center justify-center text-white shadow-[0_0_80px_rgba(6,182,212,0.4)] hover:scale-110 active:scale-95 transition-all"><Play className="w-10 h-10 md:w-14 md:h-14" fill="currentColor" /></button>
-                    <p className="mt-4 md:mt-8 text-xs md:text-sm font-black italic text-white uppercase tracking-[0.3em] animate-pulse">BAŞLATMAK İÇİN DOKUNUN</p>
+               {activeLayer !== '3d' && activeLayer !== 'remotion' && !shouldUseRemotionFallback && !isPlaying && !isResting && (
+                  <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-20">
+                     <button onClick={() => setIsPlaying(true)} className="w-24 h-24 md:w-32 md:h-32 bg-cyan-600 rounded-3xl md:rounded-[3rem] flex items-center justify-center text-white shadow-[0_0_80px_rgba(6,182,212,0.4)] hover:scale-110 active:scale-95 transition-all"><Play className="w-10 h-10 md:w-14 md:h-14" fill="currentColor" /></button>
+                     <p className="mt-4 md:mt-8 text-xs md:text-sm font-black italic text-white uppercase tracking-[0.3em] animate-pulse">BAŞLATMAK İÇİN DOKUNUN</p>
                  </div>
               )}
            </div>

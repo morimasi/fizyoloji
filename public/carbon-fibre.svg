@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
+  <defs>
+    <pattern id="carbon" width="24" height="24" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="24" height="24" fill="#020617"/>
+      <rect width="12" height="24" fill="#0f172a"/>
+      <rect x="12" width="12" height="24" fill="#111827"/>
+    </pattern>
+  </defs>
+  <rect width="120" height="120" fill="url(#carbon)"/>
+</svg>
