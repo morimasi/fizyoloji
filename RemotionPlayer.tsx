@@ -127,7 +127,7 @@ export const RemotionPlayer: React.FC<RemotionPlayerProps> = ({ exercise, defaul
           style={{ width: '100%', aspectRatio: '16/9' }}
           controls
           loop
-          autoPlayOnScroll
+          autoPlay
         />
       </div>
 
