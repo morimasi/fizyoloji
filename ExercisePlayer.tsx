@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
-import { 
-  Play, Pause, RotateCcw, ChevronLeft, Zap, 
+import {
+  Play, Pause, RotateCcw, ChevronLeft, Zap,
   Activity, Volume2, VolumeX, Mic, Loader2,
   Wind, ShieldCheck, Layers, Maximize2, Microscope,
   CheckCircle2, Flame, TrendingUp, Scan, Monitor,
@@ -16,6 +16,7 @@ import { AnatomicalAvatar } from './AnatomicalAvatar.tsx';
 import { ExerciseActions } from './ExerciseActions.tsx';
 import { LiveSpritePlayer } from './visual-engine/LiveSpritePlayer.tsx';
 import { RemotionPlayer } from './RemotionPlayer.tsx';
+import { PremiumLiveModule } from './PremiumLiveModule.tsx';
 
 interface PlayerProps {
   exercise: Exercise;
@@ -30,6 +31,7 @@ export const ExercisePlayer = ({ exercise, onClose }: PlayerProps) => {
   const [restTime, setRestTime] = useState(exercise.restPeriod || 60);
   const [activeLayer, setActiveLayer] = useState<'standard' | 'xray' | 'muscles' | '3d' | 'remotion'>('standard');
   const [showLiveCoach, setShowLiveCoach] = useState(false);
+  const [showPremiumLive, setShowPremiumLive] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoUrl = exercise.videoUrl || `/videos/${exercise.code}.mp4`;
