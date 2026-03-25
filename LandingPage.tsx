@@ -52,11 +52,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
           style={{ y: y2 }}
           className="absolute bottom-[-10%] right-[-10%] w-[70%] h-[70%] bg-blue-600/10 rounded-full blur-[200px]" 
         />
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-[0.05] mix-blend-overlay" />
+        <div className="absolute inset-0 bg-[url('/carbon-fibre.svg')] opacity-[0.05] mix-blend-overlay" />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-slate-950/40 to-[#020617]" />
         
         {/* Animated Noise/Grain */}
-        <div className="absolute inset-0 opacity-[0.02] mix-blend-soft-light pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+        <div className="absolute inset-0 opacity-[0.02] mix-blend-soft-light pointer-events-none bg-[url('/noise.svg')]" />
       </div>
 
       {/* Floating Particles (CSS Only for performance) */}

@@ -128,6 +128,7 @@ export const RemotionPlayer: React.FC<RemotionPlayerProps> = ({ exercise, defaul
           controls
           loop
           autoPlay
+          acknowledgeRemotionLicense
         />
       </div>
 
